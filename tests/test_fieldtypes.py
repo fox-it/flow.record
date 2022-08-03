@@ -355,6 +355,9 @@ def test_datetime():
     r = TestRecord(1521731723)
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
 
+    r = TestRecord(1521731723.123456)
+    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
+
 
 def test_digest():
     TestRecord = RecordDescriptor("test/digest", [

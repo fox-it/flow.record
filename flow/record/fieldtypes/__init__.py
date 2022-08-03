@@ -203,7 +203,7 @@ class datetime(_dt, FieldType):
                     return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f")
                 else:
                     return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S")
-            elif isinstance(arg, (int,)):
+            elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
                 return _dt.__new__(
