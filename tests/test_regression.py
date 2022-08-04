@@ -31,10 +31,11 @@ def test_datetime_serialization():
     for tz in ["UTC", "Europe/Amsterdam"]:
         os.environ["TZ"] = tz
 
-        descriptor = RecordDescriptor("""
-test/datetime
-    datetime datetime;
-""")
+        desc = """
+        test/datetime
+        datetime datetime;
+        """
+        descriptor = RecordDescriptor(desc)
 
         record = descriptor.recordType(datetime=now)
         data = packer.pack(record)
@@ -46,14 +47,15 @@ test/datetime
 def test_long_int_serialization():
     packer = RecordPacker()
 
-    long_types = RecordDescriptor("""
-test/long_types
+    desc = """
+    test/long_types
     varint long_type;
     varint int_type;
     varint long_type_neg;
     varint int_type_neg;
     varint max_int_as_long;
-    """)
+    """
+    long_types = RecordDescriptor(desc)
 
     l = 1239812398217398127398217389217389217398271398217321  # noqa: E741
     i = 888888
@@ -75,12 +77,13 @@ test/long_types
 def test_unicode_serialization():
     packer = RecordPacker()
 
-    descriptor = RecordDescriptor("""
-test/unicode
+    desc = """
+    test/unicode
     string text;
-""")
+    """
+    descriptor = RecordDescriptor(desc)
 
-    puny_domains = [b'xn--s7y.co', b'xn--80ak6aa92e.com', b'xn--pple-43d.com']
+    puny_domains = [b"xn--s7y.co", b"xn--80ak6aa92e.com", b"xn--pple-43d.com"]
 
     for p in puny_domains:
         domain = codecs.decode(p, "idna")
@@ -98,14 +101,20 @@ def test_pack_long_int_serialization():
 
     max_neg_int = -0x8000000000000000
     d = packer.pack([1234, 123456, max_neg_int, sys.maxsize])
-    assert d == b'\x94\xcd\x04\xd2\xce\x00\x01\xe2@\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xcf\x7f\xff\xff\xff\xff\xff\xff\xff'  # noqa: E501
+    assert (
+        d
+        == b"\x94\xcd\x04\xd2\xce\x00\x01\xe2@\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xcf\x7f\xff\xff\xff\xff\xff\xff\xff"
+    )  # noqa: E501
 
 
 def test_non_existing_field():
     # RecordDescriptor that is used to test locally in the Broker client
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "text"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
     x = TestRecord(text="Fox-IT, For a More Secure Society")
 
     # r.content does not exist in the RecordDescriptor
@@ -132,9 +141,12 @@ def test_non_existing_field():
 
 
 def test_set_field_type():
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "value"),
+        ],
+    )
 
     r = TestRecord(1)
 
@@ -143,7 +155,7 @@ def test_set_field_type():
     assert isinstance(r.value, fieldtypes.uint32)
 
     with pytest.raises(ValueError):
-        r.value = 'lalala'
+        r.value = "lalala"
     r.value = 2
 
     r = TestRecord()
@@ -175,10 +187,13 @@ def test_packer_unpacker_none_values():
 
 
 def test_fieldname_regression():
-    TestRecord = RecordDescriptor("test/uri_typed", [
-        ("string", "fieldname"),
-    ])
-    rec = TestRecord('omg regression')
+    TestRecord = RecordDescriptor(
+        "test/uri_typed",
+        [
+            ("string", "fieldname"),
+        ],
+    )
+    rec = TestRecord("omg regression")
 
     assert rec in Selector("r.fieldname == 'omg regression'")
 
@@ -188,13 +203,16 @@ def test_fieldname_regression():
 
 def test_version_field_regression():
     packer = RecordPacker()
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "value"),
+        ],
+    )
 
     r = TestRecord(1)
 
-    assert r.__slots__[-1] == '_version'
+    assert r.__slots__[-1] == "_version"
 
     r._version = 256
     data = packer.pack(r)
@@ -214,19 +232,25 @@ def test_version_field_regression():
 
 
 def test_reserved_field_count_regression():
-    del base.RESERVED_FIELDS['_version']
-    base.RESERVED_FIELDS['_extra'] = 'varint'
-    base.RESERVED_FIELDS['_version'] = 'varint'
+    del base.RESERVED_FIELDS["_version"]
+    base.RESERVED_FIELDS["_extra"] = "varint"
+    base.RESERVED_FIELDS["_version"] = "varint"
 
-    TestRecordExtra = RecordDescriptor("test/record", [
-        ("uint32", "value"),
-    ])
+    TestRecordExtra = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "value"),
+        ],
+    )
 
-    del base.RESERVED_FIELDS['_extra']
+    del base.RESERVED_FIELDS["_extra"]
 
-    TestRecordBase = RecordDescriptor("test/record", [
-        ("uint32", "value"),
-    ])
+    TestRecordBase = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "value"),
+        ],
+    )
 
     packer = RecordPacker()
     r = TestRecordExtra(1, _extra=1337)
@@ -249,9 +273,12 @@ def test_reserved_field_count_regression():
 def test_no_version_field_regression():
     # Emulate old style record
     packer = RecordPacker()
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "value"),
+        ],
+    )
     packer.register(TestRecord)
 
     r = TestRecord(1)
@@ -276,26 +303,38 @@ def test_mixed_case_name():
     assert is_valid_field_name("test")
     assert is_valid_field_name("TEST")
 
-    TestRecord = RecordDescriptor("Test/Record", [
-        ("uint32", "Value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "Test/Record",
+        [
+            ("uint32", "Value"),
+        ],
+    )
 
     r = TestRecord(1)
     assert r.Value == 1
 
 
 def test_multi_grouped_record_serialization(tmp_path):
-    TestRecord = RecordDescriptor("Test/Record", [
-        ("net.ipv4.Address", "ip"),
-    ])
-    GeoRecord = RecordDescriptor("geoip/country", [
-        ("string", "country"),
-        ("string", "city"),
-    ])
-    ASNRecord = RecordDescriptor("geoip/asn", [
-        ("string", "asn"),
-        ("string", "isp"),
-    ])
+    TestRecord = RecordDescriptor(
+        "Test/Record",
+        [
+            ("net.ipv4.Address", "ip"),
+        ],
+    )
+    GeoRecord = RecordDescriptor(
+        "geoip/country",
+        [
+            ("string", "country"),
+            ("string", "city"),
+        ],
+    )
+    ASNRecord = RecordDescriptor(
+        "geoip/asn",
+        [
+            ("string", "asn"),
+            ("string", "isp"),
+        ],
+    )
 
     test_rec = TestRecord("1.3.3.7")
     geo_rec = GeoRecord(country="Netherlands", city="Delft")
@@ -333,38 +372,44 @@ def test_ast_unicode_literals(PSelector):
 
 
 def test_grouped_replace():
-    TestRecord = RecordDescriptor("test/adapter", [
-        ("uint32", "number"),
-    ])
-    OtherRecord = RecordDescriptor("test/other", [
-        ("string", "other"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/adapter",
+        [
+            ("uint32", "number"),
+        ],
+    )
+    OtherRecord = RecordDescriptor(
+        "test/other",
+        [
+            ("string", "other"),
+        ],
+    )
 
     # Constructing grouped record normally
     record = TestRecord(number=1)
     other_record = OtherRecord("foobar")
     grouped_record = GroupedRecord("grouped/original", [record, other_record])
-    assert(grouped_record._source is None)
-    assert(grouped_record.number == 1)
-    assert(grouped_record.other == "foobar")
+    assert grouped_record._source is None
+    assert grouped_record.number == 1
+    assert grouped_record.other == "foobar"
 
     # Constructing grouped record normally (using a replaced record)
     replaced_record = record._replace(_source="newsource")
     grouped_record = GroupedRecord("grouped/replaced", [replaced_record, other_record])
-    assert(grouped_record._source == "newsource")
-    assert(grouped_record.number == 1)
-    assert(grouped_record.other == "foobar")
+    assert grouped_record._source == "newsource"
+    assert grouped_record.number == 1
+    assert grouped_record.other == "foobar"
 
     # Test GroupedRecord replace
     replaced_grouped_record = grouped_record._replace(number=100)
-    assert(replaced_grouped_record.number == 100)
-    assert(replaced_grouped_record.other == "foobar")
+    assert replaced_grouped_record.number == 100
+    assert replaced_grouped_record.other == "foobar"
 
     # Test with multiple replacements
     replaced_grouped_record = grouped_record._replace(number=200, other="a string", _source="testcase")
-    assert(replaced_grouped_record.number == 200)
-    assert(replaced_grouped_record.other == "a string")
-    assert(replaced_grouped_record._source == "testcase")
+    assert replaced_grouped_record.number == 200
+    assert replaced_grouped_record.other == "a string"
+    assert replaced_grouped_record._source == "testcase"
 
     # Replacement with non existing field should raise a ValueError
     with pytest.raises(ValueError) as excinfo:
