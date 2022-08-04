@@ -23,13 +23,19 @@ from flow.record.base import (
 
 
 def generate_records(count=100):
-    TestRecordEmbedded = RecordDescriptor("test/embedded_record", [
-        ("datetime", "dt"),
-    ])
-    TestRecord = RecordDescriptor("test/adapter", [
-        ("uint32", "number"),
-        ("record", "record"),
-    ])
+    TestRecordEmbedded = RecordDescriptor(
+        "test/embedded_record",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+    TestRecord = RecordDescriptor(
+        "test/adapter",
+        [
+            ("uint32", "number"),
+            ("record", "record"),
+        ],
+    )
 
     for i in range(count):
         embedded = TestRecordEmbedded(datetime.datetime.utcnow())
@@ -106,9 +112,12 @@ def test_compressed_writer_reader(tmpdir, compression):
 
 
 def test_path_template_writer(tmpdir):
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "id"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "id"),
+        ],
+    )
 
     records = [
         TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),
@@ -141,9 +150,12 @@ def test_path_template_writer(tmpdir):
 
 
 def test_record_archiver(tmpdir):
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "id"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "id"),
+        ],
+    )
 
     records = [
         TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),
@@ -258,21 +270,27 @@ def test_record_invalid_recordstream(tmp_path):
     with pytest.raises(IOError):
         with RecordReader(path) as reader:
             for r in reader:
-                assert(r)
+                assert r
 
 
-@pytest.mark.parametrize("adapter,contains", [
-    ("csvfile", (b"5,hello,world", b"count,foo,bar,")),
-    ("jsonfile", (b'"count": 5', )),
-    ("text", (b"count=5", )),
-    ("line", (b"count = 5", b"--[ RECORD 5 ]--")),
-])
+@pytest.mark.parametrize(
+    "adapter,contains",
+    [
+        ("csvfile", (b"5,hello,world", b"count,foo,bar,")),
+        ("jsonfile", (b'"count": 5',)),
+        ("text", (b"count=5",)),
+        ("line", (b"count = 5", b"--[ RECORD 5 ]--")),
+    ],
+)
 def test_record_adapter(adapter, contains, tmp_path):
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "count"),
-        ("string", "foo"),
-        ("string", "bar"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
 
     # construct the RecordWriter with uri
     path = tmp_path / "output"
@@ -300,14 +318,20 @@ def test_record_adapter(adapter, contains, tmp_path):
 
 
 def test_text_record_adapter(capsys):
-    TestRecordWithFooBar = RecordDescriptor("test/record", [
-        ("string", "name"),
-        ("string", "foo"),
-        ("string", "bar"),
-    ])
-    TestRecordWithoutFooBar = RecordDescriptor("test/record2", [
-        ("string", "name"),
-    ])
+    TestRecordWithFooBar = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "name"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+    TestRecordWithoutFooBar = RecordDescriptor(
+        "test/record2",
+        [
+            ("string", "name"),
+        ],
+    )
     format_spec = "Hello {name}, {foo} is {bar}!"
     with RecordWriter(f"text://?format_spec={format_spec}") as writer:
         # Format string with existing variables
@@ -327,7 +351,7 @@ def test_recordstream_header(tmp_path):
     # Create and delete a RecordWriter, with nothing happening
     p = tmp_path / "out.records"
     writer = RecordWriter(p)
-    del(writer)
+    del writer
     assert p.read_bytes() == b""
 
     # RecordWriter via context manager, always flushes and closes afterwards
@@ -354,7 +378,7 @@ def test_recordstream_header(tmp_path):
     writer = RecordWriter(p)
     writer.write(next(generate_records()))
     writer.flush()
-    del(writer)
+    del writer
     assert p.read_bytes().startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
 
@@ -365,7 +389,7 @@ def test_recordstream_header_stdout(capsysbinary):
     assert out == b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n"
 
     writer = RecordWriter()
-    del(writer)
+    del writer
     out, err = capsysbinary.readouterr()
     assert out == b""
 
