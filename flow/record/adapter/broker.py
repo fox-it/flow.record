@@ -1,6 +1,9 @@
 from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.broker import Publisher, Subscriber
 
+__usage__ = """Write to broker over tcp: -w broker+tcp://{ip}:{port}
+"""
+
 
 class BrokerWriter(AbstractWriter):
     publisher = None

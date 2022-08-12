@@ -2,6 +2,10 @@ from flow.record.adapter import AbstractWriter
 from flow.record import open_path
 from flow.record.utils import is_stdout
 
+__usage__ = """Save record line output (-L, --line) to file: -w line://path/to/file.line
+Write record line output (-L, --line) to stdout: -w line://
+"""
+
 
 class LineWriter(AbstractWriter):
     """Prints all fields and values of the Record on a separate line."""

@@ -1,6 +1,10 @@
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.stream import RecordArchiver
 
+__usage__ = """Save to folder: -w archive://path_to/archive_folder/
+Save to working dir: -w archive://
+"""
+
 
 class ArchiveWriter(AbstractWriter):
     writer = None

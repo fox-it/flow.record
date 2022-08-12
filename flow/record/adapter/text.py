@@ -8,6 +8,10 @@ REPLACE_LIST = [
     (r"\t", "\t"),
 ]
 
+__usage__ = """Save records as plain text to file: -w text://path/to/file.txt
+Write records as plain text to stdout: -w text://
+"""
+
 
 class DefaultMissing(dict):
     def __missing__(self, key):

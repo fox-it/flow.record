@@ -6,6 +6,10 @@ from flow.record.selector import make_selector
 from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.record.fieldtypes import fieldtype_for_value
 
+__usage__ = """Save to file: -w jsonfile://path/to/file.json
+Write to stdout: -w jsonfile://
+"""
+
 
 class JsonfileWriter(AbstractWriter):
     fp = None

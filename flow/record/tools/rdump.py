@@ -4,6 +4,9 @@ from __future__ import print_function
 import sys
 import logging
 
+from textwrap import indent
+from zipimport import zipimporter
+
 from flow.record import RecordWriter, record_stream
 from flow.record.stream import RecordFieldRewriter
 from flow.record.selector import make_selector
@@ -26,6 +29,36 @@ except ImportError:
     from urllib.parse import urlencode
 
 
+def list_adapters():
+    import flow.record.adapter
+    from importlib import import_module
+
+    failed = []
+    loader = flow.record.adapter.__loader__
+
+    if isinstance(loader, zipimporter):
+        adapters = [
+            path.replace(".pyc", "").replace("flow/record/adapter/", "") for path in loader.__dict__['_files'].keys()
+            if "adapter" in path and "__" not in path
+        ]
+    else:
+        adapters = [adapter.replace(".py", "") for adapter in loader.contents() if "__" not in adapter]
+
+    print("available adapters:")
+    for adapter in adapters:
+        try:
+            mod = import_module(f"flow.record.adapter.{adapter}")
+            usage = indent(mod.__usage__, prefix='\t  ')
+            print(f"\t{adapter} usage:\n{usage}")
+        except ModuleNotFoundError:
+            failed.append(adapter)
+
+    if failed:
+        print("unavailable adapters:")
+        [print(f"\t{adapter}") for adapter in failed]
+    sys.exit()
+
+
 @catch_sigpipe
 def main():
     import argparse
@@ -43,6 +76,9 @@ def main():
         help='Increase verbosity')
 
     misc = parser.add_argument_group("miscellaneous")
+    misc.add_argument(
+        '-a', '--list-adapters', action='store_true',
+        help='List (un)available output modes, writers and adapters. Can be used with the -w option')
     misc.add_argument(
         '-l', '--list', action='store_true',
         help='List unique Record Descriptors')
@@ -112,6 +148,9 @@ def main():
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
+
+    if args.list_adapters:
+        list_adapters()
 
     uri = args.writer or "text://"
     if not args.writer:

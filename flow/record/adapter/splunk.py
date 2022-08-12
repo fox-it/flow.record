@@ -42,6 +42,11 @@ def splunkify(record, tag=None):
     return " ".join(ret)
 
 
+__usage__ = """Write to Splunk host: -w splunk://{ip}:{port}
+Write to Splunk host usning an optional tag: -w splunk://{ip}:{port}?rdtag={tag}
+"""
+
+
 class SplunkWriter(AbstractWriter):
     sock = None
 

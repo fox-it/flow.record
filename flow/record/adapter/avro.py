@@ -37,6 +37,10 @@ RECORD_TYPE_MAP = {
 
 EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+__usage__ = """Save to file: -w avro://path/to/file.avro
+Write to stdout: -w avro://
+"""
+
 
 class AvroWriter(AbstractWriter):
     fp = None

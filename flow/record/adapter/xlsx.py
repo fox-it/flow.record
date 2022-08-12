@@ -5,6 +5,10 @@ from flow.record.utils import is_stdout
 from flow.record.selector import make_selector
 from flow.record.adapter import AbstractWriter, AbstractReader
 
+__usage__ = """Save to a xlsx (Excel Sheet) file: -w xlsx://path/to/sheet.xlsx
+Write xlsx to stdout: -w xlsx://
+"""
+
 
 class XlsxWriter(AbstractWriter):
     fp = None

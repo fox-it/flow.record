@@ -14,6 +14,11 @@ def parse_path(path):
     raise ValueError("Invalid mongo path")
 
 
+__usage__ = """Write to remote mongodb host: -w mongo://{ip}:{port}/{dbname}/{collection}
+Write to local mongodb instance: -w mongo://{dbname}/{collection}
+"""
+
+
 class MongoWriter(AbstractWriter):
     client = None
 

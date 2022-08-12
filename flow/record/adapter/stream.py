@@ -2,6 +2,10 @@ from flow import record
 from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractReader, AbstractWriter
 
+__usage__ = """Save records as records to file: -w stream://path/to/file.rec
+Write records as records to stdout: -w stream://
+"""
+
 
 class StreamWriter(AbstractWriter):
     fp = None

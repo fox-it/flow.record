@@ -7,6 +7,10 @@ from flow.record import open_path
 from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
+__usage__ = """Save to file: -w csvfile://path/to/file.csv
+Write to stdout: -w csvfile://
+"""
+
 
 class CsvfileWriter(AbstractWriter):
     fp = None
