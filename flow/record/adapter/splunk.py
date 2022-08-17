@@ -4,6 +4,10 @@ import logging
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.utils import to_str, to_bytes, to_base64
 
+__usage__ = """
+Write to Splunk host: rdump -w splunk://{ip}:{port}
+Write to Splunk host using an optional tag: rdump -w splunk://{ip}:{port}?rdtag={tag}
+"""
 
 log = logging.getLogger(__package__)
 
@@ -40,11 +44,6 @@ def splunkify(record, tag=None):
             ret.append(f'{field}="{val}"')
 
     return " ".join(ret)
-
-
-__usage__ = """Write to Splunk host: -w splunk://{ip}:{port}
-Write to Splunk host usning an optional tag: -w splunk://{ip}:{port}?rdtag={tag}
-"""
 
 
 class SplunkWriter(AbstractWriter):

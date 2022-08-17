@@ -2,15 +2,16 @@ from flow.record import open_path
 from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
+__usage__ = """
+Save records as plain text to file: rdump -w text://path/to/file.txt
+Write records as plain text to stdout: rdump -w text://
+"""
+
 REPLACE_LIST = [
     (r"\r", "\r"),
     (r"\n", "\n"),
     (r"\t", "\t"),
 ]
-
-__usage__ = """Save records as plain text to file: -w text://path/to/file.txt
-Write records as plain text to stdout: -w text://
-"""
 
 
 class DefaultMissing(dict):

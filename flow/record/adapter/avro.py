@@ -9,6 +9,13 @@ from flow.record.utils import is_stdout
 from flow.record.selector import make_selector
 from flow.record.adapter import AbstractReader, AbstractWriter
 
+__usage__ = """
+Save to file: rdump -w avro://path/to/file.avro
+Write to stdout: rdump -w avro://
+---
+Reading an avro file to records: rdump path/to/file.avro
+Reading an avro file to a output type: rdump path/to/file.avro -w {outputype}://
+"""
 
 AVRO_TYPE_MAP = {
     "boolean": "boolean",
@@ -36,10 +43,6 @@ RECORD_TYPE_MAP = {
 }
 
 EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-__usage__ = """Save to file: -w avro://path/to/file.avro
-Write to stdout: -w avro://
-"""
 
 
 class AvroWriter(AbstractWriter):

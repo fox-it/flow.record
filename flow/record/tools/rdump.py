@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from fnmatch import fnmatch
 
+import os
 import sys
 import logging
 
+from importlib import import_module
 from textwrap import indent
 from zipimport import zipimporter
 
+import flow.record.adapter
 from flow.record import RecordWriter, record_stream
 from flow.record.stream import RecordFieldRewriter
 from flow.record.selector import make_selector
@@ -30,33 +34,29 @@ except ImportError:
 
 
 def list_adapters():
-    import flow.record.adapter
-    from importlib import import_module
-
     failed = []
     loader = flow.record.adapter.__loader__
 
     if isinstance(loader, zipimporter):
         adapters = [
-            path.replace(".pyc", "").replace("flow/record/adapter/", "") for path in loader.__dict__['_files'].keys()
-            if "adapter" in path and "__" not in path
+            os.path.splitext(path)[0].replace("flow/record/adapter/", "") for path in loader.__dict__['_files'].keys()
+            if fnmatch(path, "flow/record/adapter/[!__]*.py*")
         ]
     else:
-        adapters = [adapter.replace(".py", "") for adapter in loader.contents() if "__" not in adapter]
+        adapters = [os.path.splitext(filename)[0] for filename in loader.contents() if fnmatch(filename, "[!__]*.py*")]
 
     print("available adapters:")
     for adapter in adapters:
         try:
             mod = import_module(f"flow.record.adapter.{adapter}")
-            usage = indent(mod.__usage__, prefix='\t  ')
-            print(f"\t{adapter} usage:\n{usage}")
-        except ModuleNotFoundError:
-            failed.append(adapter)
+            usage = indent(mod.__usage__.strip(), prefix="\t  ")
+            print(f"\t{adapter} usage:\n{usage}\n")
+        except ImportError as reason:
+            failed.append((adapter, reason))
 
     if failed:
         print("unavailable adapters:")
-        [print(f"\t{adapter}") for adapter in failed]
-    sys.exit()
+        print(*(indent(f"{adapter}: {reason}\n", prefix="\t") for adapter, reason in failed))
 
 
 @catch_sigpipe
@@ -78,7 +78,7 @@ def main():
     misc = parser.add_argument_group("miscellaneous")
     misc.add_argument(
         '-a', '--list-adapters', action='store_true',
-        help='List (un)available output modes, writers and adapters. Can be used with the -w option')
+        help='List (un)available adapters that can be used for reading or writing')
     misc.add_argument(
         '-l', '--list', action='store_true',
         help='List unique Record Descriptors')
@@ -151,6 +151,7 @@ def main():
 
     if args.list_adapters:
         list_adapters()
+        return 0
 
     uri = args.writer or "text://"
     if not args.writer:
