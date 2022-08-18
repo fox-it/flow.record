@@ -6,11 +6,9 @@ from flow.record.selector import make_selector
 from flow.record.adapter import AbstractWriter, AbstractReader
 
 __usage__ = """
-Save to a xlsx (Excel Sheet) file: rdump -w xlsx://path/to/sheet.xlsx
-Write xlsx to stdout: rdump -w xlsx://
----
-Read xlsx files to records: rdump xlsx://path/to/sheet.xlsx
-Read xlsx files to an output type: rdump xlsx://path/to/sheet.xlsx -w {outputtype}://
+Write usage: rdump -w xlsx://[PATH]
+Read usage: rdump xlsx://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 

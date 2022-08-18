@@ -3,8 +3,9 @@ from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
 __usage__ = """
-Save records as plain text to file: rdump -w text://path/to/file.txt
-Write records as plain text to stdout: rdump -w text://
+Write usage: rdump -w text://[PATH]
+Read usage: rdump text://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 REPLACE_LIST = [

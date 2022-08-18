@@ -7,11 +7,9 @@ from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.record.fieldtypes import fieldtype_for_value
 
 __usage__ = """
-Save to file: rdump -w jsonfile://path/to/file.json
-Write to stdout: rdump -w jsonfile://
----
-Reading an json file to records: rdump json://path/to/file.json
-Reading an json file to an output type: rdump json://path/to/file.avro -w {outputype}://
+Write usage: rdump -w jsonfile://[PATH]
+Read usage: rdump jsonfile://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 

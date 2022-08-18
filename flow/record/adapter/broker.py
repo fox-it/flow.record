@@ -2,9 +2,8 @@ from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.broker import Publisher, Subscriber
 
 __usage__ = """
-Write to a flow broker over tcp: rdump -w broker+tcp://{ip}:{port}
------
-Start a flow broker listener for tcp: rdump broker+tcp://{ip}:{port} -s True
+Write usage: rdump -w broker+tcp://[IP]:[PORT]
+Read usage: rdump broker+tcp://[IP]:[PORT] -s True
 """
 
 

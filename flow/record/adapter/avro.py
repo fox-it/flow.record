@@ -10,11 +10,9 @@ from flow.record.selector import make_selector
 from flow.record.adapter import AbstractReader, AbstractWriter
 
 __usage__ = """
-Save to file: rdump -w avro://path/to/file.avro
-Write to stdout: rdump -w avro://
----
-Reading an avro file to records: rdump path/to/file.avro
-Reading an avro file to a output type: rdump path/to/file.avro -w {outputype}://
+Write usage: rdump -w avro://[PATH]
+Read usage: rdump avro://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 AVRO_TYPE_MAP = {

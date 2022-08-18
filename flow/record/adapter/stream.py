@@ -3,10 +3,9 @@ from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractReader, AbstractWriter
 
 __usage__ = """
-Save records as records to file: rdump -w stream://path/to/file.rec
-Write records as records to stdout: rdump -w stream://
----
-Read records to an output type: rdump path/to/file.rec -w {outputype}://
+Write usage: rdump -w stream://[PATH]
+Read usage: rdump stream://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 

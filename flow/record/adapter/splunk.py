@@ -5,8 +5,9 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.utils import to_str, to_bytes, to_base64
 
 __usage__ = """
-Write to Splunk host: rdump -w splunk://{ip}:{port}
-Write to Splunk host using an optional tag: rdump -w splunk://{ip}:{port}?rdtag={tag}
+Write usage: rdump -w splunk://[IP]:[PORT]?rdtag=[TAG]
+[IP]:[PORT]: ip and port to a splunk instance, "" or "-" for stdout
+[TAG]: optional tag to add when writing
 """
 
 log = logging.getLogger(__package__)

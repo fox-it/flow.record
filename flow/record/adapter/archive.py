@@ -2,8 +2,8 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.stream import RecordArchiver
 
 __usage__ = """
-Save to folder: rdump -w archive://path_to/archive_folder/
-Save to working dir: rdump -w archive://
+Write usage: rdump -w archive://[PATH]
+[PATH]: path to folder, "" or "-" for current working dir
 """
 
 
@@ -32,6 +32,5 @@ class ArchiveWriter(AbstractWriter):
 
 
 class ArchiveReader(AbstractReader):
-
     def __init__(self, path, **kwargs):
         raise NotImplementedError

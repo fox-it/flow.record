@@ -5,12 +5,11 @@ from flow.record.selector import make_selector
 from pymongo import MongoClient
 
 __usage__ = """
-Write to remote mongodb host: rdump -w mongo://{ip}:{port}/{dbname}/{collection}
-Write to local mongodb instance: rdump -w mongo://{dbname}/{collection}
----
-Reading from a remote mongodb host to records: rdump mongo://{ip}:{port}/{dbname}/{collection}
-Reading from a local mongodb instance to records: rdump mongo://{dbname}/{collection}
-Reading an mongodb file to a output type: rdump mongo://{ip}:{port}/{dbname}/{collection} -w {outputype}://
+Write usage: rdump -w mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
+Read usage: rdump mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
+[IP]:[PORT]: ip and port to a mongodb instance, "" or "-" for stdout
+[DBNAME]: database name to write to or read from
+[COLLECTION]: collection to write to or read from
 """
 
 

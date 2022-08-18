@@ -3,8 +3,9 @@ from flow.record import open_path
 from flow.record.utils import is_stdout
 
 __usage__ = """
-Save record line output (-L, --line) to file: rdump -w line://path/to/file.line
-Write record line output (-L, --line) to stdout: rdump -w line://
+Write usage: rdump -w line://[PATH]
+Read usage: rdump line://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 

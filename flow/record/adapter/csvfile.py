@@ -8,8 +8,9 @@ from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
 __usage__ = """
-Save to file: rdump -w csvfile://path/to/file.csv
-Write to stdout: rdump -w csvfile://
+Write usage: rdump -w csvfile://[PATH]
+Read usage: rdump csvfile://[PATH]
+[PATH]: path to file, "" or "-" for stdout
 """
 
 
