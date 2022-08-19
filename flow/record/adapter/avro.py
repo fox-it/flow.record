@@ -12,7 +12,7 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 __usage__ = """
 Write usage: rdump -w avro://[PATH]
 Read usage: rdump avro://[PATH]
-[PATH]: path to file, "" or "-" for stdout
+[PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
 AVRO_TYPE_MAP = {

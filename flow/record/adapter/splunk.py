@@ -6,8 +6,8 @@ from flow.record.utils import to_str, to_bytes, to_base64
 
 __usage__ = """
 Write usage: rdump -w splunk://[IP]:[PORT]?rdtag=[TAG]
-[IP]:[PORT]: ip and port to a splunk instance, "" or "-" for stdout
-[TAG]: optional tag to add when writing
+[IP]:[PORT]: ip and port to a splunk instance. Leave empty or "-" to output to stdout
+[TAG]: optional "rdtag" field value to add when writing
 """
 
 log = logging.getLogger(__package__)

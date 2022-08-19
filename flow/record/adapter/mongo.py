@@ -7,7 +7,7 @@ from pymongo import MongoClient
 __usage__ = """
 Write usage: rdump -w mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
 Read usage: rdump mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
-[IP]:[PORT]: ip and port to a mongodb instance, "" or "-" for stdout
+[IP]:[PORT]: ip and port to a mongodb instance. Leave empty or "-" to output to stdout
 [DBNAME]: database name to write to or read from
 [COLLECTION]: collection to write to or read from
 """

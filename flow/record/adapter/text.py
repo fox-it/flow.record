@@ -4,8 +4,7 @@ from flow.record.adapter import AbstractWriter
 
 __usage__ = """
 Write usage: rdump -w text://[PATH]
-Read usage: rdump text://[PATH]
-[PATH]: path to file, "" or "-" for stdout
+[PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
 REPLACE_LIST = [

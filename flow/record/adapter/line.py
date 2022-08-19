@@ -4,8 +4,7 @@ from flow.record.utils import is_stdout
 
 __usage__ = """
 Write usage: rdump -w line://[PATH]
-Read usage: rdump line://[PATH]
-[PATH]: path to file, "" or "-" for stdout
+[PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
 

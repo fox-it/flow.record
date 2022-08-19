@@ -8,7 +8,7 @@ from flow.record.adapter import AbstractWriter, AbstractReader
 __usage__ = """
 Write usage: rdump -w xlsx://[PATH]
 Read usage: rdump xlsx://[PATH]
-[PATH]: path to file, "" or "-" for stdout
+[PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
 

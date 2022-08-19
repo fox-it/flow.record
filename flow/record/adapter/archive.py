@@ -3,7 +3,7 @@ from flow.record.stream import RecordArchiver
 
 __usage__ = """
 Write usage: rdump -w archive://[PATH]
-[PATH]: path to folder, "" or "-" for current working dir
+[PATH]: path to folder. Leave empty or "-" to output to stdout
 """
 
 

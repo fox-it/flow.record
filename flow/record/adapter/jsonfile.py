@@ -9,7 +9,7 @@ from flow.record.fieldtypes import fieldtype_for_value
 __usage__ = """
 Write usage: rdump -w jsonfile://[PATH]
 Read usage: rdump jsonfile://[PATH]
-[PATH]: path to file, "" or "-" for stdout
+[PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
 
