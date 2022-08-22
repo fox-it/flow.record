@@ -88,7 +88,7 @@ class ElasticReader(AbstractReader):
 
     def __iter__(self):
         res = self.es.search(index=self.index)
-        log.debug("ElasticSearch returned %u hits", res['hits']['total']['value'])
+        log.debug("ElasticSearch returned %u hits", res["hits"]["total"]["value"])
         for hit in res["hits"]["hits"]:
             source = hit["_source"]
             if "_record_metadata" in source:
