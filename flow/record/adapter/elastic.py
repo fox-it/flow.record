@@ -1,29 +1,33 @@
 import threading
 import logging
 import queue
+from typing import Iterator, Union
 
 import elasticsearch
 import elasticsearch.helpers
 
 from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.record import JsonRecordPacker, RecordDescriptor
+from flow.record.base import Record
 from flow.record.fieldtypes import fieldtype_for_value
+from flow.record.selector import Selector, CompiledSelector
 
 log = logging.getLogger(__name__)
 
 
 class ElasticWriter(AbstractWriter):
-    def __init__(self, uri, index="records", http_compress=True, **kwargs):
+    def __init__(self, uri: str, index: str = "records", http_compress: Union[str, bool] = True, **kwargs) -> None:
         self.index = index
         self.uri = uri
         http_compress = str(http_compress).lower() in ("1", "true")
         self.es = elasticsearch.Elasticsearch(uri, http_compress=http_compress)
         self.json_packer = JsonRecordPacker()
-        self.queue = queue.Queue()
+        self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
         self.event = threading.Event()
-        self.thread = threading.Thread(target=self.streaming_bulk_thread).start()
+        self.thread = threading.Thread(target=self.streaming_bulk_thread)
+        self.thread.start()
 
-    def record_to_document(self, record, index):
+    def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
         rdict = record._asdict()
 
@@ -46,15 +50,15 @@ class ElasticWriter(AbstractWriter):
         }
         return document
 
-    def document_stream(self):
+    def document_stream(self) -> Iterator[dict]:
         """Generator of record documents on the Queue"""
         while True:
             record = self.queue.get()
-            if record == StopIteration:
+            if record is StopIteration:
                 break
             yield self.record_to_document(record, index=self.index)
 
-    def streaming_bulk_thread(self):
+    def streaming_bulk_thread(self) -> None:
         """Thread that streams the documents to ES via the bulk api"""
         for ok, item in elasticsearch.helpers.streaming_bulk(
             self.es,
@@ -66,27 +70,34 @@ class ElasticWriter(AbstractWriter):
                 log.error("Failed to insert %r", item)
         self.event.set()
 
-    def write(self, r):
-        self.queue.put_nowait(r)
+    def write(self, record: Record) -> None:
+        self.queue.put_nowait(record)
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         self.queue.put(StopIteration)
         self.event.wait()
         self.es.close()
 
 
 class ElasticReader(AbstractReader):
-    def __init__(self, uri, index="records", http_compress=True, selector=None, **kwargs):
+    def __init__(
+        self,
+        uri: str,
+        index: str = "records",
+        http_compress: Union[str, bool] = True,
+        selector: Union[None, Selector, CompiledSelector] = None,
+        **kwargs
+    ) -> None:
         self.index = index
         self.uri = uri
         self.selector = selector
         http_compress = str(http_compress).lower() in ("1", "true")
         self.es = elasticsearch.Elasticsearch(uri, http_compress=http_compress)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         res = self.es.search(index=self.index)
         log.debug("ElasticSearch returned %u hits", res["hits"]["total"]["value"])
         for hit in res["hits"]["hits"]:
@@ -99,5 +110,5 @@ class ElasticReader(AbstractReader):
             if not self.selector or self.selector.match(obj):
                 yield obj
 
-    def close(self):
+    def close(self) -> None:
         self.es.close()
