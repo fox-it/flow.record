@@ -63,7 +63,7 @@ class ElasticWriter(AbstractWriter):
             raise_on_exception=False,
         ):
             if not ok:
-                log.error(f"Failed to insert {item}")
+                log.error("Failed to insert %r", item)
         self.event.set()
 
     def write(self, r):
@@ -88,7 +88,7 @@ class ElasticReader(AbstractReader):
 
     def __iter__(self):
         res = self.es.search(index=self.index)
-        log.debug(f"ElasticSearch returned {res['hits']['total']['value']} hits")
+        log.debug("ElasticSearch returned %u hits", res['hits']['total']['value'])
         for hit in res["hits"]["hits"]:
             source = hit["_source"]
             if "_record_metadata" in source:
