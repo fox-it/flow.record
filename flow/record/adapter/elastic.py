@@ -6,11 +6,11 @@ from typing import Iterator, Union
 import elasticsearch
 import elasticsearch.helpers
 
-from flow.record.adapter import AbstractWriter, AbstractReader
-from flow.record import JsonRecordPacker, RecordDescriptor
-from flow.record.base import Record
+from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.base import Record, RecordDescriptor
 from flow.record.fieldtypes import fieldtype_for_value
-from flow.record.selector import Selector, CompiledSelector
+from flow.record.jsonpacker import JsonRecordPacker
+from flow.record.selector import CompiledSelector, Selector
 
 log = logging.getLogger(__name__)
 
