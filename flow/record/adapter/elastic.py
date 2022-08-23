@@ -1,6 +1,6 @@
-import threading
 import logging
 import queue
+import threading
 from typing import Iterator, Union
 
 import elasticsearch
