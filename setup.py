@@ -12,6 +12,9 @@ setup(
            'lz4',
            'zstandard',
         ],
+        'elastic': [
+            'elasticsearch',
+        ],
     },
     namespace_packages=['flow'],
     entry_points={
