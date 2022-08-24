@@ -24,7 +24,6 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [PROTOCOL]: http or https. Defaults to http when "+[PROTOCOL]" is omitted
 """
 
->>>>>>> b61b715... Add additional review comments
 
 class ElasticWriter(AbstractWriter):
     def __init__(self, uri: str, index: str = "records", http_compress: Union[str, bool] = True, **kwargs) -> None:
