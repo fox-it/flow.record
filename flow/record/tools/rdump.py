@@ -55,14 +55,14 @@ def list_adapters():
     for adapter in adapters:
         try:
             mod = import_module(f"flow.record.adapter.{adapter}")
-            usage = indent(mod.__usage__.strip(), prefix="\t  ")
-            print(f"\t{adapter} usage:\n{usage}\n")
+            usage = indent(mod.__usage__.strip(), prefix="    ")
+            print(f"  {adapter}:\n{usage}\n")
         except ImportError as reason:
             failed.append((adapter, reason))
 
     if failed:
         print("unavailable adapters:")
-        print(*(indent(f"{adapter}: {reason}\n", prefix="\t") for adapter, reason in failed))
+        print("\n".join(indent(f"{adapter}: {reason}", prefix="  ") for adapter, reason in failed))
 
 
 @catch_sigpipe

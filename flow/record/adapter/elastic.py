@@ -12,8 +12,6 @@ from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.selector import CompiledSelector, Selector
 
-log = logging.getLogger(__name__)
-
 __usage__ = """
 Elastic Elasticsearch adapter
 ---
@@ -23,6 +21,8 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [INDEX]: index to write to or read from
 [PROTOCOL]: http or https. Defaults to http when "+[PROTOCOL]" is omitted
 """
+
+log = logging.getLogger(__name__)
 
 
 class ElasticWriter(AbstractWriter):
