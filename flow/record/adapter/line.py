@@ -3,6 +3,8 @@ from flow.record import open_path
 from flow.record.utils import is_stdout
 
 __usage__ = """
+Line output format adapter (writer only)
+---
 Write usage: rdump -w line://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 """

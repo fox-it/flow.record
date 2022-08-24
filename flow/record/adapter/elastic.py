@@ -14,6 +14,17 @@ from flow.record.selector import CompiledSelector, Selector
 
 log = logging.getLogger(__name__)
 
+__usage__ = """
+Elastic Elasticsearch adapter
+---
+Write usage: rdump -w elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
+Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
+[IP]:[PORT]: ip and port to elastic host
+[INDEX]: index to write to or read from
+[PROTOCOL]: http or https. Defaults to http when "+[PROTOCOL]" is omitted
+"""
+
+>>>>>>> b61b715... Add additional review comments
 
 class ElasticWriter(AbstractWriter):
     def __init__(self, uri: str, index: str = "records", http_compress: Union[str, bool] = True, **kwargs) -> None:

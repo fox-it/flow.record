@@ -2,8 +2,10 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.stream import RecordArchiver
 
 __usage__ = """
+Record archiver adapter, writes records to YYYY/mm/dd directories (writer only)
+---
 Write usage: rdump -w archive://[PATH]
-[PATH]: path to folder. Leave empty or "-" to output to stdout
+[PATH]: path to folder
 """
 
 

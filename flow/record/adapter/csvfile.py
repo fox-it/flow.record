@@ -8,6 +8,8 @@ from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
 __usage__ = """
+Comma-separated values (CSV) adapter
+---
 Write usage: rdump -w csvfile://[PATH]
 Read usage: rdump csvfile://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout

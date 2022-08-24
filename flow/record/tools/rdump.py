@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from fnmatch import fnmatch
 
-import os
 import sys
 import logging
 
 from importlib import import_module
+from pathlib import Path
 from textwrap import indent
 from zipimport import zipimporter
 
@@ -37,13 +36,20 @@ def list_adapters():
     failed = []
     loader = flow.record.adapter.__loader__
 
+    # TODO change to loader.get_resource_reader("flow.record.adapter").contents()
+    # once zipimport issue is fixed
     if isinstance(loader, zipimporter):
         adapters = [
-            os.path.splitext(path)[0].replace("flow/record/adapter/", "") for path in loader.__dict__['_files'].keys()
-            if fnmatch(path, "flow/record/adapter/[!__]*.py*")
+            Path(path).stem
+            for path in loader._files.keys() if path.endswith((".py", ".pyc"))
+            and not Path(path).name.startswith('__')
+            and "flow/record/adapter" in str(Path(path).parent)
         ]
     else:
-        adapters = [os.path.splitext(filename)[0] for filename in loader.contents() if fnmatch(filename, "[!__]*.py*")]
+        adapters = [
+            Path(name).stem
+            for name in loader.contents() if name.endswith(("py", "pyc")) and not name.startswith("__")
+        ]
 
     print("available adapters:")
     for adapter in adapters:

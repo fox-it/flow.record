@@ -10,6 +10,8 @@ from flow.record.selector import make_selector
 from flow.record.adapter import AbstractReader, AbstractWriter
 
 __usage__ = """
+Apache AVRO adapter
+---
 Write usage: rdump -w avro://[PATH]
 Read usage: rdump avro://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout

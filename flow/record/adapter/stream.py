@@ -3,7 +3,7 @@ from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractReader, AbstractWriter
 
 __usage__ = """
-Default adapter used when none are specified
+Binary stream adapter (default adapter if none are specified)
 ---
 Write usage: rdump -w stream://[PATH]
 Read usage: rdump stream://[PATH]
