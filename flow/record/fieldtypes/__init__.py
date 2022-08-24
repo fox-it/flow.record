@@ -14,8 +14,8 @@ try:
 except ImportError:
     import urllib.parse as urlparse
 
-RE_NORMALIZE_PATH = re.compile(r'[\\/]+')
-NATIVE_UNICODE = isinstance(u'', str)
+RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
+NATIVE_UNICODE = isinstance("", str)
 
 string_type = str
 varint_type = int
@@ -56,7 +56,6 @@ def fieldtype_for_value(value, default="string"):
 
 
 class dynamic(FieldType):
-
     def __new__(cls, obj):
         if isinstance(obj, FieldType):
             # Already a flow field type
@@ -124,19 +123,16 @@ class typedlist(list, FieldType):
 
 
 class dictlist(list, FieldType):
-
     def _pack(self):
         return self
 
 
 class stringlist(list, FieldType):
-
     def _pack(self):
         return self
 
 
 class string(string_type, FieldType):
-
     def __new__(cls, value):
         if isinstance(value, bytes_type):
             value = cls._decode(value, "utf-8")
@@ -162,9 +158,11 @@ class string(string_type, FieldType):
             return data.decode(encoding)
         except UnicodeDecodeError:
             # Fallback to bytes (Python 2 only)
-            preview = data[:16].encode('hex_codec') + ('..' if len(data) > 16 else '')
-            warnings.warn("Got binary data in string field (hex: {}). Compatibility is not guaranteed.".format(
-                preview), RuntimeWarning)
+            preview = data[:16].encode("hex_codec") + (".." if len(data) > 16 else "")
+            warnings.warn(
+                "Got binary data in string field (hex: {}). Compatibility is not guaranteed.".format(preview),
+                RuntimeWarning,
+            )
             return data
 
 
@@ -188,7 +186,6 @@ class bytes(bytes_type, FieldType):
 
 
 class datetime(_dt, FieldType):
-
     def __new__(cls, *args, **kwargs):
         if len(args) == 1 and not kwargs:
             arg = args[0]
@@ -207,10 +204,8 @@ class datetime(_dt, FieldType):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
                 return _dt.__new__(
-                    cls,
-                    arg.year, arg.month, arg.day,
-                    arg.hour, arg.minute, arg.second, arg.microsecond,
-                    arg.tzinfo)
+                    cls, arg.year, arg.month, arg.day, arg.hour, arg.minute, arg.second, arg.microsecond, arg.tzinfo
+                )
 
         return _dt.__new__(cls, *args, **kwargs)
 
@@ -226,13 +221,11 @@ class datetime(_dt, FieldType):
 
 
 class varint(varint_type, FieldType):
-
     def _pack(self):
         return self
 
 
 class float(float, FieldType):
-
     def _pack(self):
         return self
 
@@ -242,7 +235,7 @@ class uint16(int, FieldType):
     value = None
 
     def __init__(self, value):
-        if value < 0 or value > 0xffff:
+        if value < 0 or value > 0xFFFF:
             raise ValueError("Value not within (0x0, 0xffff), got: {}".format(value))
 
         self.value = value
@@ -258,7 +251,7 @@ class uint32(int, FieldType):
     value = None
 
     def __init__(self, value):
-        if value < 0 or value > 0xffffffff:
+        if value < 0 or value > 0xFFFFFFFF:
             raise ValueError("Value not within (0x0, 0xffffffff), got {}".format(value))
 
         self.value = value
@@ -290,26 +283,24 @@ def human_readable_size(x):
     # hybrid of http://stackoverflow.com/a/10171475/2595465
     #     with http://stackoverflow.com/a/5414105/2595465
     if x == 0:
-        return '0'
+        return "0"
     magnitude = int(math.log(abs(x), 10.24))
     if magnitude > 16:
-        format_str = '%iP'
+        format_str = "%iP"
         # denominator_mag = 15
     else:
-        float_fmt = '%2.1f' if magnitude % 3 == 1 else '%1.2f'
+        float_fmt = "%2.1f" if magnitude % 3 == 1 else "%1.2f"
         illion = (magnitude + 1) // 3
-        format_str = float_fmt + " " + [' ', 'K', 'M', 'G', 'T', 'P'][illion]
-    return (format_str % (x * 1.0 / (1024 ** illion))) + "B"
+        format_str = float_fmt + " " + [" ", "K", "M", "G", "T", "P"][illion]
+    return (format_str % (x * 1.0 / (1024**illion))) + "B"
 
 
 class filesize(varint):
-
     def __repr__(self):
         return human_readable_size(self)
 
 
 class unix_file_mode(varint):
-
     def __repr__(self):
         return oct(self).rstrip("L")
 
@@ -404,7 +395,6 @@ class digest(FieldType):
 
 
 class uri(string, FieldType):
-
     def __init__(self, value):
         self._parsed = urlparse.urlparse(value)
 
@@ -414,7 +404,7 @@ class uri(string, FieldType):
 
         c:\windows\system32\cmd.exe -> c:/windows/system32/cmd.exe
         """
-        return RE_NORMALIZE_PATH.sub('/', path)
+        return RE_NORMALIZE_PATH.sub("/", path)
 
     @classmethod
     def from_windows(cls, path):
@@ -479,7 +469,6 @@ class uri(string, FieldType):
 
 
 class record(FieldType):
-
     def __new__(cls, record_value):
         return record_value
 

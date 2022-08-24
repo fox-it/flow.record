@@ -8,10 +8,13 @@ from flow.record import RecordWriter, RecordReader
 
 
 def test_rdump_pipe(tmp_path):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "count"),
-        ("string", "foo"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+        ],
+    )
 
     path = tmp_path / "test.records"
     writer = RecordWriter(path)
@@ -35,7 +38,9 @@ def test_rdump_pipe(tmp_path):
     # (binary) rdump test.records -w - | rdump -s 'r.count == 5'
     p1 = subprocess.Popen(["rdump", str(path), "-w", "-"], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(
-        ["rdump", "-s", "r.count == 5"], stdin=p1.stdout, stdout=subprocess.PIPE,
+        ["rdump", "-s", "r.count == 5"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE,
     )
     stdout, stderr = p2.communicate()
     assert stdout.strip() in (b"<test/record count=5 foo='bar'>", b"<test/record count=5L foo=u'bar'>")
@@ -56,7 +61,8 @@ def test_rdump_pipe(tmp_path):
     path2 = tmp_path / "filtered.records"
     p1 = subprocess.Popen(["rdump", str(path), "-w", "-"], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(
-        ["rdump", "-s", "r.count in (1, 3, 9)", "-w", str(path2)], stdin=p1.stdout,
+        ["rdump", "-s", "r.count in (1, 3, 9)", "-w", str(path2)],
+        stdin=p1.stdout,
     )
     stdout, stderr = p2.communicate()
 
@@ -67,10 +73,13 @@ def test_rdump_pipe(tmp_path):
 
 
 def test_rdump_format_template(tmp_path):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "count"),
-        ("string", "foo"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+        ],
+    )
 
     path = tmp_path / "test.records"
     writer = RecordWriter(path)
@@ -90,14 +99,17 @@ def test_rdump_format_template(tmp_path):
 
 
 def test_rdump_json(tmp_path):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "count"),
-        ("string", "foo"),
-        ("bytes", "data"),
-        ("net.ipaddress", "ip"),
-        ("net.ipnetwork", "subnet"),
-        ("digest", "digest"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+            ("bytes", "data"),
+            ("net.ipaddress", "ip"),
+            ("net.ipnetwork", "subnet"),
+            ("digest", "digest"),
+        ],
+    )
 
     record_path = tmp_path / "test.records"
     writer = RecordWriter(record_path)
@@ -113,10 +125,11 @@ def test_rdump_json(tmp_path):
                 count=i,
                 foo="bar" * i,
                 data=b"\x00\x01\x02\x03--" + data,
-                ip=u"172.16.0.{}".format(i),
-                subnet=u"192.168.{}.0/24".format(i),
+                ip="172.16.0.{}".format(i),
+                subnet="192.168.{}.0/24".format(i),
                 digest=(md5, sha1, sha256),
-            ))
+            )
+        )
     writer.close()
 
     # dump records as JSON lines
@@ -129,8 +142,8 @@ def test_rdump_json(tmp_path):
     # Basic validations in stdout
     for i in range(10):
         assert base64.b64encode("\x00\x01\x02\x03--{}".format(i).encode()) in stdout
-        assert u"192.168.{}.0/24".format(i).encode() in stdout
-        assert u"172.16.0.{}".format(i).encode() in stdout
+        assert "192.168.{}.0/24".format(i).encode() in stdout
+        assert "172.16.0.{}".format(i).encode() in stdout
         assert ("bar" * i).encode() in stdout
 
     # Load json using json.loads() and validate key values
@@ -149,8 +162,8 @@ def test_rdump_json(tmp_path):
             assert json_dict["count"] == count
             assert json_dict["foo"] == "bar" * count
             assert json_dict["data"] == base64.b64encode("\x00\x01\x02\x03--{}".format(count).encode()).decode()
-            assert json_dict["ip"] == u"172.16.0.{}".format(count)
-            assert json_dict["subnet"] == u"192.168.{}.0/24".format(count)
+            assert json_dict["ip"] == "172.16.0.{}".format(count)
+            assert json_dict["subnet"] == "192.168.{}.0/24".format(count)
             assert json_dict["digest"]["md5"] == md5
             assert json_dict["digest"]["sha1"] == sha1
             assert json_dict["digest"]["sha256"] == sha256
@@ -169,8 +182,8 @@ def test_rdump_json(tmp_path):
                 sha1 = hashlib.sha1(data).hexdigest()
                 sha256 = hashlib.sha256(data).hexdigest()
                 assert record.count == i
-                assert record.ip == u"172.16.0.{}".format(i)
-                assert record.subnet == u"192.168.{}.0/24".format(i)
+                assert record.ip == "172.16.0.{}".format(i)
+                assert record.subnet == "192.168.{}.0/24".format(i)
                 assert record.data == b"\x00\x01\x02\x03--" + data
                 assert record.digest.md5 == md5
                 assert record.digest.sha1 == sha1

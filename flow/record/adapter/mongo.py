@@ -43,9 +43,8 @@ class MongoWriter(AbstractWriter):
 
         if r._desc.identifier not in self.descriptors:
             self.coll_descriptors.find_and_modify(
-                {"name": r._desc.identifier},
-                {"name": r._desc.identifier, "descriptor": r._desc._pack()},
-                upsert=True)
+                {"name": r._desc.identifier}, {"name": r._desc.identifier, "descriptor": r._desc._pack()}, upsert=True
+            )
 
         if self.key:
             # i = self.collection.replace({self.key: d[self.key]}, d) # PyMongo3

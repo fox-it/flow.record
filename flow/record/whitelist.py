@@ -31,7 +31,7 @@ WHITELIST_TREE = {}
 for field in WHITELIST:
     parent = None
     obj = WHITELIST_TREE
-    for part in field.split('.'):
+    for part in field.split("."):
         if part not in obj:
             obj[part] = {}
         parent = obj

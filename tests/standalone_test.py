@@ -13,4 +13,5 @@ def main(glob):
         except Exception:  # noqa: B902
             print("FAILED")
             import traceback
+
             traceback.print_exc()

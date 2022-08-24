@@ -10,6 +10,7 @@ import keyword
 import hashlib
 import functools
 import collections
+
 try:
     # Python 2
     import urlparse
@@ -18,16 +19,19 @@ except ImportError:
     import urllib.parse as urlparse
 try:
     import lz4.frame as lz4
+
     HAS_LZ4 = True
 except ImportError:
     HAS_LZ4 = False
 try:
     import bz2
+
     HAS_BZ2 = True
 except ImportError:
     HAS_BZ2 = False
 try:
     import zstandard as zstd
+
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
@@ -40,14 +44,16 @@ from .utils import to_str, to_native_str
 log = logging.getLogger(__package__)
 
 RECORD_VERSION = 1
-RESERVED_FIELDS = OrderedDict([
-    ("_source", "string"),
-    ("_classification", "string"),
-    ("_generated", "datetime"),
-    # For compatibility reasons, always add new reserved fields BEFORE
-    # the _version field, but AFTER the second to last field
-    ("_version", "varint"),
-])
+RESERVED_FIELDS = OrderedDict(
+    [
+        ("_source", "string"),
+        ("_classification", "string"),
+        ("_generated", "datetime"),
+        # For compatibility reasons, always add new reserved fields BEFORE
+        # the _version field, but AFTER the second to last field
+        ("_version", "varint"),
+    ]
+)
 
 # Compression Headers
 GZIP_MAGIC = b"\x1f\x8b"
@@ -113,7 +119,6 @@ class RecordDescriptorError(Exception):
 
 
 class FieldType:
-
     def _typename(self):
         t = type(self)
         t.__module__.split(".fieldtypes.")[1] + "." + t.__name__
@@ -153,7 +158,8 @@ class Record:
     def _packdict(self):
         return dict(
             (k, v._pack() if isinstance(v, FieldType) else v)
-            for k, v in ((k, getattr(self, k)) for k in self.__slots__))
+            for k, v in ((k, getattr(self, k)) for k in self.__slots__)
+        )
 
     def _asdict(self, fields=None, exclude=None):
         exclude = exclude or []
@@ -173,13 +179,13 @@ class Record:
     def _replace(self, **kwds):
         result = self.__class__(*map(kwds.pop, self.__slots__, (getattr(self, k) for k in self.__slots__)))
         if kwds:
-            raise ValueError('Got unexpected field names: {kwds!r}'.format(kwds=list(kwds)))
+            raise ValueError("Got unexpected field names: {kwds!r}".format(kwds=list(kwds)))
         return result
 
     def __repr__(self):
         return "<{} {}>".format(
-            self._desc.name,
-            " ".join("{}={!r}".format(k, getattr(self, k)) for k in self._desc.fields))
+            self._desc.name, " ".join("{}={!r}".format(k, getattr(self, k)) for k in self._desc.fields)
+        )
 
 
 class GroupedRecord(Record):
@@ -273,7 +279,7 @@ class GroupedRecord(Record):
                 record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
             )
         if kwds:
-            raise ValueError('Got unexpected field names: {kwds!r}'.format(kwds=list(kwds)))
+            raise ValueError("Got unexpected field names: {kwds!r}".format(kwds=list(kwds)))
         return GroupedRecord(self.name, new_records)
 
 
@@ -381,13 +387,15 @@ class RecordDescriptor:
         if len(all_fields) >= 255 and not (sys.version_info >= (3, 7)) or contains_keyword:
             args = "*args, **kwargs"
             init_code = (
-                "\t\tfor k, v in zip_longest(__self.__slots__, args):\n" +
-                "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n" +
-                "\t\t_generated = __self._generated\n")
+                "\t\tfor k, v in zip_longest(__self.__slots__, args):\n"
+                "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n"
+                "\t\t_generated = __self._generated\n"
+            )
             unpack_code = (
-                "\t\tvalues = dict([(f, __cls._field_types[f]._unpack(kwargs.get(f, v)) " +
-                "if kwargs.get(f, v) is not None else None) for f, v in zip_longest(__cls.__slots__, args)])\n" +
-                "\t\treturn __cls(**values)")
+                "\t\tvalues = dict([(f, __cls._field_types[f]._unpack(kwargs.get(f, v)) "
+                "if kwargs.get(f, v) is not None else None) for f, v in zip_longest(__cls.__slots__, args)])\n"
+                "\t\treturn __cls(**values)"
+            )
         else:
             args = ", ".join(["{}=None".format(k) for k in all_fields])
             unpack_code = "\t\treturn __cls(\n"
@@ -397,11 +405,11 @@ class RecordDescriptor:
                 else:
                     default = "_field_{field.name}.type.default()".format(field=field)
                 init_code += "\t\t__self.{field} = {field} if {field} is not None else {default}\n".format(
-                    field=field.name, default=default)
+                    field=field.name, default=default
+                )
                 unpack_code += (
-                    "\t\t\t{field} = _field_{field}.type._unpack({field}) " +
-                    "if {field} is not None else {default},\n").format(
-                        field=field.name, default=default)
+                    "\t\t\t{field} = _field_{field}.type._unpack({field}) " + "if {field} is not None else {default},\n"
+                ).format(field=field.name, default=default)
             unpack_code += "\t\t)"
 
         init_code += "\t\t__self._generated = _generated or datetime.utcnow()\n\t\t__self._version = RECORD_VERSION"
@@ -424,8 +432,11 @@ class RecordDescriptor:
         c = compile(code, "<record code>", "exec")
 
         data = {
-            "desc": self, "Record": Record, "OrderedDict": OrderedDict,
-            "_itemgetter": _itemgetter, "_property": property,
+            "desc": self,
+            "Record": Record,
+            "OrderedDict": OrderedDict,
+            "_itemgetter": _itemgetter,
+            "_property": property,
             "RECORD_VERSION": RECORD_VERSION,
         }
         for field in all_fields.values():
@@ -561,8 +572,7 @@ class RecordDescriptor:
         for ftype in self.get_all_fields().values():
             if not reserved and ftype.name.startswith("_"):
                 continue
-            fields.append(
-                '    ("{ftype.typename}", "{ftype.name}"),'.format(ftype=ftype))
+            fields.append('    ("{ftype.typename}", "{ftype.name}"),'.format(ftype=ftype))
         fields_str = "\n".join(fields)
         return 'RecordDescriptor("{}", [\n{}\n])'.format(self.name, fields_str)
 
@@ -620,15 +630,15 @@ def open_path(path, mode, clobber=True):
             fp = gzip.GzipFile(path, mode)
         elif path.endswith(".bz2"):
             if not HAS_BZ2:
-                raise RuntimeError('bz2 python module not available')
+                raise RuntimeError("bz2 python module not available")
             fp = bz2.BZ2File(path, mode)
         elif path.endswith(".lz4"):
             if not HAS_LZ4:
-                raise RuntimeError('lz4 python module not available')
+                raise RuntimeError("lz4 python module not available")
             fp = lz4.open(path, mode)
         elif path.endswith((".zstd", ".zst")):
             if not HAS_ZSTD:
-                raise RuntimeError('zstandard python module not available')
+                raise RuntimeError("zstandard python module not available")
             if not out:
                 dctx = zstd.ZstdDecompressor()
                 fp = dctx.stream_reader(open(path, "rb"))
@@ -675,7 +685,7 @@ def RecordAdapter(url, out, selector=None, clobber=True):
 
     p = urlparse.urlparse(url, ext_to_adapter.get(ext, "stream"))
 
-    if '+' in p.scheme:
+    if "+" in p.scheme:
         adapter, sub_adapter = p.scheme.split("+", 1)
     else:
         adapter = p.scheme
@@ -716,7 +726,7 @@ def stream(src, dst):
 
 
 def fieldtype(clspath):
-    if clspath.endswith('[]'):
+    if clspath.endswith("[]"):
         origpath = clspath
         clspath = clspath[:-2]
         islist = True
@@ -760,9 +770,7 @@ def extend_record(record, other_records, replace=False, name=None):
         name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from
             initial `record`.
     """
-    field_map = collections.OrderedDict(
-        (fname, ftype) for (ftype, fname) in record._desc.get_field_tuples()
-    )
+    field_map = collections.OrderedDict((fname, ftype) for (ftype, fname) in record._desc.get_field_tuples())
     record_maps = [record._asdict()]
     for other in other_records:
         for (ftype, fname) in other._desc.get_field_tuples():
@@ -778,7 +786,6 @@ def extend_record(record, other_records, replace=False, name=None):
 
 
 class DynamicFieldtypeModule:
-
     def __init__(self, path=""):
         self.path = path
 
@@ -786,7 +793,7 @@ class DynamicFieldtypeModule:
         path = (self.path + "." if self.path else "") + path
 
         obj = WHITELIST_TREE
-        for p in path.split('.'):
+        for p in path.split("."):
             if p not in obj:
                 raise AttributeError("Invalid field type: {}".format(path))
             obj = obj[p]

@@ -32,13 +32,30 @@ from flow.record.stream import (
 )
 
 __all__ = [
-    'RECORD_VERSION', 'FieldType', 'Record', 'GroupedRecord',
-    'RecordDescriptor', 'RecordAdapter', 'RecordField', 'RecordReader',
-    'RecordWriter', 'RecordOutput', 'RecordPrinter', 'RecordPacker',
-    'JsonRecordPacker', 'RecordStreamWriter', 'RecordStreamReader',
-    'open_path', 'stream', 'dynamic_fieldtype', 'DynamicDescriptor',
-    'PathTemplateWriter', 'RecordArchiver', 'RecordDescriptorError',
-    'record_stream', 'extend_record',
+    "RECORD_VERSION",
+    "FieldType",
+    "Record",
+    "GroupedRecord",
+    "RecordDescriptor",
+    "RecordAdapter",
+    "RecordField",
+    "RecordReader",
+    "RecordWriter",
+    "RecordOutput",
+    "RecordPrinter",
+    "RecordPacker",
+    "JsonRecordPacker",
+    "RecordStreamWriter",
+    "RecordStreamReader",
+    "open_path",
+    "stream",
+    "dynamic_fieldtype",
+    "DynamicDescriptor",
+    "PathTemplateWriter",
+    "RecordArchiver",
+    "RecordDescriptorError",
+    "record_stream",
+    "extend_record",
 ]
 
 

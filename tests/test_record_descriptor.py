@@ -6,11 +6,14 @@ from flow.record import RecordField
 
 
 def test_record_descriptor():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-        ("varint", "status"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+            ("varint", "status"),
+        ],
+    )
 
     # Get fields of type string
     fields = TestRecord.getfields("string")
@@ -30,11 +33,14 @@ def test_record_descriptor():
 
 
 def test_record_descriptor_clone():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-        ("varint", "status"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+            ("varint", "status"),
+        ],
+    )
 
     # Clone record descriptor
     OtherRecord = RecordDescriptor("other/record", TestRecord)
@@ -46,10 +52,13 @@ def test_record_descriptor_clone():
 
 
 def test_record_descriptor_extend():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+        ],
+    )
 
     # Add field
     ExtendedRecord = TestRecord.extend([("varint", "status")])
@@ -63,28 +72,37 @@ def test_record_descriptor_extend():
 
 def test_record_descriptor_hash_cache():
     # Get initial cache stats
-    TestRecord1 = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-    ])
+    TestRecord1 = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+        ],
+    )
     info = RecordDescriptor.calc_descriptor_hash.cache_info()
 
     # Create same descriptor, check cache hit increase
-    TestRecord2 = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-    ])
+    TestRecord2 = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+        ],
+    )
     info2 = RecordDescriptor.calc_descriptor_hash.cache_info()
     assert info2.hits == info.hits + 1
     assert info.misses == info2.misses
     assert TestRecord1.descriptor_hash == TestRecord2.descriptor_hash
 
     # Create different descriptor, check for cache miss increase
-    TestRecord3 = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-        ("boolean", "test"),
-    ])
+    TestRecord3 = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+            ("boolean", "test"),
+        ],
+    )
     info3 = RecordDescriptor.calc_descriptor_hash.cache_info()
     assert info2.hits == info.hits + 1
     assert info3.misses == info.misses + 1
@@ -92,11 +110,14 @@ def test_record_descriptor_hash_cache():
 
 
 def test_record_descriptor_hashing():
-    """ Test if hashing is still consistent to keep compatibility """
-    TestRecord = RecordDescriptor("test/hash", [
-        ("boolean", "one"),
-        ("string", "two"),
-    ])
+    """Test if hashing is still consistent to keep compatibility"""
+    TestRecord = RecordDescriptor(
+        "test/hash",
+        [
+            ("boolean", "one"),
+            ("string", "two"),
+        ],
+    )
 
     # known good values from flow.record version 1.4.1
     desc_hash = 1395243447
@@ -111,26 +132,38 @@ def test_record_descriptor_hashing():
 
 
 def test_record_descriptor_hash_eq():
-    """ Tests __hash__() on RecordDescriptor """
-    TestRecordSame1 = RecordDescriptor("test/same", [
-        ("boolean", "one"),
-        ("string", "two"),
-    ])
+    """Tests __hash__() on RecordDescriptor"""
+    TestRecordSame1 = RecordDescriptor(
+        "test/same",
+        [
+            ("boolean", "one"),
+            ("string", "two"),
+        ],
+    )
 
-    TestRecordSame2 = RecordDescriptor("test/same", [
-        ("boolean", "one"),
-        ("string", "two"),
-    ])
+    TestRecordSame2 = RecordDescriptor(
+        "test/same",
+        [
+            ("boolean", "one"),
+            ("string", "two"),
+        ],
+    )
 
-    TestRecordDifferentName = RecordDescriptor("test/different", [
-        ("boolean", "one"),
-        ("string", "two"),
-    ])
+    TestRecordDifferentName = RecordDescriptor(
+        "test/different",
+        [
+            ("boolean", "one"),
+            ("string", "two"),
+        ],
+    )
 
-    TestRecordDifferentFields = RecordDescriptor("test/different", [
-        ("varint", "one"),
-        ("float", "two"),
-    ])
+    TestRecordDifferentFields = RecordDescriptor(
+        "test/different",
+        [
+            ("varint", "one"),
+            ("float", "two"),
+        ],
+    )
 
     # __hash__
     assert hash(TestRecordSame1) == hash(TestRecordSame2)

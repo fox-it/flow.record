@@ -7,13 +7,19 @@ def test_record_in_record():
     packer = JsonRecordPacker()
     dt = datetime.utcnow()
 
-    RecordA = RecordDescriptor("test/record_a", [
-        ("datetime", "some_dt"),
-    ])
-    RecordB = RecordDescriptor("test/record_b", [
-        ("record", "record"),
-        ("datetime", "some_dt"),
-    ])
+    RecordA = RecordDescriptor(
+        "test/record_a",
+        [
+            ("datetime", "some_dt"),
+        ],
+    )
+    RecordB = RecordDescriptor(
+        "test/record_b",
+        [
+            ("record", "record"),
+            ("datetime", "some_dt"),
+        ],
+    )
 
     record_a = RecordA(dt)
     record_b = RecordB(record_a, dt)

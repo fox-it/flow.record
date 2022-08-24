@@ -56,7 +56,7 @@ class AvroWriter(AbstractWriter):
         self.schema = None
         self.parsed_schema = None
         self.writer = None
-        self.codec = 'snappy' if find_spec('snappy') else 'deflate'
+        self.codec = "snappy" if find_spec("snappy") else "deflate"
 
     def write(self, r):
         if not self.desc:
@@ -97,9 +97,7 @@ class AvroReader(AbstractReader):
 
         # Store the fieldnames that are of type "datetime"
         self.datetime_fields = set(
-            name
-            for name, field in self.desc.get_all_fields().items()
-            if field.typename == "datetime"
+            name for name, field in self.desc.get_all_fields().items() if field.typename == "datetime"
         )
 
     def __iter__(self):
@@ -107,7 +105,7 @@ class AvroReader(AbstractReader):
             # Convert timestamp-micros fields back to datetime fields
             for field_name in self.datetime_fields:
                 value = obj.get(field_name, None)
-                if isinstance(value, (int, float)) and value > 0xffffffff:
+                if isinstance(value, (int, float)) and value > 0xFFFFFFFF:
                     obj[field_name] = EPOCH + timedelta(microseconds=value)
 
             rec = self.desc.recordType(**obj)
@@ -157,7 +155,7 @@ def schema_to_descriptor(schema):
     doc = schema.get("doc")
 
     # Sketchy record descriptor detection
-    if doc and doc.startswith("[\"") and doc.endswith("]]]"):
+    if doc and doc.startswith('["') and doc.endswith("]]]"):
         name, fields = json.loads(doc)
     else:
         # No embedded record descriptor, attempt to generate one from the schema

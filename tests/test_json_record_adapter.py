@@ -4,13 +4,19 @@ from flow.record import RecordDescriptor, RecordWriter, RecordReader
 
 
 def generate_records(count=100):
-    TestRecordEmbedded = RecordDescriptor("test/embedded_record", [
-        ("datetime", "dt"),
-    ])
-    TestRecord = RecordDescriptor("test/adapter", [
-        ("uint32", "number"),
-        ("record", "record"),
-    ])
+    TestRecordEmbedded = RecordDescriptor(
+        "test/embedded_record",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+    TestRecord = RecordDescriptor(
+        "test/adapter",
+        [
+            ("uint32", "number"),
+            ("record", "record"),
+        ],
+    )
 
     for i in range(count):
         embedded = TestRecordEmbedded(datetime.datetime.utcnow())
@@ -55,8 +61,8 @@ def test_json_adapter_jsonlines(tmpdir):
     json_file = tmpdir.join("data.jsonl")
 
     items = [
-        {'some_float': 1.5, 'some_string': 'hello world', 'some_int': 1337, 'some_bool': True},
-        {'some_float': 2.7, 'some_string': 'goodbye world', 'some_int': 12345, 'some_bool': False},
+        {"some_float": 1.5, "some_string": "hello world", "some_int": 1337, "some_bool": True},
+        {"some_float": 2.7, "some_string": "goodbye world", "some_int": 12345, "some_bool": False},
     ]
     with open(json_file, "w") as fout:
         for row in items:

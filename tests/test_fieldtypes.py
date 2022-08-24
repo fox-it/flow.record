@@ -21,9 +21,12 @@ UINT16_MAX = (1 << 16) - 1
 
 
 def test_uint16():
-    desc = RecordDescriptor("test/uint16", [
-        ("uint16", "value"),
-    ])
+    desc = RecordDescriptor(
+        "test/uint16",
+        [
+            ("uint16", "value"),
+        ],
+    )
 
     # valid
     desc.recordType(0x0)
@@ -42,9 +45,12 @@ def test_uint16():
 
 
 def test_uint32():
-    TestRecord = RecordDescriptor("test/uint32", [
-        ("uint32", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/uint32",
+        [
+            ("uint32", "value"),
+        ],
+    )
 
     # valid
     TestRecord(0x0)
@@ -64,32 +70,38 @@ def test_uint32():
 
 
 def test_net_ipv4_address():
-    TestRecord = RecordDescriptor("test/net/ipv4/address", [
-        ("net.ipv4.Address", "ip"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/net/ipv4/address",
+        [
+            ("net.ipv4.Address", "ip"),
+        ],
+    )
 
     TestRecord("1.1.1.1")
     TestRecord("0.0.0.0")
     TestRecord("192.168.0.1")
     TestRecord("255.255.255.255")
 
-    r = TestRecord(u"127.0.0.1")
+    r = TestRecord("127.0.0.1")
 
     assert isinstance(r.ip, net.ipv4.Address)
 
     for invalid in ["1.1.1.256", "192.168.0.1/24", "a.b.c.d"]:
         with pytest.raises(Exception) as excinfo:
             TestRecord(invalid)
-        excinfo.match(r'.*illegal IP address string.*')
+        excinfo.match(r".*illegal IP address string.*")
 
     r = TestRecord()
     assert r.ip is None
 
 
 def test_net_ipv4_subnet():
-    TestRecord = RecordDescriptor("test/net/ipv4/subnet", [
-        ("net.ipv4.Subnet", "subnet"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/net/ipv4/subnet",
+        [
+            ("net.ipv4.Subnet", "subnet"),
+        ],
+    )
 
     r = TestRecord("1.1.1.0/24")
     assert str(r.subnet) == "1.1.1.0/24"
@@ -104,17 +116,17 @@ def test_net_ipv4_subnet():
     r = TestRecord("192.168.0.1")
     r = TestRecord("255.255.255.255")
 
-    r = TestRecord(u"127.0.0.1")
+    r = TestRecord("127.0.0.1")
 
     for invalid in ["a.b.c.d", "foo", "bar", ""]:
         with pytest.raises(Exception) as excinfo:
             TestRecord(invalid)
-        excinfo.match(r'.*illegal IP address string.*')
+        excinfo.match(r".*illegal IP address string.*")
 
     for invalid in [1, 1.0, sum, dict(), list(), True]:
         with pytest.raises(TypeError) as excinfo:
             TestRecord(invalid)
-        excinfo.match(r'Subnet\(\) argument 1 must be string, not .*')
+        excinfo.match(r"Subnet\(\) argument 1 must be string, not .*")
 
     with pytest.raises(ValueError) as excinfo:
         TestRecord("192.168.0.106/28")
@@ -122,10 +134,13 @@ def test_net_ipv4_subnet():
 
 
 def test_bytes():
-    TestRecord = RecordDescriptor("test/string", [
-        ("string", "url"),
-        ("bytes", "body"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/string",
+        [
+            ("string", "url"),
+            ("bytes", "body"),
+        ],
+    )
 
     r = TestRecord("url", b"some bytes")
     assert r.body == b"some bytes"
@@ -135,73 +150,82 @@ def test_bytes():
         excinfo.match(r"Value not of bytes type")
 
     with pytest.raises(TypeError) as excinfo:
-        r = TestRecord("url", u"a string")
+        r = TestRecord("url", "a string")
         excinfo.match(r"Value not of bytes type")
 
     b_array = bytes(bytearray(range(256)))
     body = b"HTTP/1.1 200 OK\r\n\r\n" + b_array
     r = TestRecord("http://www.fox-it.com", body)
     assert r
-    assert r.url == u"http://www.fox-it.com"
+    assert r.url == "http://www.fox-it.com"
     assert r.body == b"HTTP/1.1 200 OK\r\n\r\n" + b_array
 
     # testcase when input are bytes
-    r = TestRecord("http://www.fox-it.com", b'HTTP/1.1 500 Error\r\n\r\nError')
+    r = TestRecord("http://www.fox-it.com", b"HTTP/1.1 500 Error\r\n\r\nError")
     assert r.body == b"HTTP/1.1 500 Error\r\n\r\nError"
 
 
 def test_string():
-    TestRecord = RecordDescriptor("test/string", [
-        ("string", "name"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/string",
+        [
+            ("string", "name"),
+        ],
+    )
 
     r = TestRecord("Fox-IT")
-    assert r.name == u"Fox-IT"
+    assert r.name == "Fox-IT"
 
-    r = TestRecord(u"Rémy")
-    assert r.name == u"Rémy"
+    r = TestRecord("Rémy")
+    assert r.name == "Rémy"
 
     # construct from 'bytes'
-    r = TestRecord(b'R\xc3\xa9my')
-    assert r.name == u"Rémy"
+    r = TestRecord(b"R\xc3\xa9my")
+    assert r.name == "Rémy"
 
     # construct from 'bytes' but with invalid unicode bytes
-    if isinstance(u'', str):
+    if isinstance("", str):
         # Python 3
         with pytest.raises(UnicodeDecodeError):
-            TestRecord(b'R\xc3\xa9\xeamy')
+            TestRecord(b"R\xc3\xa9\xeamy")
     else:
         # Python 2
         with pytest.warns(RuntimeWarning):
-            r = TestRecord(b'R\xc3\xa9\xeamy')
+            r = TestRecord(b"R\xc3\xa9\xeamy")
             assert r.name
 
 
 def test_wstring():
     # Behaves the same as test/string, only available for backwards compatibility purposes
-    TestRecord = RecordDescriptor("test/wstring", [
-        ("wstring", "name"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/wstring",
+        [
+            ("wstring", "name"),
+        ],
+    )
 
     r = TestRecord("Fox-IT")
-    assert r.name == u"Fox-IT"
+    assert r.name == "Fox-IT"
 
 
 def test_typedlist():
-    TestRecord = RecordDescriptor("test/typedlist", [
-        ("string[]", "string_value"),
-        ("uint32[]", "uint32_value"),
-        ("uri[]", "uri_value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/typedlist",
+        [
+            ("string[]", "string_value"),
+            ("uint32[]", "uint32_value"),
+            ("uri[]", "uri_value"),
+        ],
+    )
 
-    r = TestRecord(['a', 'b', 'c'], [1, 2, 3], ["/etc/passwd", "/etc/shadow"])
+    r = TestRecord(["a", "b", "c"], [1, 2, 3], ["/etc/passwd", "/etc/shadow"])
     assert len(r.string_value) == 3
     assert len(r.uint32_value) == 3
     assert len(r.uri_value) == 2
-    assert r.string_value[2] == 'c'
+    assert r.string_value[2] == "c"
     assert r.uint32_value[1] == 2
     assert all([isinstance(v, uri) for v in r.uri_value])
-    assert r.uri_value[1].filename == 'shadow'
+    assert r.uri_value[1].filename == "shadow"
 
     r = TestRecord()
     assert r.string_value == []
@@ -209,26 +233,32 @@ def test_typedlist():
     assert r.uri_value == []
 
     with pytest.raises(ValueError):
-        r = TestRecord(uint32_value=['a', 'b', 'c'])
+        r = TestRecord(uint32_value=["a", "b", "c"])
 
 
 def test_stringlist():
-    TestRecord = RecordDescriptor("test/string", [
-        ("stringlist", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/string",
+        [
+            ("stringlist", "value"),
+        ],
+    )
 
-    r = TestRecord(['a', 'b', 'c'])
+    r = TestRecord(["a", "b", "c"])
     assert len(r.value) == 3
-    assert r.value[2] == 'c'
+    assert r.value[2] == "c"
 
-    r = TestRecord([u"Rémy"])
+    r = TestRecord(["Rémy"])
     assert r.value[0]
 
 
 def test_dictlist():
-    TestRecord = RecordDescriptor("test/dictlist", [
-        ("dictlist", "hits"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/dictlist",
+        [
+            ("dictlist", "hits"),
+        ],
+    )
 
     r = TestRecord([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
     assert len(r.hits) == 2
@@ -240,10 +270,13 @@ def test_dictlist():
 
 
 def test_boolean():
-    TestRecord = RecordDescriptor("test/boolean", [
-        ("boolean", "booltrue"),
-        ("boolean", "boolfalse"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/boolean",
+        [
+            ("boolean", "booltrue"),
+            ("boolean", "boolfalse"),
+        ],
+    )
 
     r = TestRecord(True, False)
     assert bool(r.booltrue) is True
@@ -263,13 +296,16 @@ def test_boolean():
         r = TestRecord(2, -1)
 
     with pytest.raises(ValueError):
-        r = TestRecord('True', 'False')
+        r = TestRecord("True", "False")
 
 
 def test_float():
-    TestRecord = RecordDescriptor("test/float", [
-        ("float", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/float",
+        [
+            ("float", "value"),
+        ],
+    )
 
     # initialize via float
     r = TestRecord(1.3337)
@@ -293,9 +329,12 @@ def test_float():
 
 
 def test_uri_type():
-    TestRecord = RecordDescriptor("test/uri", [
-        ("uri", "path"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/uri",
+        [
+            ("uri", "path"),
+        ],
+    )
 
     r = TestRecord("http://www.google.com/a.bin")
     assert r.path.filename == "a.bin"
@@ -330,21 +369,24 @@ def test_uri_type():
 
 
 def test_datetime():
-    TestRecord = RecordDescriptor("test/datetime", [
-        ("datetime", "ts"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "ts"),
+        ],
+    )
 
     now = datetime.datetime.utcnow()
     r = TestRecord(now)
     assert r.ts == now
 
-    r = TestRecord(u"2018-03-22T15:15:23")
+    r = TestRecord("2018-03-22T15:15:23")
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
 
-    r = TestRecord(u"2018-03-22T15:15:23.000000")
+    r = TestRecord("2018-03-22T15:15:23.000000")
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
 
-    r = TestRecord(u"2018-03-22T15:15:23.123456")
+    r = TestRecord("2018-03-22T15:15:23.123456")
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
 
     dt = datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
@@ -360,9 +402,12 @@ def test_datetime():
 
 
 def test_digest():
-    TestRecord = RecordDescriptor("test/digest", [
-        ("digest", "digest"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/digest",
+        [
+            ("digest", "digest"),
+        ],
+    )
 
     md5 = hashlib.md5(b"hello").hexdigest()
     sha1 = hashlib.sha1(b"hello").hexdigest()
@@ -389,19 +434,19 @@ def test_digest():
 
     with pytest.raises(TypeError) as excinfo:
         record = TestRecord(("a", sha1, sha256))
-        excinfo.match(r'.*Invalid MD5.*Odd-length string')
+        excinfo.match(r".*Invalid MD5.*Odd-length string")
 
     with pytest.raises(TypeError) as excinfo:
         record = TestRecord(("aa", sha1, sha256))
-        excinfo.match(r'.*Invalid MD5.*Incorrect hash length')
+        excinfo.match(r".*Invalid MD5.*Incorrect hash length")
 
     with pytest.raises(TypeError) as excinfo:
         record = TestRecord((md5, "aa", sha256))
-        excinfo.match(r'.*Invalid SHA1.*')
+        excinfo.match(r".*Invalid SHA1.*")
 
     with pytest.raises(TypeError) as excinfo:
         record = TestRecord((md5, sha1, "aa"))
-        excinfo.match(r'.*Invalid SHA256.*')
+        excinfo.match(r".*Invalid SHA256.*")
 
     record = TestRecord()
     assert record.digest is not None
@@ -410,20 +455,23 @@ def test_digest():
     assert record.digest.sha256 is None
     with pytest.raises(TypeError) as excinfo:
         record.digest.md5 = "INVALID MD5"
-        excinfo.match(r'.*Invalid MD5.*')
+        excinfo.match(r".*Invalid MD5.*")
 
 
 def test_dynamic():
-    TestRecord = RecordDescriptor("test/dynamic", [
-        ("dynamic", "value"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/dynamic",
+        [
+            ("dynamic", "value"),
+        ],
+    )
 
     r = TestRecord(b"bytes")
     assert r.value == b"bytes"
     assert isinstance(r.value, flow.record.fieldtypes.bytes)
 
-    r = TestRecord(u"string")
-    assert r.value == u"string"
+    r = TestRecord("string")
+    assert r.value == "string"
     assert isinstance(r.value, flow.record.fieldtypes.string)
 
     r = TestRecord(123)

@@ -99,12 +99,8 @@ def main():
         description="Annotate records with GeoIP and ASN data",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "-c", "--city-db", default=DEFAULT_CITY_DB, help="path to GeoIP city database"
-    )
-    parser.add_argument(
-        "-a", "--asn-db", default=DEFAULT_ASN_DB, help="path to GeoIP ASN database"
-    )
+    parser.add_argument("-c", "--city-db", default=DEFAULT_CITY_DB, help="path to GeoIP city database")
+    parser.add_argument("-a", "--asn-db", default=DEFAULT_ASN_DB, help="path to GeoIP ASN database")
     parser.add_argument(
         "-i",
         "--ip-field",
@@ -128,9 +124,7 @@ def main():
     )
 
     # Hidden options
-    parser.add_argument(
-        "-m", "--mode", type=int, default=maxminddb.MODE_AUTO, help=argparse.SUPPRESS
-    )
+    parser.add_argument("-m", "--mode", type=int, default=maxminddb.MODE_AUTO, help=argparse.SUPPRESS)
     parser.add_argument("-g", "--generate", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -155,9 +149,7 @@ def main():
     try:
         asn_db = maxminddb.open_database(args.asn_db, args.mode)
     except FileNotFoundError:
-        logger.warning(
-            "[*] Disabled ASN record annotation. (database not found: %r)", args.asn_db
-        )
+        logger.warning("[*] Disabled ASN record annotation. (database not found: %r)", args.asn_db)
         asn_db = None
 
     if not any([city_db, asn_db]) and not args.text:

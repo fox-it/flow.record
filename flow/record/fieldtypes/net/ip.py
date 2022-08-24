@@ -48,11 +48,9 @@ class ipnetwork(FieldType):
             # Always false if one is v4 and the other is v6.
             if a._version != b._version:
                 raise TypeError("{} and {} are not of the same version".format(a, b))
-            return (b.network_address <= a.network_address and
-                    b.broadcast_address >= a.broadcast_address)
+            return b.network_address <= a.network_address and b.broadcast_address >= a.broadcast_address
         except AttributeError:
-            raise TypeError("Unable to test subnet containment "
-                            "between {} and {}".format(a, b))
+            raise TypeError("Unable to test subnet containment " "between {} and {}".format(a, b))
 
     def __contains__(self, b):
         try:

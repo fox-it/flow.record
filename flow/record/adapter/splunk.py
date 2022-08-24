@@ -14,15 +14,17 @@ Write usage: rdump -w splunk://[IP]:[PORT]?rdtag=[TAG]
 
 log = logging.getLogger(__package__)
 
-RESERVED_SPLUNK_FIELDS = set([
-    '_indextime',
-    '_time',
-    'index',
-    'punct',
-    'source',
-    'sourcetype',
-    'tag',
-])
+RESERVED_SPLUNK_FIELDS = set(
+    [
+        "_indextime",
+        "_time",
+        "index",
+        "punct",
+        "source",
+        "sourcetype",
+        "tag",
+    ]
+)
 
 
 def splunkify(record, tag=None):
@@ -31,19 +33,19 @@ def splunkify(record, tag=None):
     ret.append(f'type="{record._desc.name}"')
 
     if tag is None:
-        ret.append('rdtag=None')
+        ret.append("rdtag=None")
     else:
         ret.append(f'rdtag="{tag}"')
 
     for field in record._desc.fields:
         val = getattr(record, field)
         if val is None:
-            ret.append(f'{field}=None')
+            ret.append(f"{field}=None")
         else:
             val = to_base64(val) if isinstance(val, bytes) else to_str(val)
-            val = val.replace('\\', '\\\\').replace('"', '\\"')
+            val = val.replace("\\", "\\\\").replace('"', '\\"')
             if field in RESERVED_SPLUNK_FIELDS:
-                field = f'rd_{field}'
+                field = f"rd_{field}"
             ret.append(f'{field}="{val}"')
 
     return " ".join(ret)
@@ -64,7 +66,7 @@ class SplunkWriter(AbstractWriter):
         self._warned = False
 
     def write(self, record):
-        if not self._warned and 'rdtag' in record._desc.fields:
+        if not self._warned and "rdtag" in record._desc.fields:
             self._warned = True
             log.warning(
                 "Record has 'rdtag' field which conflicts with the Splunk adapter -- "
@@ -84,6 +86,5 @@ class SplunkWriter(AbstractWriter):
 
 
 class SplunkReader(AbstractReader):
-
     def __init__(self, path, selector=None, **kwargs):
         raise NotImplementedError()

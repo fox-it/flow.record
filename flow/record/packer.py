@@ -12,7 +12,7 @@ from .utils import EventHandler, to_str
 packb = functools.partial(msgpack.packb, use_bin_type=True)
 unpackb = functools.partial(msgpack.unpackb, raw=False)
 
-RECORD_PACK_EXT_TYPE = 0xe
+RECORD_PACK_EXT_TYPE = 0xE
 
 RECORD_PACK_TYPE_RECORD = 0x1
 RECORD_PACK_TYPE_DESCRIPTOR = 0x2
@@ -54,7 +54,7 @@ class RecordPacker:
         packed = None
 
         if isinstance(obj, datetime.datetime):
-            t = obj.utctimetuple()[:6] + (obj.microsecond, )
+            t = obj.utctimetuple()[:6] + (obj.microsecond,)
             packed = (RECORD_PACK_TYPE_DATETIME, t)
 
         elif isinstance(obj, int):
@@ -125,13 +125,19 @@ class RecordPacker:
             # Perform some basic checking on record version, if any, and issue a warning if needed.
             if not isinstance(version, int) or version < 1 or version > 255:
                 warnings.warn(
-                    ("Got old style record with no version information (expected {:d}). " +
-                     "Compatibility is not guaranteed.").format(
-                        RECORD_VERSION), RuntimeWarning)
+                    (
+                        "Got old style record with no version information (expected {:d}). "
+                        "Compatibility is not guaranteed."
+                    ).format(RECORD_VERSION),
+                    RuntimeWarning,
+                )
             elif version != RECORD_VERSION:
                 warnings.warn(
                     "Got other version record (expected {:d}, got {:d}). Compatibility is not guaranteed.".format(
-                        RECORD_VERSION, version), RuntimeWarning)
+                        RECORD_VERSION, version
+                    ),
+                    RuntimeWarning,
+                )
                 # Optionally add compatibility code here later
 
             # If the actual amount of fields is less, there's nothing we can really do.
@@ -141,7 +147,7 @@ class RecordPacker:
             # has a version field.
             if len(values) > expected_len:
                 # Likely newer style record. Strip extra fields but maintain version field
-                values = values[:expected_len - 1]
+                values = values[: expected_len - 1]
                 values += (version,)
 
             return desc.recordType._unpack(*values)

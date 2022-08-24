@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flow.record import RecordDescriptor, RecordWriter
 
-FilesystemFile = RecordDescriptor("""
+descriptor = """
 filesystem/unix/entry
     string path;
     varint inode;
@@ -18,7 +18,8 @@ filesystem/unix/entry
     datetime mtime;
     datetime atime;
     string link;
-""")
+"""
+FilesystemFile = RecordDescriptor(descriptor)
 
 
 def hash_file(path, t):
@@ -52,7 +53,7 @@ class FilesystemIterator:
 
         abspath = path
         if self.basepath and abspath.startswith(self.basepath):
-            abspath = abspath[len(self.basepath):]
+            abspath = abspath[len(self.basepath) :]
 
         ifmt = stat.S_IFMT(st.st_mode)
 
@@ -83,16 +84,18 @@ class FilesystemIterator:
                 for e in self.iter(fullpath):
                     yield e
 
+
 chunk = []
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('target', metavar="TARGET", nargs="*")
-    parser.add_argument('-s', dest='source', help="Source")
-    parser.add_argument('-c', dest='classification', help="Classification")
-    parser.add_argument('-b', dest='base', help="Base directory")
+    parser.add_argument("target", metavar="TARGET", nargs="*")
+    parser.add_argument("-s", dest="source", help="Source")
+    parser.add_argument("-c", dest="classification", help="Classification")
+    parser.add_argument("-b", dest="base", help="Base directory")
 
     args = parser.parse_args()
 

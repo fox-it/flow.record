@@ -41,14 +41,14 @@ def list_adapters():
     if isinstance(loader, zipimporter):
         adapters = [
             Path(path).stem
-            for path in loader._files.keys() if path.endswith((".py", ".pyc"))
-            and not Path(path).name.startswith('__')
+            for path in loader._files.keys()
+            if path.endswith((".py", ".pyc"))
+            and not Path(path).name.startswith("__")
             and "flow/record/adapter" in str(Path(path).parent)
         ]
     else:
         adapters = [
-            Path(name).stem
-            for name in loader.contents() if name.endswith(("py", "pyc")) and not name.startswith("__")
+            Path(name).stem for name in loader.contents() if name.endswith(("py", "pyc")) and not name.startswith("__")
         ]
 
     print("available adapters:")
@@ -68,83 +68,87 @@ def list_adapters():
 @catch_sigpipe
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(
         description="Record dumper, a tool that can read, write and filter records",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    parser.add_argument(
-        '--version', action='version', version="flow.record version {}".format(version))
-    parser.add_argument(
-        'src', metavar='SOURCE', nargs='*', default=['-'],
-        help='Record source')
-    parser.add_argument(
-        '-v', '--verbose', action='count', default=0,
-        help='Increase verbosity')
+    parser.add_argument("--version", action="version", version="flow.record version {}".format(version))
+    parser.add_argument("src", metavar="SOURCE", nargs="*", default=["-"], help="Record source")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
 
     misc = parser.add_argument_group("miscellaneous")
     misc.add_argument(
-        '-a', '--list-adapters', action='store_true',
-        help='List (un)available adapters that can be used for reading or writing')
+        "-a",
+        "--list-adapters",
+        action="store_true",
+        help="List (un)available adapters that can be used for reading or writing",
+    )
+    misc.add_argument("-l", "--list", action="store_true", help="List unique Record Descriptors")
     misc.add_argument(
-        '-l', '--list', action='store_true',
-        help='List unique Record Descriptors')
-    misc.add_argument(
-        '-n', '--no-compile', action='store_true',
-        help="Don't use a compiled selector (safer, but slower)")
-    misc.add_argument(
-        '--record-source', default=None,
-        help='Overwrite the record source field')
-    misc.add_argument(
-        '--record-classification', default=None,
-        help='Overwrite the record classification field')
+        "-n", "--no-compile", action="store_true", help="Don't use a compiled selector (safer, but slower)"
+    )
+    misc.add_argument("--record-source", default=None, help="Overwrite the record source field")
+    misc.add_argument("--record-classification", default=None, help="Overwrite the record classification field")
 
-    selection = parser.add_argument_group('selection')
+    selection = parser.add_argument_group("selection")
+    selection.add_argument("-F", "--fields", metavar="FIELDS", help="Fields (comma seperated) to output in dumping")
+    selection.add_argument("-X", "--exclude", metavar="FIELDS", help="Fields (comma seperated) to exclude in dumping")
     selection.add_argument(
-        '-F', '--fields', metavar='FIELDS',
-        help='Fields (comma seperated) to output in dumping')
-    selection.add_argument(
-        '-X', '--exclude', metavar='FIELDS',
-        help='Fields (comma seperated) to exclude in dumping')
-    selection.add_argument(
-        '-s', '--selector', metavar='SELECTOR', default=None,
-        help='Only output records matching Selector')
+        "-s", "--selector", metavar="SELECTOR", default=None, help="Only output records matching Selector"
+    )
 
-    output = parser.add_argument_group('output control')
-    output.add_argument(
-        '-f', '--format', metavar='FORMAT',
-        help='Format string')
-    output.add_argument(
-        '-c', '--count', type=int,
-        help='Exit after COUNT records')
-    output.add_argument(
-        '-w', '--writer', metavar='OUTPUT', default=None,
-        help='Write records to output')
-    output.add_argument(
-        '-m', '--mode', default=None, choices=("csv", "json", "jsonlines", "line"),
-        help='Output mode')
+    output = parser.add_argument_group("output control")
+    output.add_argument("-f", "--format", metavar="FORMAT", help="Format string")
+    output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
+    output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
+    output.add_argument("-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line"), help="Output mode")
 
-    advanced = parser.add_argument_group('advanced')
+    advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
-        '-E', "--exec-expression",
-        help="execute a (Python) expression for each record AFTER selector matching, can be used to assign new fields")
+        "-E",
+        "--exec-expression",
+        help="execute a (Python) expression for each record AFTER selector matching, can be used to assign new fields",
+    )
 
-    aliases = parser.add_argument_group('aliases')
+    aliases = parser.add_argument_group("aliases")
     aliases.add_argument(
-        '-j', '--json', action='store_const', const='json', dest='mode',
+        "-j",
+        "--json",
+        action="store_const",
+        const="json",
+        dest="mode",
         default=argparse.SUPPRESS,
-        help='Short for --mode=json')
+        help="Short for --mode=json",
+    )
     aliases.add_argument(
-        '-J', '--jsonlines', action='store_const', const='jsonlines', dest='mode',
+        "-J",
+        "--jsonlines",
+        action="store_const",
+        const="jsonlines",
+        dest="mode",
         default=argparse.SUPPRESS,
-        help='Short for --mode=jsonlines')
+        help="Short for --mode=jsonlines",
+    )
     aliases.add_argument(
-        '-C', '--csv', action='store_const', const='csv', dest='mode',
+        "-C",
+        "--csv",
+        action="store_const",
+        const="csv",
+        dest="mode",
         default=argparse.SUPPRESS,
-        help='Short for --mode=csv')
+        help="Short for --mode=csv",
+    )
     aliases.add_argument(
-        "-L", "--line", action='store_const', const='line', dest='mode',
+        "-L",
+        "--line",
+        action="store_const",
+        const="line",
+        dest="mode",
         default=argparse.SUPPRESS,
-        help='Short for --mode=line')
+        help="Short for --mode=line",
+    )
 
     args = parser.parse_args()
 
