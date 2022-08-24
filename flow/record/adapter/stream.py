@@ -2,6 +2,14 @@ from flow import record
 from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractReader, AbstractWriter
 
+__usage__ = """
+Binary stream adapter (default adapter if none are specified)
+---
+Write usage: rdump -w stream://[PATH]
+Read usage: rdump stream://[PATH]
+[PATH]: path to file. Leave empty or "-" to output to stdout
+"""
+
 
 class StreamWriter(AbstractWriter):
     fp = None

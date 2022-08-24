@@ -2,6 +2,13 @@ from flow.record.adapter import AbstractWriter
 from flow.record import open_path
 from flow.record.utils import is_stdout
 
+__usage__ = """
+Line output format adapter (writer only)
+---
+Write usage: rdump -w line://[PATH]
+[PATH]: path to file. Leave empty or "-" to output to stdout
+"""
+
 
 class LineWriter(AbstractWriter):
     """Prints all fields and values of the Record on a separate line."""

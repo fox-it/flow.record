@@ -4,6 +4,16 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import make_selector
 from pymongo import MongoClient
 
+__usage__ = """
+MongoDB adapter
+---
+Write usage: rdump -w mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
+Read usage: rdump mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
+[IP]:[PORT]: ip and port to a mongodb instance
+[DBNAME]: database name to write to or read from
+[COLLECTION]: collection to write to or read from
+"""
+
 
 def parse_path(path):
     elements = path.strip("/").split("/", 2)  # max 3 elements

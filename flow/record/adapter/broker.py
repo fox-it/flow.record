@@ -1,6 +1,13 @@
 from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.broker import Publisher, Subscriber
 
+__usage__ = """
+PubSub adapter using flow.broker
+---
+Write usage: rdump -w broker+tcp://[IP]:[PORT]
+Read usage: rdump broker+tcp://[IP]:[PORT] -s True
+"""
+
 
 class BrokerWriter(AbstractWriter):
     publisher = None

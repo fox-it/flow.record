@@ -2,6 +2,13 @@ from flow.record import open_path
 from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractWriter
 
+__usage__ = """
+Textual output adapter, similar to `repr()` (writer only)
+---
+Write usage: rdump -w text://[PATH]
+[PATH]: path to file. Leave empty or "-" to output to stdout
+"""
+
 REPLACE_LIST = [
     (r"\r", "\r"),
     (r"\n", "\n"),

@@ -12,6 +12,16 @@ from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.selector import CompiledSelector, Selector
 
+__usage__ = """
+ElasticSearch adapter
+---
+Write usage: rdump -w elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
+Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
+[IP]:[PORT]: ip and port to elastic host
+[INDEX]: index to write to or read from
+[PROTOCOL]: http or https. Defaults to https when "+[PROTOCOL]" is omitted
+"""
+
 log = logging.getLogger(__name__)
 
 

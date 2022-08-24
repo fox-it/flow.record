@@ -4,6 +4,12 @@ from __future__ import print_function
 import sys
 import logging
 
+from importlib import import_module
+from pathlib import Path
+from textwrap import indent
+from zipimport import zipimporter
+
+import flow.record.adapter
 from flow.record import RecordWriter, record_stream
 from flow.record.stream import RecordFieldRewriter
 from flow.record.selector import make_selector
@@ -26,6 +32,39 @@ except ImportError:
     from urllib.parse import urlencode
 
 
+def list_adapters():
+    failed = []
+    loader = flow.record.adapter.__loader__
+
+    # TODO change to loader.get_resource_reader("flow.record.adapter").contents()
+    # once zipimport issue is fixed
+    if isinstance(loader, zipimporter):
+        adapters = [
+            Path(path).stem
+            for path in loader._files.keys() if path.endswith((".py", ".pyc"))
+            and not Path(path).name.startswith('__')
+            and "flow/record/adapter" in str(Path(path).parent)
+        ]
+    else:
+        adapters = [
+            Path(name).stem
+            for name in loader.contents() if name.endswith(("py", "pyc")) and not name.startswith("__")
+        ]
+
+    print("available adapters:")
+    for adapter in adapters:
+        try:
+            mod = import_module(f"flow.record.adapter.{adapter}")
+            usage = indent(mod.__usage__.strip(), prefix="    ")
+            print(f"  {adapter}:\n{usage}\n")
+        except ImportError as reason:
+            failed.append((adapter, reason))
+
+    if failed:
+        print("unavailable adapters:")
+        print("\n".join(indent(f"{adapter}: {reason}", prefix="  ") for adapter, reason in failed))
+
+
 @catch_sigpipe
 def main():
     import argparse
@@ -43,6 +82,9 @@ def main():
         help='Increase verbosity')
 
     misc = parser.add_argument_group("miscellaneous")
+    misc.add_argument(
+        '-a', '--list-adapters', action='store_true',
+        help='List (un)available adapters that can be used for reading or writing')
     misc.add_argument(
         '-l', '--list', action='store_true',
         help='List unique Record Descriptors')
@@ -112,6 +154,10 @@ def main():
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
+
+    if args.list_adapters:
+        list_adapters()
+        return 0
 
     uri = args.writer or "text://"
     if not args.writer:

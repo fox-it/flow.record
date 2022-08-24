@@ -5,6 +5,14 @@ from flow.record.utils import is_stdout
 from flow.record.selector import make_selector
 from flow.record.adapter import AbstractWriter, AbstractReader
 
+__usage__ = """
+Microsoft Excel spreadsheet adapter
+---
+Write usage: rdump -w xlsx://[PATH]
+Read usage: rdump xlsx://[PATH]
+[PATH]: path to file. Leave empty or "-" to output to stdout
+"""
+
 
 class XlsxWriter(AbstractWriter):
     fp = None
