@@ -204,7 +204,15 @@ class datetime(_dt, FieldType):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
                 return _dt.__new__(
-                    cls, arg.year, arg.month, arg.day, arg.hour, arg.minute, arg.second, arg.microsecond, arg.tzinfo
+                    cls,
+                    arg.year,
+                    arg.month,
+                    arg.day,
+                    arg.hour,
+                    arg.minute,
+                    arg.second,
+                    arg.microsecond,
+                    arg.tzinfo,
                 )
 
         return _dt.__new__(cls, *args, **kwargs)
