@@ -30,8 +30,8 @@ class SeparatedFile:
         desc = record.RecordDescriptor([i[0] for i in PASSIVEDNS_FORMAT])
         recordtype = desc.recordType
 
-        for l in self.fp:
-            p = l.strip().split(self.seperator)
+        for line in self.fp:
+            p = line.strip().split(self.seperator)
 
             r = {}
             for i in range(len(self.format)):
@@ -48,6 +48,7 @@ class SeparatedFile:
 
 def PassiveDnsFile(fp):
     return SeparatedFile(fp, "||", PASSIVEDNS_FORMAT)
+
 
 PASSIVEDNS_FORMAT = [
     ("ts", ts),
@@ -66,6 +67,7 @@ def main():
     rs = record.RecordOutput(sys.stdout)
     for r in DirectoryProcessor(sys.argv[1], PassiveDnsFile, r"\.log\.gz"):
         rs.write(r)
+
 
 if __name__ == "__main__":
     main()

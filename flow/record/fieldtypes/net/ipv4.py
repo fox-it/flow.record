@@ -30,7 +30,7 @@ def mask_to_bits(n):
 
 
 def bits_to_mask(b):
-    return (0xffffffff << (32 - b)) & 0xffffffff
+    return (0xFFFFFFFF << (32 - b)) & 0xFFFFFFFF
 
 
 class subnet(FieldType):
@@ -39,7 +39,7 @@ class subnet(FieldType):
     _type = "net.ipv4.subnet"
 
     def __init__(self, addr, netmask=None):
-        if isinstance(addr, type(u'')):
+        if isinstance(addr, type("")):
             addr = to_native_str(addr)
 
         if not isinstance(addr, str):
@@ -47,21 +47,21 @@ class subnet(FieldType):
 
         if netmask is None:
             ip, sep, mask = addr.partition("/")
-            self.mask = bits_to_mask(int(mask)) if mask else 0xffffffff
+            self.mask = bits_to_mask(int(mask)) if mask else 0xFFFFFFFF
             self.net = addr_long(ip)
         else:
             self.net = addr_long(addr)
             self.mask = bits_to_mask(netmask)
 
         if self.net & self.mask != self.net:
-            suggest = '{}/{}'.format(addr_str(self.net & self.mask), mask_to_bits(self.mask))
+            suggest = "{}/{}".format(addr_str(self.net & self.mask), mask_to_bits(self.mask))
             raise ValueError("Not a valid subnet {!r}, did you mean {!r} ?".format(str(addr), suggest))
 
     def __contains__(self, addr):
         if addr is None:
             return False
 
-        if isinstance(addr, type(u'')):
+        if isinstance(addr, type("")):
             addr = to_native_str(addr)
 
         if isinstance(addr, str):

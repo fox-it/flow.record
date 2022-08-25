@@ -3,14 +3,15 @@ import random
 from datetime import datetime
 from flow import record
 
-conn = record.RecordDescriptor("""
+descriptor = """
 network/traffic/tcp/connection
     datetime ts;
     net.ipv4.Address src;
     net.tcp.Port srcport;
     net.ipv4.Address dst;
     net.tcp.Port dstport;
-""")
+"""
+conn = record.RecordDescriptor(descriptor)
 
 ip_list = [
     "127.0.0.1",
@@ -26,7 +27,7 @@ port_list = [
     53,
     80,
     443,
-    5555
+    5555,
 ]
 
 rs = record.RecordWriter()
@@ -37,7 +38,7 @@ for i in range(500):
         src=random.choice(ip_list),
         srcport=random.choice(port_list),
         dst=random.choice(ip_list),
-        dstport=random.choice(port_list)
+        dstport=random.choice(port_list),
     )
 
     rs.write(r)

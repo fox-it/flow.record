@@ -10,11 +10,11 @@ def test_splunkify_reserved_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set(["foo"])
+        set(["foo"]),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [("string", "foo")]
+            [("string", "foo")],
         )
 
         test_record = test_record_descriptor(foo="bar")
@@ -28,11 +28,11 @@ def test_splunkify_normal_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set()
+        set(),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [("string", "foo")]
+            [("string", "foo")],
         )
 
         test_record = test_record_descriptor(foo="bar")
@@ -46,7 +46,7 @@ def test_splunkify_rdtag_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set()
+        set(),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
@@ -63,11 +63,11 @@ def test_splunkify_none_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set()
+        set(),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [("string", "foo")]
+            [("string", "foo")],
         )
 
         test_record = test_record_descriptor()
@@ -81,11 +81,11 @@ def test_splunkify_byte_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set()
+        set(),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [("bytes", "foo")]
+            [("bytes", "foo")],
         )
 
         test_record = test_record_descriptor(foo=b"bar")
@@ -99,14 +99,14 @@ def test_splunkify_backslash_quote_field():
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
-        set()
+        set(),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [("string", "foo")]
+            [("string", "foo")],
         )
 
-        test_record = test_record_descriptor(foo=b"\\\"")
+        test_record = test_record_descriptor(foo=b'\\"')
 
         output = splunkify(test_record)
         assert output == 'type="test/record" rdtag=None foo="\\\\\\""'

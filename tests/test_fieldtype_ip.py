@@ -28,9 +28,12 @@ def test_field_ipnetwork():
 
 
 def test_record_ipaddress():
-    TestRecord = RecordDescriptor("test/ipaddress", [
-        ("net.ipaddress", "ip"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipaddress",
+        [
+            ("net.ipaddress", "ip"),
+        ],
+    )
 
     r = TestRecord("127.0.0.1")
     assert r.ip == "127.0.0.1"
@@ -51,7 +54,7 @@ def test_record_ipaddress():
 
     # instantiate from different types
     assert TestRecord(1).ip == "0.0.0.1"
-    assert TestRecord(0x7f0000ff).ip == "127.0.0.255"
+    assert TestRecord(0x7F0000FF).ip == "127.0.0.255"
     assert TestRecord(b"\x7f\xff\xff\xff").ip == "127.255.255.255"
     assert TestRecord("127.0.0.1").ip == "127.0.0.1"
 
@@ -59,16 +62,19 @@ def test_record_ipaddress():
     for invalid in ["1.1.1.256", "192.168.0.1/24", "a.b.c.d", ":::::1"]:
         with pytest.raises(Exception) as excinfo:
             TestRecord(invalid)
-        excinfo.match(r'.*does not appear to be an IPv4 or IPv6 address*')
+        excinfo.match(r".*does not appear to be an IPv4 or IPv6 address*")
 
     r = TestRecord()
     assert r.ip is None
 
 
 def test_record_ipnetwork():
-    TestRecord = RecordDescriptor("test/ipnetwork", [
-        ("net.ipnetwork", "subnet"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipnetwork",
+        [
+            ("net.ipnetwork", "subnet"),
+        ],
+    )
 
     # ipv4
     r = TestRecord("192.168.0.0/24")
@@ -106,10 +112,13 @@ def test_record_ipnetwork():
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_ipaddress(PSelector):
-    TestRecord = RecordDescriptor("test/ipaddress", [
-        ("string", "description"),
-        ("net.ipaddress", "ip"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipaddress",
+        [
+            ("string", "description"),
+            ("net.ipaddress", "ip"),
+        ],
+    )
 
     records = [
         TestRecord("Google DNS IPv4", "8.8.8.8"),
@@ -135,10 +144,13 @@ def test_selector_ipaddress(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_ipnetwork(PSelector):
-    TestRecord = RecordDescriptor("test/ipnetwork", [
-        ("string", "description"),
-        ("net.ipnetwork", "subnet"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipnetwork",
+        [
+            ("string", "description"),
+            ("net.ipnetwork", "subnet"),
+        ],
+    )
 
     records = [
         # ipv4
@@ -179,11 +191,14 @@ def test_selector_ipnetwork(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_ipaddress_in_ipnetwork(PSelector):
-    TestRecord = RecordDescriptor("test/scandata", [
-        ("net.ipaddress", "ip"),
-        ("uint16", "port"),
-        ("string", "description"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/scandata",
+        [
+            ("net.ipaddress", "ip"),
+            ("uint16", "port"),
+            ("string", "description"),
+        ],
+    )
 
     records = [
         TestRecord("8.8.8.8", 53, "google"),
@@ -209,9 +224,12 @@ def test_selector_ipaddress_in_ipnetwork(PSelector):
 def test_pack_ipaddress():
     packer = RecordPacker()
 
-    TestRecord = RecordDescriptor("test/ipaddress", [
-        ("net.ipaddress", "ip"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipaddress",
+        [
+            ("net.ipaddress", "ip"),
+        ],
+    )
 
     record_in = TestRecord("10.22.99.255")
     data = packer.pack(record_in)
@@ -225,9 +243,12 @@ def test_pack_ipaddress():
 def test_pack_ipnetwork():
     packer = RecordPacker()
 
-    TestRecord = RecordDescriptor("test/ipnetwork", [
-        ("net.ipnetwork", "subnet"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/ipnetwork",
+        [
+            ("net.ipnetwork", "subnet"),
+        ],
+    )
 
     record_in = TestRecord("172.16.0.0/16")
     data = packer.pack(record_in)

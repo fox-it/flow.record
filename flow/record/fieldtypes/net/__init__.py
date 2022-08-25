@@ -2,8 +2,10 @@ from flow.record.fieldtypes import string
 from .ip import ipaddress, ipnetwork, IPAddress, IPNetwork
 
 __all__ = [
-    'ipaddress', 'ipnetwork',
-    'IPAddress', 'IPNetwork',
+    "ipaddress",
+    "ipnetwork",
+    "IPAddress",
+    "IPNetwork",
 ]
 
 

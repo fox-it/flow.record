@@ -31,7 +31,7 @@ class JsonfileWriter(AbstractWriter):
 
     def _write(self, obj):
         record_json = self.packer.pack(obj)
-        self.fp.write(record_json + u"\n")
+        self.fp.write(record_json + "\n")
 
     def write(self, r):
         self._write(r)

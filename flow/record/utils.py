@@ -4,8 +4,8 @@ import base64
 from functools import wraps
 
 _native = str
-_unicode = type(u'')
-_bytes = type(b'')
+_unicode = type("")
+_bytes = type(b"")
 
 
 def is_stdout(fp):
@@ -72,7 +72,6 @@ def catch_sigpipe(func):
 
 
 class EventHandler:
-
     def __init__(self):
         self.handlers = []
 

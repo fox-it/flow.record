@@ -11,7 +11,6 @@ log = logging.getLogger(__package__)
 
 
 class JsonRecordPacker:
-
     def __init__(self, indent=None):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
@@ -40,8 +39,8 @@ class JsonRecordPacker:
             if obj._desc.identifier not in self.descriptors:
                 self.register(obj._desc, True)
             serial = obj._asdict()
-            serial['_type'] = 'record'
-            serial['_recorddescriptor'] = obj._desc.identifier
+            serial["_type"] = "record"
+            serial["_recorddescriptor"] = obj._desc.identifier
 
             # PYTHON2: Because "bytes" are also "str" we have to handle this here
             for (field_type, field_name) in obj._desc.get_field_tuples():
@@ -51,8 +50,8 @@ class JsonRecordPacker:
             return serial
         if isinstance(obj, RecordDescriptor):
             serial = {
-                '_type': 'recorddescriptor',
-                '_data': obj._pack(),
+                "_type": "recorddescriptor",
+                "_data": obj._pack(),
             }
             return serial
         if isinstance(obj, datetime):
@@ -73,20 +72,20 @@ class JsonRecordPacker:
 
     def unpack_obj(self, obj):
         if isinstance(obj, dict):
-            _type = obj.get('_type', None)
+            _type = obj.get("_type", None)
             if _type == "record":
-                record_descriptor_identifier = obj['_recorddescriptor']
+                record_descriptor_identifier = obj["_recorddescriptor"]
                 record_descriptor_identifier = tuple(record_descriptor_identifier)
                 record_descriptor = self.descriptors[record_descriptor_identifier]
-                del obj['_recorddescriptor']
-                del obj['_type']
+                del obj["_recorddescriptor"]
+                del obj["_type"]
                 for (field_type, field_name) in record_descriptor.get_field_tuples():
                     if field_type == "bytes":
                         obj[field_name] = base64.b64decode(obj[field_name])
                 result = record_descriptor.recordType(**obj)
                 return result
             if _type == "recorddescriptor":
-                data = obj['_data']
+                data = obj["_data"]
                 return RecordDescriptor._unpack(*data)
         return obj
 

@@ -158,9 +158,7 @@ def record_stream(sources, selector=None):
         except KeyboardInterrupt:
             raise
         except Exception as e:  # noqa: B902
-            log.warning(
-                "Exception in {!r} for {!r}: {!r} -- skipping to next reader".format(
-                    reader, src, e))
+            log.warning("Exception in {!r} for {!r}: {!r} -- skipping to next reader".format(reader, src, e))
             continue
 
 
@@ -182,7 +180,7 @@ class PathTemplateWriter:
     If the destination path already exists it will rename the existing file using the current datetime.
     """
 
-    DEFAULT_TEMPLATE = '{name}-{record._generated:%Y%m%dT%H}.records.gz'
+    DEFAULT_TEMPLATE = "{name}-{record._generated:%Y%m%dT%H}.records.gz"
 
     def __init__(self, path_template=None, name=None):
         self.path_template = path_template or self.DEFAULT_TEMPLATE
@@ -200,24 +198,24 @@ class PathTemplateWriter:
             src_fname = os.path.basename(src)
 
             # stamp will be part of new filename to denote rotation stamp
-            stamp = '{now:%Y%m%dT%H%M%S}'.format(now=now)
+            stamp = "{now:%Y%m%dT%H%M%S}".format(now=now)
 
             # Use "records.gz" as the extension if we have this naming convention
-            if src_fname.endswith('.records.gz'):
-                fname, _ = src_fname.rsplit('.records.gz', 1)
+            if src_fname.endswith(".records.gz"):
+                fname, _ = src_fname.rsplit(".records.gz", 1)
                 ext = "records.gz"
             else:
                 fname, ext = os.path.splitext(src_fname)
 
             # insert the rotation stamp into the new filename.
-            dst = os.path.join(src_dir, '{fname}.{stamp}.{ext}'.format(**locals()))
-            log.info('RENAME {!r} -> {!r}'.format(src, dst))
+            dst = os.path.join(src_dir, "{fname}.{stamp}.{ext}".format(**locals()))
+            log.info("RENAME {!r} -> {!r}".format(src, dst))
             os.rename(src, dst)
 
     def record_stream_for_path(self, path):
         if self.current_path != path:
             self.current_path = path
-            log.info('Writing records to {!r}'.format(path))
+            log.info("Writing records to {!r}".format(path))
             self.rotate_existing_file(path)
             dst_dir = os.path.dirname(path)
             if not os.path.exists(dst_dir):
@@ -254,7 +252,7 @@ class RecordFieldRewriter:
     def __init__(self, fields=None, exclude=None, expression=None):
         self.fields = fields or []
         self.exclude = exclude or []
-        self.expression = compile(expression, '<string>', 'exec') if expression else None
+        self.expression = compile(expression, "<string>", "exec") if expression else None
 
     @lru_cache(maxsize=256)
     def record_descriptor_for_fields(self, descriptor, fields=None, exclude=None, new_fields=None):

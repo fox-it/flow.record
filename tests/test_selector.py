@@ -7,23 +7,32 @@ from flow.record.selector import CompiledSelector, InvalidOperation, Selector
 
 
 def test_selector_func_name():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "query"),
-        ("string", "url"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "query"),
+            ("string", "url"),
+        ],
+    )
     assert TestRecord(None, None) not in Selector("name(r) == 'foo/bar'")
     assert TestRecord(None, None) in Selector("name(r) == 'test/record'")
 
 
 def test_selector():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "query"),
-        ("string", "url"),
-    ])
-    TestRecord2 = RecordDescriptor("test/record2", [
-        ("string", "key"),
-        ("string", "content"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "query"),
+            ("string", "url"),
+        ],
+    )
+    TestRecord2 = RecordDescriptor(
+        "test/record2",
+        [
+            ("string", "key"),
+            ("string", "content"),
+        ],
+    )
 
     assert TestRecord("foo", "bar") in Selector("r.query == 'foo'")
     assert TestRecord(None, None) not in Selector("r.query == 'foo'")
@@ -37,7 +46,8 @@ def test_selector():
     assert TestRecord2("XX", "XX") in s
 
     assert TestRecord(None, "BAR") in Selector(
-        "lower(r.query) == 'test' or lower(r.adsadsa) == 't' or lower(r.url) == 'bar'")
+        "lower(r.query) == 'test' or lower(r.adsadsa) == 't' or lower(r.url) == 'bar'"
+    )
 
     with pytest.raises(InvalidOperation):
         assert TestRecord() in Selector("invalid_func(r.invalid_field, 1337) or r.id == 4")
@@ -46,9 +56,12 @@ def test_selector():
 def test_selector_meta_query_true():
     source = "internal/flow.record.test"
 
-    desc = RecordDescriptor("test/record", [
-        ("string", "value"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "value"),
+        ],
+    )
     rec = desc("value", _source=source)
     assert rec in Selector("r._source == '{}'".format(source))
 
@@ -56,9 +69,12 @@ def test_selector_meta_query_true():
 def test_selector_meta_query_false():
     source = "internal/flow.record.test"
 
-    desc = RecordDescriptor("test/record", [
-        ("string", "value"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "value"),
+        ],
+    )
     rec = desc("value", _source=source + "nope")
     assert (rec in Selector("r._source == '{}'".format(source))) is False
 
@@ -66,9 +82,12 @@ def test_selector_meta_query_false():
 def test_selector_basic_query_true():
     md5hash = "My MD5 hash!"
 
-    desc = RecordDescriptor("test/md5_hash", [
-        ("string", "md5"),
-    ])
+    desc = RecordDescriptor(
+        "test/md5_hash",
+        [
+            ("string", "md5"),
+        ],
+    )
     rec = desc(md5hash)
     assert rec in Selector("r.md5 == '{}'".format(md5hash))
 
@@ -76,9 +95,12 @@ def test_selector_basic_query_true():
 def test_selector_basic_query_false():
     md5hash = "My MD5 hash!"
 
-    desc = RecordDescriptor("test/md5_hash", [
-        ("string", "md5"),
-    ])
+    desc = RecordDescriptor(
+        "test/md5_hash",
+        [
+            ("string", "md5"),
+        ],
+    )
     rec = desc(md5hash + "nope")
     assert (rec in Selector("r.md5 == '{}'".format(md5hash))) is False
 
@@ -86,9 +108,12 @@ def test_selector_basic_query_false():
 def test_selector_non_existing_field():
     md5hash = "My MD5 hash!"
 
-    desc = RecordDescriptor("test/md5_hash", [
-        ("string", "md5"),
-    ])
+    desc = RecordDescriptor(
+        "test/md5_hash",
+        [
+            ("string", "md5"),
+        ],
+    )
     rec = desc(md5hash)
     assert (rec in Selector("r.non_existing_field == 1337")) is False
 
@@ -103,57 +128,75 @@ def test_selector_non_existing_field():
 
 
 def test_selector_string_contains():
-    desc = RecordDescriptor("test/filetype", [
-        ("string", "filetype"),
-    ])
-    rec = desc('PE32 executable (GUI) Intel 80386, for MS Windows')
+    desc = RecordDescriptor(
+        "test/filetype",
+        [
+            ("string", "filetype"),
+        ],
+    )
+    rec = desc("PE32 executable (GUI) Intel 80386, for MS Windows")
 
     assert rec in Selector("'PE' in r.filetype")
 
 
 def test_selector_not_in_operator():
-    desc = RecordDescriptor("test/md5_hash", [
-        ("string", "filetype"),
-    ])
-    rec = desc('PE32 executable (GUI) Intel 80386, for MS Windows')
+    desc = RecordDescriptor(
+        "test/md5_hash",
+        [
+            ("string", "filetype"),
+        ],
+    )
+    rec = desc("PE32 executable (GUI) Intel 80386, for MS Windows")
 
     assert rec in Selector("'ELF' not in r.filetype")
 
 
 def test_selector_or_operator():
-    desc = RecordDescriptor("test/filetype", [
-        ("string", "filetype"),
-    ])
-    rec = desc('PE32 executable (GUI) Intel 80386, for MS Windows')
+    desc = RecordDescriptor(
+        "test/filetype",
+        [
+            ("string", "filetype"),
+        ],
+    )
+    rec = desc("PE32 executable (GUI) Intel 80386, for MS Windows")
 
     assert rec in Selector("'PE32' in r.filetype or 'PE64' in r.xxxx")
 
 
 def test_selector_and_operator():
-    desc = RecordDescriptor("test/filetype", [
-        ("string", "filetype"),
-        ("string", "xxxx"),
-    ])
+    desc = RecordDescriptor(
+        "test/filetype",
+        [
+            ("string", "filetype"),
+            ("string", "xxxx"),
+        ],
+    )
 
-    rec = desc('PE32 executable (GUI) Intel 80386, for MS Windows', 'PE32 executable (GUI) Intel 80386, for MS Windows')
+    rec = desc("PE32 executable (GUI) Intel 80386, for MS Windows", "PE32 executable (GUI) Intel 80386, for MS Windows")
 
     assert rec in Selector("'PE32' in r.filetype and 'PE32' in r.xxxx")
 
 
 def test_selector_in_function():
-    desc = RecordDescriptor("test/filetype", [
-        ("string", "filetype"),
-    ])
-    rec = desc('PE32 executable (GUI) Intel 80386, for MS Windows')
+    desc = RecordDescriptor(
+        "test/filetype",
+        [
+            ("string", "filetype"),
+        ],
+    )
+    rec = desc("PE32 executable (GUI) Intel 80386, for MS Windows")
 
     assert rec in Selector("'pe' in lower(r.filetype)")
 
 
 def test_selector_function_call_whitelisting():
-    TestRecord = RecordDescriptor("test/filetype", [
-        ("string", "filetype"),
-    ])
-    rec = TestRecord('PE32 executable (GUI) Intel 80386, for MS Windows')
+    TestRecord = RecordDescriptor(
+        "test/filetype",
+        [
+            ("string", "filetype"),
+        ],
+    )
+    rec = TestRecord("PE32 executable (GUI) Intel 80386, for MS Windows")
 
     # We allow explicitly exposed functions
     assert rec in Selector("'pe32' in lower(r.filetype)")
@@ -165,9 +208,12 @@ def test_selector_function_call_whitelisting():
     with pytest.raises(Exception) as excinfo:
         rec in Selector("'EXECUTABLE' in r.filetype.upper()")
 
-    IPRecord = RecordDescriptor("test/address", [
-        ("net.ipv4.Address", "ip"),
-    ])
+    IPRecord = RecordDescriptor(
+        "test/address",
+        [
+            ("net.ipv4.Address", "ip"),
+        ],
+    )
     rec = IPRecord("192.168.1.1")
     assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.1.0/24')")
     assert rec not in Selector("r.non_existing_field in net.ipv4.Subnet('192.168.1.0/24')")
@@ -179,10 +225,13 @@ def test_selector_function_call_whitelisting():
 
 
 def test_selector_subnet():
-    desc = RecordDescriptor("test/ip", [
-        ("net.ipv4.Address", "ip"),
-    ])
-    rec = desc('192.168.10.1')
+    desc = RecordDescriptor(
+        "test/ip",
+        [
+            ("net.ipv4.Address", "ip"),
+        ],
+    )
+    rec = desc("192.168.10.1")
 
     assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.1/32')")
     assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.0/24')")
@@ -193,11 +242,14 @@ def test_selector_subnet():
 
 
 def test_field_equals():
-    desc = RecordDescriptor("test/record", [
-        ("string", "mailfrom"),
-        ("string", "mailto"),
-        ("string", "foo"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "mailfrom"),
+            ("string", "mailto"),
+            ("string", "foo"),
+        ],
+    )
     rec = desc("hello@world.com", "foo@bar.com", "testing")
     assert rec in CompiledSelector("field_equals(r, ['mailfrom', 'mailto'], ['hello@world.com',])")
     assert rec in CompiledSelector("field_equals(r, ['mailfrom', 'mailto'], ['hElLo@WoRlD.com',])")
@@ -206,11 +258,14 @@ def test_field_equals():
 
 
 def test_field_contains():
-    desc = RecordDescriptor("test/record", [
-        ("string", "mailfrom"),
-        ("string", "mailto"),
-        ("string", "foo"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "mailfrom"),
+            ("string", "mailto"),
+            ("string", "foo"),
+        ],
+    )
     rec = desc("hello@world.com", "foo@bar.com", "testing")
     rec2 = desc("hello@world.com", "foo@bar.com")
 
@@ -221,44 +276,46 @@ def test_field_contains():
 
 
 def test_field_contains_word_boundary():
-    desc = RecordDescriptor("test/record", [
-        ("string", "mailfrom"),
-        ("string", "mailto"),
-        ("string", "foo"),
-        ("string", "content"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "mailfrom"),
+            ("string", "mailto"),
+            ("string", "foo"),
+            ("string", "content"),
+        ],
+    )
     rec = desc("hello@world.com", "foo@bar.com", "testing", "This is a testing string")
     rec2 = desc("helloworld@world.com", "foo@bar.com")
     rec3 = desc(None, None)
     rec4 = desc(None, None, "hello@world.com")
     rec5 = desc()
-    assert rec in Selector(
-        "field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
+    assert rec in Selector("field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
     assert rec not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto'], ['hello.'], word_boundary=True)")  # Check regex escaping...
-    assert rec not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto'], ['HELLO'], nocase=False, word_boundary=True)")
+        "field_contains(r, ['mailfrom', 'mailto'], ['hello.'], word_boundary=True)"
+    )  # Check regex escaping...
+    assert rec not in Selector("field_contains(r, ['mailfrom', 'mailto'], ['HELLO'], nocase=False, word_boundary=True)")
+    assert rec2 not in Selector("field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
     assert rec2 not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
-    assert rec2 not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto', 'nonexistingfield'], ['hello'], word_boundary=True)")
-    assert rec3 not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
-    assert rec4 in Selector(
-        "field_contains(r, ['mailfrom', 'mailto', 'foo'], ['hello'], word_boundary=True)")
-    assert rec5 not in Selector(
-        "field_contains(r, ['mailfrom', 'mailto', 'foo'], ['hello'], word_boundary=True)")
+        "field_contains(r, ['mailfrom', 'mailto', 'nonexistingfield'], ['hello'], word_boundary=True)"
+    )
+    assert rec3 not in Selector("field_contains(r, ['mailfrom', 'mailto'], ['hello'], word_boundary=True)")
+    assert rec4 in Selector("field_contains(r, ['mailfrom', 'mailto', 'foo'], ['hello'], word_boundary=True)")
+    assert rec5 not in Selector("field_contains(r, ['mailfrom', 'mailto', 'foo'], ['hello'], word_boundary=True)")
 
     assert rec not in Selector("field_contains(r, ['content'], ['sting'], word_boundary=True)")
     assert rec in Selector("field_contains(r, ['content'], ['testing'], word_boundary=True)")
 
 
 def test_field_regex():
-    desc = RecordDescriptor("test/record", [
-        ("string", "mailfrom"),
-        ("string", "mailto"),
-        ("string", "foo"),
-    ])
+    desc = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "mailfrom"),
+            ("string", "mailto"),
+            ("string", "foo"),
+        ],
+    )
     rec = desc("hello@world.com", "foo@bar.com", "testing")
 
     assert rec in Selector(r"field_regex(r, ['mailfrom', 'mailto'], r'.+@.+\.com')")
@@ -268,20 +325,26 @@ def test_field_regex():
 
 
 def test_selector_uri():
-    TestRecord = RecordDescriptor("test/uri", [
-        ("uri", "uri"),
-    ])
-    rec = TestRecord('http://www.google.com/evil.bin')
+    TestRecord = RecordDescriptor(
+        "test/uri",
+        [
+            ("uri", "uri"),
+        ],
+    )
+    rec = TestRecord("http://www.google.com/evil.bin")
     assert rec in Selector("r.uri.filename in ['evil.bin', 'foo.bar']")
 
 
 def test_selector_typed():
-    TestRecord = RecordDescriptor("test/uri_typed", [
-        ("uri", "urifield1"),
-        ("uri", "urifield2"),
-        ("string", "stringfield"),
-    ])
-    rec = TestRecord('helloworld.exe', 'another.bin', 'Fox-IT')
+    TestRecord = RecordDescriptor(
+        "test/uri_typed",
+        [
+            ("uri", "urifield1"),
+            ("uri", "urifield2"),
+            ("string", "stringfield"),
+        ],
+    )
+    rec = TestRecord("helloworld.exe", "another.bin", "Fox-IT")
     assert rec in Selector("Type.uri.filename == 'helloworld.exe'")
     assert rec in CompiledSelector("Type.uri.filename == 'helloworld.exe'")
     assert rec in Selector("Type.uri.filename != 'howdyworld.exe'")
@@ -319,10 +382,13 @@ def test_selector_typed():
     assert rec not in Selector("field_regex(r, Type.uri.filename, 'nope')")
     assert rec not in CompiledSelector("field_regex(r, Type.uri.filename, 'nope')")
 
-    TestNamespaceRecord = RecordDescriptor("test/ip", [
-        ("net.ipv4.Address", "ip"),
-    ])
-    rec = TestNamespaceRecord('192.168.10.1')
+    TestNamespaceRecord = RecordDescriptor(
+        "test/ip",
+        [
+            ("net.ipv4.Address", "ip"),
+        ],
+    )
+    rec = TestNamespaceRecord("192.168.10.1")
 
     # This will only work in "normal" selectors, because we need to override the behaviour
     # of the __contains__ operator to unwrap the requested values
@@ -338,72 +404,82 @@ def test_selector_typed():
 
 
 def test_selector_unicode():
-    TestRecord = RecordDescriptor("test/string", [
-        ("string", "name"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/string",
+        [
+            ("string", "name"),
+        ],
+    )
     rec = TestRecord("Jack O'Neill")
     assert rec not in Selector("field_contains(r, ['name'], [u'Jack O\u2019Neill'])")
 
-    rec = TestRecord(u"jack o\u2019neill")
+    rec = TestRecord("jack o\u2019neill")
     assert rec in Selector("field_contains(r, ['name'], [u'Jack O\u2019Neill'])")
 
 
 def test_record_in_records():
-    RecordA = RecordDescriptor("test/record_a", [
-        ("datetime", "some_dt"),
-        ("string", "field"),
-    ])
-    RecordB = RecordDescriptor("test/record_b", [
-        ("record", "record"),
-        ("datetime", "some_dt"),
-    ])
-    RecordC = RecordDescriptor("test/record_c", [
-        ("record[]", "records"),
-    ])
-    RecordD = RecordDescriptor("test/record_d", [
-        ("string[]", "stringlist"),
-    ])
+    RecordA = RecordDescriptor(
+        "test/record_a",
+        [
+            ("datetime", "some_dt"),
+            ("string", "field"),
+        ],
+    )
+    RecordB = RecordDescriptor(
+        "test/record_b",
+        [
+            ("record", "record"),
+            ("datetime", "some_dt"),
+        ],
+    )
+    RecordC = RecordDescriptor(
+        "test/record_c",
+        [
+            ("record[]", "records"),
+        ],
+    )
+    RecordD = RecordDescriptor(
+        "test/record_d",
+        [
+            ("string[]", "stringlist"),
+        ],
+    )
 
     test_str = "this is a test"
     dt = datetime.utcnow()
-    record_a = RecordA(
-        some_dt=dt,
-        field=test_str)
-    record_b = RecordB(
-        record=record_a,
-        some_dt=dt)
+    record_a = RecordA(some_dt=dt, field=test_str)
+    record_b = RecordB(record=record_a, some_dt=dt)
 
     subrecords = []
     record_d = None
     for i in range(10):
-        record_d = RecordD(
-            stringlist=["aap", "noot", "mies", "Subrecord {}".format(i)])
+        record_d = RecordD(stringlist=["aap", "noot", "mies", "Subrecord {}".format(i)])
         subrecords.append(record_d)
 
     subrecords.append(record_a)
-    record_c = RecordC(
-        records=subrecords)
+    record_c = RecordC(records=subrecords)
 
     subrecords.append(None)
-    record_c_with_none_values = RecordC(
-        records=subrecords)
+    record_c_with_none_values = RecordC(records=subrecords)
 
     assert record_b in Selector("r.record.field == '{}'".format(test_str))
     assert record_b in Selector("Type.string == '{}'".format(test_str))
     assert record_c in Selector("Type.string == '{}'".format(test_str))
     assert record_d in Selector("any(s == 'Subrecord 9' for s in r.stringlist)")
     assert record_c in Selector("any(s == 'Subrecord 9' for e in r.records for s in e.stringlist)")
-    assert record_c_with_none_values in Selector(
-        "any(s == 'Subrecord 9' for e in r.records for s in e.stringlist)")
+    assert record_c_with_none_values in Selector("any(s == 'Subrecord 9' for e in r.records for s in e.stringlist)")
     assert record_d not in Selector("any(s == 'Subrecord 9' for s in r.nonexistingfield)")
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_non_existing_field(PSelector):
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "query"),
-        ("string", "url"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "query"),
+            ("string", "url"),
+        ],
+    )
 
     assert TestRecord("foo", "bar") not in PSelector("r.query and r.non_existing_field")
     assert TestRecord("foo", "bar") in PSelector("not r.non_existing_field")
@@ -412,9 +488,12 @@ def test_non_existing_field(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_modulo(PSelector):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "counter"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "counter"),
+        ],
+    )
 
     records = []
     for i in range(300):
@@ -433,9 +512,12 @@ def test_selector_modulo(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_bit_and(PSelector):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "counter"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "counter"),
+        ],
+    )
 
     records = []
     for i in range(300):
@@ -451,9 +533,12 @@ def test_selector_bit_and(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_bit_or(PSelector):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "counter"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "counter"),
+        ],
+    )
 
     records = []
     for i in range(300):
@@ -469,9 +554,12 @@ def test_selector_bit_or(PSelector):
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_modulo_non_existing_field(PSelector):
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "counter"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "counter"),
+        ],
+    )
 
     records = []
     for i in range(300):

@@ -10,24 +10,31 @@ from flow.record.whitelist import WHITELIST, WHITELIST_TREE
 
 try:
     import astor
+
     HAVE_ASTOR = True
 except ImportError:
     HAVE_ASTOR = False
 
-string_types = (str, type(u''))
+string_types = (str, type(""))
 
 AST_NODE_S_TYPES = tuple(
-    filter(None, [
-        getattr(ast, "Str", None),
-        getattr(ast, "Bytes", None),
-    ]),
+    filter(
+        None,
+        [
+            getattr(ast, "Str", None),
+            getattr(ast, "Bytes", None),
+        ],
+    ),
 )
 
 AST_NODE_VALUE_TYPES = tuple(
-    filter(None, [
-        getattr(ast, "NameConstant", None),
-        getattr(ast, "Constant", None),
-    ]),
+    filter(
+        None,
+        [
+            getattr(ast, "NameConstant", None),
+            getattr(ast, "Constant", None),
+        ],
+    ),
 )
 
 AST_OPERATORS = {
@@ -44,12 +51,14 @@ AST_OPERATORS = {
 
 AST_COMPARATORS = {
     ast.Eq: operator.eq,
-    ast.In: lambda left, right:
-        False if (isinstance(left, NoneObject) or isinstance(right, NoneObject))
-        else operator.contains(right, left),
-    ast.NotIn: lambda left, right:
-        False if (isinstance(left, NoneObject) or isinstance(right, NoneObject))
-        else operator.contains(right, left) is False,
+    ast.In: lambda left, right: (
+        False if (isinstance(left, NoneObject) or isinstance(right, NoneObject)) else operator.contains(right, left)
+    ),
+    ast.NotIn: lambda left, right: (
+        False
+        if (isinstance(left, NoneObject) or isinstance(right, NoneObject))
+        else operator.contains(right, left) is False
+    ),
     ast.NotEq: operator.ne,
     ast.Gt: operator.gt,
     ast.Lt: operator.lt,
@@ -243,7 +252,7 @@ def field_contains(r, fields, strings, nocase=True, word_boundary=False):
                 if not isinstance(fvalue, string_types):
                     continue
 
-                s_pattern = u"\\b{}\\b".format(re.escape(s))
+                s_pattern = "\\b{}\\b".format(re.escape(s))
                 match = re.search(s_pattern, fvalue)
                 if match is not None:
                     return True
@@ -252,7 +261,15 @@ def field_contains(r, fields, strings, nocase=True, word_boundary=False):
 
 # Function whitelist that are allowed in selectors
 FUNCTION_WHITELIST = [
-    lower, upper, name, names, get_type, field_contains, field_equals, field_regex, has_field,
+    lower,
+    upper,
+    name,
+    names,
+    get_type,
+    field_contains,
+    field_equals,
+    field_regex,
+    has_field,
 ]
 
 
@@ -265,11 +282,10 @@ def resolve_attr_path(node):
         x = x.value
     if isinstance(x, ast.Name):
         attr_path.append(x.id)
-    return '.'.join(reversed(attr_path))
+    return ".".join(reversed(attr_path))
 
 
 class SelectorResult:
-
     def __init__(self, expression_str, match_result, backtrace, referenced_fields):
         self.expresssion_str = expression_str
         self.result = match_result
@@ -277,12 +293,13 @@ class SelectorResult:
         self.referenced_fields = referenced_fields
 
     def backtrace(self):
-        result = u""
+        result = ""
         max_source_line_length = len(self.expresssion_str)
         for row in self.backtrace_info[::-1]:
-            result += u"{}-> {}\n".format(
+            result += "{}-> {}\n".format(
                 row[0].rstrip().ljust(max_source_line_length + 15),
-                row[1])
+                row[1],
+            )
         return result
 
 
@@ -306,7 +323,7 @@ class Selector:
         return self.expression_str
 
     def __repr__(self):
-        return 'Selector({!r})'.format(self.expression_str)
+        return "Selector({!r})".format(self.expression_str)
 
     def __contains__(self, record):
         return self.match(record)
@@ -330,7 +347,7 @@ class Selector:
 class WrappedRecord:
     """WrappedRecord wraps a Record but will return a NoneObject for non existing attributes."""
 
-    __slots__ = ("record", )
+    __slots__ = ("record",)
 
     def __init__(self, record):
         self.record = record
@@ -360,7 +377,7 @@ class CompiledSelector:
         return self.expression
 
     def __repr__(self):
-        return 'CompiledSelector({!r})'.format(self.expression)
+        return "CompiledSelector({!r})".format(self.expression)
 
     def __contains__(self, record):
         return self.match(record)
@@ -369,10 +386,12 @@ class CompiledSelector:
         if self.code is None:
             return True
         ns = self.ns.copy()
-        ns.update({
-            "r": WrappedRecord(record),
-            "Type": TypeMatcher(record),
-        })
+        ns.update(
+            {
+                "r": WrappedRecord(record),
+                "Type": TypeMatcher(record),
+            }
+        )
         return eval(self.code, ns)
 
 
@@ -411,7 +430,6 @@ class TypeMatcher:
 
 
 class TypeMatcherInstance:
-
     def __init__(self, rec, ftypeparts=None, attrs=None):
         self._rec = rec
         self._ftypeparts = ftypeparts or []
@@ -423,7 +441,7 @@ class TypeMatcherInstance:
             self._ftypetree = self._ftypetree[p]
 
         if self._ftypetree is True:
-            self._ftype = '.'.join(ftypeparts)
+            self._ftype = ".".join(ftypeparts)
 
     def __getattr__(self, attr):
         if not self._ftype:
@@ -432,7 +450,7 @@ class TypeMatcherInstance:
 
             ftypeparts = self._ftypeparts + [attr]
             return TypeMatcherInstance(self._rec, ftypeparts)
-        elif not attr.startswith('_'):
+        elif not attr.startswith("_"):
             attrs = self._attrs + [attr]
             return TypeMatcherInstance(self._rec, self._ftypeparts, attrs)
 
@@ -513,7 +531,6 @@ class TypeMatcherInstance:
 
 
 class RecordContextMatcher:
-
     def __init__(self, expr, expr_str, backtrace_verbosity=Selector.VERBOSITY_NONE):
         self.expression = expr
         self.expression_str = expr_str
@@ -535,9 +552,7 @@ class RecordContextMatcher:
         }
 
         # Add whitelisted functions to global dict
-        self.data.update({
-            func.__name__: func for func in FUNCTION_WHITELIST
-        })
+        self.data.update({func.__name__: func for func in FUNCTION_WHITELIST})
 
         self.data["r"] = rec
         self.rec = rec
@@ -553,9 +568,8 @@ class RecordContextMatcher:
     def eval(self, node):
         r = self._eval(node)
         verbosity = self.selector_backtrace_verbosity
-        log_trace = (
-            (verbosity == Selector.VERBOSITY_ALL) or
-            (verbosity == Selector.VERBOSITY_BRANCHES and isinstance(node, (ast.Compare, ast.BoolOp)))
+        log_trace = (verbosity == Selector.VERBOSITY_ALL) or (
+            verbosity == Selector.VERBOSITY_BRANCHES and isinstance(node, (ast.Compare, ast.BoolOp))
         )
         if log_trace and HAVE_ASTOR:
             source_line = astor.to_source(node)
@@ -579,10 +593,10 @@ class RecordContextMatcher:
 
             return self.data[node.id]
         elif isinstance(node, ast.Attribute):
-            if node.attr.startswith('__'):
+            if node.attr.startswith("__"):
                 raise InvalidOperation(
-                    "Selector {!r} contains invalid attribute: {!r}".format(
-                        self.expression_str, node.attr))
+                    "Selector {!r} contains invalid attribute: {!r}".format(self.expression_str, node.attr)
+                )
 
             obj = self.eval(node.value)
 
@@ -593,7 +607,7 @@ class RecordContextMatcher:
                 try:
                     value = self.eval(expr)
                 except TypeError as e:
-                    if 'NoneType' in str(e):
+                    if "NoneType" in str(e):
                         value = False
                     else:
                         raise
@@ -635,8 +649,8 @@ class RecordContextMatcher:
             func_name = resolve_attr_path(node)
             if not (callable(self.data.get(func_name)) or func_name in WHITELIST):
                 raise InvalidOperation(
-                    "Call '{}' not allowed. No calls other then whitelisted 'global' calls allowed!".format(
-                        func_name))
+                    "Call '{}' not allowed. No calls other then whitelisted 'global' calls allowed!".format(func_name)
+                )
 
             func = self.eval(node.func)
 
@@ -650,6 +664,7 @@ class RecordContextMatcher:
             return iter
 
         elif isinstance(node, ast.GeneratorExp):
+
             def recursive_generator(gens):
                 """
                 Yield all the values in the most deepest generator.
@@ -690,12 +705,13 @@ class RecordContextMatcher:
                 for gen in node.generators:
                     if gen.target.id in self.data:
                         raise InvalidOperation(
-                            "Generator variable '{}' overwrites existing variable!".format(
-                                gen.target.id))
+                            "Generator variable '{}' overwrites existing variable!".format(gen.target.id)
+                        )
                 values = recursive_generator(node.generators[::-1])
                 for val in values:
                     result = self.eval(node.elt)
                     yield result
+
             return generator_expr()
 
         raise TypeError(node)

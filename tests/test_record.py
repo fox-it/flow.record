@@ -13,10 +13,13 @@ from . import utils_inspect as inspect
 
 
 def test_record_creation():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+        ],
+    )
 
     # No arguments defaults to None
     r = TestRecord()
@@ -43,10 +46,13 @@ def test_record_version(tmpdir):
     path = "jsonfile://{}".format(tmpdir.join("test.jsonl").strpath)
     writer = RecordWriter(path)
     packer = RecordPacker()
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "hello"),
-        ("string", "world"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "hello"),
+            ("string", "world"),
+        ],
+    )
 
     r1 = TestRecord(hello="hello", world="world")
     writer.write(r1)
@@ -58,10 +64,13 @@ def test_record_version(tmpdir):
     assert u1.world == r1.world
 
     # change the order
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "world"),
-        ("string", "hello"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "world"),
+            ("string", "hello"),
+        ],
+    )
     r2 = TestRecord(hello="hello", world="world")
     writer.write(r2)
     data = packer.pack(r2)
@@ -72,10 +81,13 @@ def test_record_version(tmpdir):
     print(repr(u2._desc))
 
     # change fieldtypes
-    TestRecord = RecordDescriptor("test/record", [
-        ("varint", "world"),
-        ("string", "hello"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "world"),
+            ("string", "hello"),
+        ],
+    )
     r3 = TestRecord(hello="hello", world=42)
     writer.write(r3)
     data = packer.pack(r3)
@@ -100,16 +112,22 @@ def test_record_version(tmpdir):
 
 
 def test_grouped_record():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "hello"),
-        ("string", "world"),
-        ("uint32", "count"),
-    ])
-    WQMetaRecord = RecordDescriptor("wq/meta", [
-        ("string", "assignee"),
-        ("string", "profile"),
-        ("string", "hello"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "hello"),
+            ("string", "world"),
+            ("uint32", "count"),
+        ],
+    )
+    WQMetaRecord = RecordDescriptor(
+        "wq/meta",
+        [
+            ("string", "assignee"),
+            ("string", "profile"),
+            ("string", "hello"),
+        ],
+    )
 
     test_record = TestRecord("a", "b", 12345)
     meta_record = WQMetaRecord("me", "this is a test", "other hello")
@@ -146,16 +164,22 @@ def test_grouped_record():
 
 
 def test_grouped_records_packing(tmpdir):
-    RecordA = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
-    RecordB = RecordDescriptor("test/b", [
-        ("string", "b_string"),
-        ("string", "common"),
-        ("uint32", "b_count"),
-    ])
+    RecordA = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
+    RecordB = RecordDescriptor(
+        "test/b",
+        [
+            ("string", "b_string"),
+            ("string", "common"),
+            ("uint32", "b_count"),
+        ],
+    )
     a = RecordA("hello", "world", 12345, _source="TheBadInternet", _classification="CLASSIFIED")
     b = RecordB("good", "bye", 54321, _source="TheGoodInternet", _classification="TLP.WHITE")
     assert isinstance(a, Record)
@@ -186,7 +210,7 @@ def test_grouped_records_packing(tmpdir):
     # grouped record tests
     assert isinstance(record, Record)
     assert isinstance(record, GroupedRecord)
-    assert record.common == "world"     # first 'key' has precendence
+    assert record.common == "world"  # first 'key' has precendence
     assert record.name == "grouped/ab"
     assert record.a_string == "hello"
     assert record.a_count == 12345
@@ -215,45 +239,52 @@ def test_grouped_records_packing(tmpdir):
 
 def test_record_reserved_fieldname():
     with pytest.raises(RecordDescriptorError):
-        RecordDescriptor("test/a", [
-            ("string", "_classification"),
-            ("string", "_source"),
-            ("uint32", "_generated"),
-        ])
+        RecordDescriptor(
+            "test/a",
+            [
+                ("string", "_classification"),
+                ("string", "_source"),
+                ("uint32", "_generated"),
+            ],
+        )
 
 
 def test_record_printer_stdout(capsys):
-    Record = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
     record = Record("hello", "world", 10)
 
     # fake capsys to be a tty.
     def isatty():
         return True
+
     capsys._capture.out.tmpfile.isatty = isatty
 
     writer = RecordPrinter(getattr(sys.stdout, "buffer", sys.stdout))
     writer.write(record)
 
     out, err = capsys.readouterr()
-    modifier = '' if isinstance(u'', str) else 'u'
+    modifier = "" if isinstance("", str) else "u"
     expected = "<test/a a_string={u}'hello' common={u}'world' a_count=10>\n".format(u=modifier)
     assert out == expected
 
 
 def test_record_field_limit():
     count = 1337
-    fields = [('uint32', 'field_{}'.format(i)) for i in range(count)]
-    values = dict([('field_{}'.format(i), i) for i in range(count)])
+    fields = [("uint32", "field_{}".format(i)) for i in range(count)]
+    values = dict([("field_{}".format(i), i) for i in range(count)])
 
     Record = RecordDescriptor("test/limit", fields)
     record = Record(**values)
 
     for i in range(count):
-        assert getattr(record, 'field_{}'.format(i)) == i
+        assert getattr(record, "field_{}".format(i)) == i
 
     # test kwarg init
     record = Record(field_404=12345)
@@ -277,11 +308,14 @@ def test_record_field_limit():
 
 
 def test_record_internal_version():
-    Record = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
 
     record = Record("hello", "world", 10)
     assert record._version == RECORD_VERSION
@@ -291,80 +325,92 @@ def test_record_internal_version():
 
 
 def test_record_reserved_keyword():
-    Record = RecordDescriptor("test/a", [
-        ("string", "from"),
-        ("string", "and"),
-        ("uint32", "or"),
-        ("uint32", "normal"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "from"),
+            ("string", "and"),
+            ("uint32", "or"),
+            ("uint32", "normal"),
+        ],
+    )
 
     init = Record.recordType.__init__
     sig = inspect.signature(init)
     params = list(sig.parameters.values())
     assert init.__code__.co_argcount == 1
     assert len(params) == 3
-    assert params[1].name == 'args'
+    assert params[1].name == "args"
     assert params[1].kind == params[1].VAR_POSITIONAL
-    assert params[2].name == 'kwargs'
+    assert params[2].name == "kwargs"
     assert params[2].kind == params[2].VAR_KEYWORD
 
-    r = Record('hello', 'world', 1337, 10)
-    assert getattr(r, 'from') == 'hello'
-    assert getattr(r, 'and') == 'world'
-    assert getattr(r, 'or') == 1337
+    r = Record("hello", "world", 1337, 10)
+    assert getattr(r, "from") == "hello"
+    assert getattr(r, "and") == "world"
+    assert getattr(r, "or") == 1337
     assert r.normal == 10
 
-    r = Record('some', 'missing', normal=5)
-    assert getattr(r, 'from') == 'some'
-    assert getattr(r, 'and') == 'missing'
-    assert getattr(r, 'or') is None
+    r = Record("some", "missing", normal=5)
+    assert getattr(r, "from") == "some"
+    assert getattr(r, "and") == "missing"
+    assert getattr(r, "or") is None
     assert r.normal == 5
 
-    r = Record('from_value', **{'and': 'dict', 'or': 7331, 'normal': 3})
-    assert getattr(r, 'from') == 'from_value'
-    assert getattr(r, 'and') == 'dict'
-    assert getattr(r, 'or') == 7331
+    r = Record("from_value", **{"and": "dict", "or": 7331, "normal": 3})
+    assert getattr(r, "from") == "from_value"
+    assert getattr(r, "and") == "dict"
+    assert getattr(r, "or") == 7331
     assert r.normal == 3
 
-    Record = RecordDescriptor("test/a", [
-        ("uint32", "normal"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("uint32", "normal"),
+        ],
+    )
 
     init = Record.recordType.__init__
     sig = inspect.signature(init)
     params = list(sig.parameters.values())
     assert init.__code__.co_argcount == 6
     assert len(params) == 6
-    assert params[1].name == 'normal'
+    assert params[1].name == "normal"
     assert params[1].kind == params[1].POSITIONAL_OR_KEYWORD
     assert params[1].default is None
-    assert params[2].name == '_source'
+    assert params[2].name == "_source"
     assert params[2].kind == params[2].POSITIONAL_OR_KEYWORD
     assert params[2].default is None
-    assert params[3].name == '_classification'
+    assert params[3].name == "_classification"
     assert params[3].kind == params[3].POSITIONAL_OR_KEYWORD
     assert params[3].default is None
-    assert params[4].name == '_generated'
+    assert params[4].name == "_generated"
     assert params[4].kind == params[4].POSITIONAL_OR_KEYWORD
     assert params[4].default is None
-    assert params[5].name == '_version'
+    assert params[5].name == "_version"
     assert params[5].kind == params[5].POSITIONAL_OR_KEYWORD
     assert params[5].default is None
 
-    Record = RecordDescriptor("test/a", [
-        ("uint32", "self"),
-        ("uint32", "cls"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("uint32", "self"),
+            ("uint32", "cls"),
+        ],
+    )
     r = Record(1, 2)
     assert r.self == 1
     assert r.cls == 2
 
 
 def test_record_stream(tmp_path):
-    Record = RecordDescriptor("test/counter", [
-        ("uint32", "counter"),
-        ("string", "tag"),
-    ])
+    Record = RecordDescriptor(
+        "test/counter",
+        [
+            ("uint32", "counter"),
+            ("string", "tag"),
+        ],
+    )
 
     datasets = [
         tmp_path / "dataset1.records",
@@ -383,10 +429,13 @@ def test_record_stream(tmp_path):
 
 
 def test_record_replace():
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "index"),
-        ("string", "foo"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "index"),
+            ("string", "foo"),
+        ],
+    )
 
     t = TestRecord(1, "hello")
     assert t.index == 1
@@ -415,19 +464,24 @@ def test_record_replace():
 
 
 def test_record_init_from_record():
-    TestRecord = RecordDescriptor("test/record", [
-        ("uint32", "index"),
-        ("string", "foo"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "index"),
+            ("string", "foo"),
+        ],
+    )
 
     t = TestRecord(1, "hello")
     assert t.index == 1
     assert t.foo == "hello"
 
-    TestRecord2 = TestRecord.extend([
-        ("string", "bar"),
-        ("uint32", "test"),
-    ])
+    TestRecord2 = TestRecord.extend(
+        [
+            ("string", "bar"),
+            ("uint32", "test"),
+        ]
+    )
     t2 = TestRecord2.init_from_record(t)
     assert t2.index == 1
     assert t2.foo == "hello"
@@ -439,10 +493,13 @@ def test_record_init_from_record():
     assert t2.bar == "bar"
     assert t2.test == 3
 
-    TestRecord3 = RecordDescriptor("test/record3", [
-        ("string", "test"),
-        ("uint32", "count"),
-    ])
+    TestRecord3 = RecordDescriptor(
+        "test/record3",
+        [
+            ("string", "test"),
+            ("uint32", "count"),
+        ],
+    )
     with pytest.raises(TypeError):
         t3 = TestRecord3.init_from_record(t2, raise_unknown=True)
 
@@ -458,11 +515,14 @@ def test_record_init_from_record():
 
 
 def test_record_asdict():
-    Record = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
     record = Record("hello", "world", 1337)
     rdict = record._asdict()
     assert rdict.get("a_string") == "hello"
@@ -482,11 +542,14 @@ def test_record_asdict():
 
 def test_recordfield_rewriter_expression():
     rewriter = RecordFieldRewriter(expression="upper_a = a_string.upper(); count_times_10 = a_count * 10")
-    Record = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
     record = Record("hello", "world", 1337)
     new_record = rewriter.rewrite(record)
     assert new_record.a_string == "hello"
@@ -498,11 +561,14 @@ def test_recordfield_rewriter_expression():
 
 def test_recordfield_rewriter_fields():
     rewriter = RecordFieldRewriter(fields=["a_count"])
-    Record = RecordDescriptor("test/a", [
-        ("string", "a_string"),
-        ("string", "common"),
-        ("uint32", "a_count"),
-    ])
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "a_string"),
+            ("string", "common"),
+            ("uint32", "a_count"),
+        ],
+    )
     record = Record("hello", "world", 1337)
     new_record = rewriter.rewrite(record)
     assert hasattr(new_record, "a_count")
@@ -511,34 +577,46 @@ def test_recordfield_rewriter_fields():
 
 
 def test_extend_record():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-    ])
-    FooRecord = RecordDescriptor("test/foo", [
-        ("varint", "foo"),
-        ("bytes", "query"),
-        ("bytes", "bar"),
-    ])
-    HelloRecord = RecordDescriptor("test/hello", [
-        ("string", "hello"),
-        ("string", "world"),
-        ("string", "url"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+        ],
+    )
+    FooRecord = RecordDescriptor(
+        "test/foo",
+        [
+            ("varint", "foo"),
+            ("bytes", "query"),
+            ("bytes", "bar"),
+        ],
+    )
+    HelloRecord = RecordDescriptor(
+        "test/hello",
+        [
+            ("string", "hello"),
+            ("string", "world"),
+            ("string", "url"),
+        ],
+    )
 
     a = TestRecord("http://flow.record", "myquery")
     b = FooRecord(12345, b"FOO", b"BAR")
     c = HelloRecord("hello", "world", "http://hello.world")
 
     new = extend_record(a, [b, c])
-    assert new._desc == RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("string", "query"),
-        ("varint", "foo"),
-        ("bytes", "bar"),
-        ("string", "hello"),
-        ("string", "world"),
-    ])
+    assert new._desc == RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("string", "query"),
+            ("varint", "foo"),
+            ("bytes", "bar"),
+            ("string", "hello"),
+            ("string", "world"),
+        ],
+    )
     assert new.url == "http://flow.record"
     assert new.query == "myquery"
     assert new.foo == 12345
@@ -547,14 +625,17 @@ def test_extend_record():
     assert new.world == "world"
 
     new = extend_record(a, [b, c], replace=True)
-    assert new._desc == RecordDescriptor("test/record", [
-        ("string", "url"),
-        ("bytes", "query"),
-        ("varint", "foo"),
-        ("bytes", "bar"),
-        ("string", "hello"),
-        ("string", "world"),
-    ])
+    assert new._desc == RecordDescriptor(
+        "test/record",
+        [
+            ("string", "url"),
+            ("bytes", "query"),
+            ("varint", "foo"),
+            ("bytes", "bar"),
+            ("string", "hello"),
+            ("string", "world"),
+        ],
+    )
     assert new.url == "http://hello.world"
     assert new.query == b"FOO"
     assert new.foo == 12345
@@ -564,18 +645,24 @@ def test_extend_record():
 
 
 def test_extend_record_with_replace():
-    TestRecord = RecordDescriptor("test/record", [
-        ("string", "ip"),
-        ("uint16", "port"),
-        ("string", "data"),
-        ("string", "note"),
-    ])
-    ReplaceRecord = RecordDescriptor("test/foo", [
-        ("net.ipaddress", "ip"),
-        ("net.tcp.Port", "port"),
-        ("bytes", "data"),
-        ("string", "location"),
-    ])
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "ip"),
+            ("uint16", "port"),
+            ("string", "data"),
+            ("string", "note"),
+        ],
+    )
+    ReplaceRecord = RecordDescriptor(
+        "test/foo",
+        [
+            ("net.ipaddress", "ip"),
+            ("net.tcp.Port", "port"),
+            ("bytes", "data"),
+            ("string", "location"),
+        ],
+    )
 
     a = TestRecord("10.13.13.17", 80, "HTTP/1.1 200 OK\r\n", "webserver")
     b = ReplaceRecord(
