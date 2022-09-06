@@ -1,26 +1,33 @@
-import re
-import math
-import warnings
-
 import binascii
+import math
+import os
+import pathlib
+import re
 from binascii import a2b_hex, b2a_hex
-from posixpath import basename, dirname
-
 from datetime import datetime as _dt, timedelta
-from flow.record.base import FieldType
+from posixpath import basename, dirname
+from typing import Tuple
 
 try:
     import urlparse
 except ImportError:
     import urllib.parse as urlparse
 
+import warnings
+
+from flow.record.base import FieldType
+
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 NATIVE_UNICODE = isinstance("", str)
+
+PATH_POSIX = 0
+PATH_WINDOWS = 1
 
 string_type = str
 varint_type = int
 bytes_type = bytes
 float_type = float
+path_type = pathlib.PurePath
 
 
 def fieldtype_for_value(value, default="string"):
@@ -52,6 +59,8 @@ def fieldtype_for_value(value, default="string"):
         return "varint"
     elif isinstance(value, _dt):
         return "datetime"
+    elif isinstance(value, path_type):
+        return "path"
     return default
 
 
@@ -79,6 +88,9 @@ class dynamic(FieldType):
 
         elif isinstance(obj, (list, tuple)):
             return stringlist(obj)
+
+        elif isinstance(obj, path_type):
+            return path(obj)
 
         raise NotImplementedError("Unsupported type for dynamic fieldtype: {}".format(type(obj)))
 
@@ -412,11 +424,19 @@ class uri(string, FieldType):
 
         c:\windows\system32\cmd.exe -> c:/windows/system32/cmd.exe
         """
+        warnings.warn(
+            "Do not use class uri(...) for filesystem paths, use class path(...)",
+            DeprecationWarning,
+        )
         return RE_NORMALIZE_PATH.sub("/", path)
 
     @classmethod
     def from_windows(cls, path):
         """Initialize a uri instance from a windows path."""
+        warnings.warn(
+            "Do not use class uri(...) for filesystem paths, use class path(...)",
+            DeprecationWarning,
+        )
         return cls(uri.normalize(path))
 
     @property
@@ -486,3 +506,50 @@ class record(FieldType):
     @classmethod
     def _unpack(cls, data):
         return data
+
+
+class path(pathlib.PurePath, FieldType):
+    def __new__(cls, *args):
+        if cls is path:
+            cls = windows_path if os.name == "nt" else posix_path
+            if len(args) > 0:
+                path_ = args[0]
+                if isinstance(path_, pathlib.PureWindowsPath):
+                    cls = windows_path
+                elif isinstance(path_, pathlib.PurePosixPath):
+                    cls = posix_path
+
+        return cls._from_parts(args)
+
+    def _pack(self):
+        path_type = PATH_WINDOWS if self._flavour.sep == "\\" else PATH_POSIX
+        return (str(self), path_type)
+
+    @classmethod
+    def _unpack(cls, data: Tuple[str, str]):
+        path_, path_type = data
+        if path_type == PATH_POSIX:
+            return posix_path(path_)
+        elif path_type == PATH_WINDOWS:
+            return windows_path(path_)
+        else:
+            # Catch all: default to posix_path
+            return posix_path(path_)
+
+    @classmethod
+    def from_posix(cls, path_: str):
+        """Initialize a path instance from a posix path string using / as a separator."""
+        return posix_path(path_)
+
+    @classmethod
+    def from_windows(cls, path_: str):
+        """Initialize a path instance from a windows path string using \\ as a separator."""
+        return windows_path(path_)
+
+
+class posix_path(pathlib.PurePosixPath, path):
+    pass
+
+
+class windows_path(pathlib.PureWindowsPath, path):
+    pass
