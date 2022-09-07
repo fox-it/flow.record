@@ -1,5 +1,7 @@
 import datetime
 
+import pytest
+
 from flow.record import fieldtypes
 from flow.record import RecordDescriptor
 from flow.record import RecordPacker
@@ -26,7 +28,8 @@ def test_uri_packing():
     assert record.path.dirname == "/"
 
     # construct from uri() -> for windows=True
-    path = uri.from_windows(r"c:\Program Files\Fox-IT\flow is awesome.exe")
+    with pytest.warns(DeprecationWarning):
+        path = uri.from_windows(r"c:\Program Files\Fox-IT\flow is awesome.exe")
     record = TestRecord(path)
     data = packer.pack(record)
     record = packer.unpack(data)
@@ -35,7 +38,8 @@ def test_uri_packing():
     assert record.path.dirname == "/Program Files/Fox-IT"
 
     # construct using uri.from_windows()
-    path = uri.from_windows(r"c:\Users\Hello World\foo.bar.exe")
+    with pytest.warns(DeprecationWarning):
+        path = uri.from_windows(r"c:\Users\Hello World\foo.bar.exe")
     record = TestRecord(path)
     data = packer.pack(record)
     record = packer.unpack(data)

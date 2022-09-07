@@ -24,6 +24,7 @@ WHITELIST = [
     "net.ipnetwork",
     "net.IPAddress",
     "net.IPNetwork",
+    "path",
 ]
 
 

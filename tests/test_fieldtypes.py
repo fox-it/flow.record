@@ -1,13 +1,17 @@
 # coding: utf-8
 
-import pytest
 import datetime
 import hashlib
+import os
+import pathlib
+
+import pytest
 
 from flow.record import RecordDescriptor
 from flow.record.fieldtypes import net
 from flow.record.fieldtypes import uri
 from flow.record.fieldtypes import fieldtype_for_value
+from flow.record.fieldtypes import PATH_POSIX, PATH_WINDOWS
 import flow.record.fieldtypes
 
 INT64_MAX = (1 << 63) - 1
@@ -353,13 +357,16 @@ def test_uri_type():
     assert r.path.protocol == "http"
     assert r.path.hostname == "example.com"
 
-    r = TestRecord(uri.from_windows(r"c:\windows\program files\Fox-IT B.V\flow.exe"))
+    with pytest.warns(DeprecationWarning):
+        r = TestRecord(uri.from_windows(r"c:\windows\program files\Fox-IT B.V\flow.exe"))
     assert r.path.filename == "flow.exe"
 
     r = TestRecord()
-    r.path = uri.normalize(r"c:\Users\Fox-IT\Downloads\autoruns.exe")
+    with pytest.warns(DeprecationWarning):
+        r.path = uri.normalize(r"c:\Users\Fox-IT\Downloads\autoruns.exe")
     assert r.path.filename == "autoruns.exe"
-    assert r.path.dirname == uri.normalize(r"\Users\Fox-IT\Downloads")
+    with pytest.warns(DeprecationWarning):
+        assert r.path.dirname == uri.normalize(r"\Users\Fox-IT\Downloads")
     assert r.path.dirname == "/Users/Fox-IT/Downloads"
 
     r = TestRecord()
@@ -458,6 +465,87 @@ def test_digest():
         excinfo.match(r".*Invalid MD5.*")
 
 
+def test_path():
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "value"),
+        ],
+    )
+
+    posix_path_str = "/foo/bar.py"
+    windows_path_str = "C:\\foo\\bar.py"
+
+    r = TestRecord(pathlib.PurePosixPath(posix_path_str))
+    assert str(r.value) == posix_path_str
+    assert isinstance(r.value, flow.record.fieldtypes.posix_path)
+
+    r = TestRecord()
+    assert r.value is None
+
+    r = TestRecord("")
+    assert str(r.value) == "."
+
+    if os.name == "nt":
+        native_path_str = windows_path_str
+        native_path_cls = flow.record.fieldtypes.windows_path
+    else:
+        native_path_str = posix_path_str
+        native_path_cls = flow.record.fieldtypes.posix_path
+
+    test_path = flow.record.fieldtypes.path(native_path_str)
+    assert str(test_path) == native_path_str
+    assert isinstance(test_path, native_path_cls)
+
+    test_path = flow.record.fieldtypes.path(pathlib.PurePosixPath(posix_path_str))
+    assert str(test_path) == posix_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+    test_path = flow.record.fieldtypes.path(pathlib.PureWindowsPath(windows_path_str))
+    assert str(test_path) == windows_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.windows_path)
+
+    test_path = flow.record.fieldtypes.path.from_posix(posix_path_str)
+    assert str(test_path) == posix_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+    test_path = flow.record.fieldtypes.path.from_windows(windows_path_str)
+    assert str(test_path) == windows_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.windows_path)
+
+    test_path = flow.record.fieldtypes.path.from_posix(posix_path_str)
+    assert test_path._pack() == (posix_path_str, PATH_POSIX)
+
+    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, PATH_POSIX))
+    assert str(test_path) == posix_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+    test_path = flow.record.fieldtypes.path.from_windows(windows_path_str)
+    assert test_path._pack() == (windows_path_str, PATH_WINDOWS)
+
+    test_path = flow.record.fieldtypes.path._unpack((windows_path_str, PATH_WINDOWS))
+    assert str(test_path) == windows_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.windows_path)
+
+    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, 2))
+    assert str(test_path) == posix_path_str
+    assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+
+def test_fieldtype_for_value():
+    assert fieldtype_for_value(True) == "boolean"
+    assert fieldtype_for_value(False) == "boolean"
+    assert fieldtype_for_value(1337) == "varint"
+    assert fieldtype_for_value(1.337) == "float"
+    assert fieldtype_for_value(b"\r\n") == "bytes"
+    assert fieldtype_for_value("hello world") == "string"
+    assert fieldtype_for_value(datetime.datetime.now()) == "datetime"
+    assert fieldtype_for_value([1, 2, 3, 4, 5]) == "string"
+    assert fieldtype_for_value([1, 2, 3, 4, 5], None) is None
+    assert fieldtype_for_value(object(), None) is None
+    assert fieldtype_for_value(pathlib.PurePosixPath("/foo/bar.py")) == "path"
+
+
 def test_dynamic():
     TestRecord = RecordDescriptor(
         "test/dynamic",
@@ -491,18 +579,10 @@ def test_dynamic():
     assert r.value == now
     assert isinstance(r.value, flow.record.fieldtypes.datetime)
 
-
-def test_fieldtype_for_value():
-    assert fieldtype_for_value(True) == "boolean"
-    assert fieldtype_for_value(False) == "boolean"
-    assert fieldtype_for_value(1337) == "varint"
-    assert fieldtype_for_value(1.337) == "float"
-    assert fieldtype_for_value(b"\r\n") == "bytes"
-    assert fieldtype_for_value("hello world") == "string"
-    assert fieldtype_for_value(datetime.datetime.now()) == "datetime"
-    assert fieldtype_for_value([1, 2, 3, 4, 5]) == "string"
-    assert fieldtype_for_value([1, 2, 3, 4, 5], None) is None
-    assert fieldtype_for_value(object(), None) is None
+    path_str = "/foo/bar.py"
+    r = TestRecord(flow.record.fieldtypes.path.from_posix(path_str))
+    assert str(r.value) == path_str
+    assert isinstance(r.value, flow.record.fieldtypes.posix_path)
 
 
 if __name__ == "__main__":
