@@ -59,11 +59,8 @@ class RecordPacker:
 
         elif isinstance(obj, int):
             neg = obj < 0
-            h = hex(abs(obj))[2:].rstrip("L")
-            if len(h) % 2 != 0:
-                h = "0" + h
-
-            packed = RECORD_PACK_TYPE_VARINT, (neg, binascii.a2b_hex(h))
+            v = abs(obj)
+            packed = RECORD_PACK_TYPE_VARINT, (neg, v.to_bytes((v.bit_length() + 7) // 8, "big"))
 
         elif isinstance(obj, GroupedRecord):
             for desc in obj.descriptors:
@@ -102,7 +99,7 @@ class RecordPacker:
 
         if subtype == RECORD_PACK_TYPE_VARINT:
             neg, h = value
-            v = int(binascii.b2a_hex(h), 16)
+            v = int.from_bytes(h, "big")
             if neg:
                 v = -v
 
