@@ -1,5 +1,4 @@
 import warnings
-import binascii
 import datetime
 import msgpack
 import functools
