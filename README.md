@@ -8,6 +8,14 @@ Records can be read and transformed to other formats by using output adapters, s
 For more information on how Dissect uses this library, please see [the
 documentation](https://dissect.readthedocs.io/en/latest/tools/rdump.html#what-is-a-record).
 
+## Installation
+
+`flow.record` is available on [PyPI](https://pypi.org/project/flow.record/).
+
+```bash
+pip install flow.record
+```
+
 ## Usage
 
 This library contains the tool `rdump`. With `rdump` you can read, write, interact, and manipulate records from `stdin`
