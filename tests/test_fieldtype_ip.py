@@ -1,8 +1,10 @@
 from __future__ import unicode_literals
+import random
+import ipaddress
 
 import pytest
 
-from flow.record import RecordDescriptor
+from flow.record import RecordDescriptor, RecordWriter, RecordReader
 from flow.record import RecordPacker
 from flow.record.fieldtypes import net
 from flow.record.selector import Selector, CompiledSelector
@@ -231,13 +233,36 @@ def test_pack_ipaddress():
         ],
     )
 
+    # ipv4
     record_in = TestRecord("10.22.99.255")
     data = packer.pack(record_in)
     record_out = packer.unpack(data)
     assert record_in == record_out
 
-    # ip should be encoded as dword/bytes
-    assert b"\x0a\x16\x63\xff" in data
+    # ipv6
+    record_in = TestRecord("2001:4860:4860::8888")
+    data = packer.pack(record_in)
+    record_out = packer.unpack(data)
+    assert record_in == record_out
+
+
+@pytest.mark.parametrize("ip_bits", [32, 128])
+def test_record_writer_reader_ipaddress(tmpdir, ip_bits):
+    TestRecord = RecordDescriptor(
+        "test/ipaddress",
+        [
+            ("net.ipaddress", "ip"),
+        ],
+    )
+
+    ips = [ipaddress.ip_address(random.getrandbits(ip_bits)) for _ in range(20)]
+    with RecordWriter(tmpdir.join("ip.records")) as writer:
+        for ip in ips:
+            writer.write(TestRecord(ip))
+
+    with RecordReader(tmpdir.join("ip.records")) as reader:
+        for i, r in enumerate(reader):
+            assert r.ip == ips[i]
 
 
 def test_pack_ipnetwork():

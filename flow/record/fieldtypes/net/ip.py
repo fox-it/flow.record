@@ -22,7 +22,7 @@ class ipaddress(FieldType):
         return "{}({!r})".format(self._type, str(self))
 
     def _pack(self):
-        return self.val.packed
+        return int(self.val)
 
     @staticmethod
     def _unpack(data):
