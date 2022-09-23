@@ -1,33 +1,32 @@
-import os
-
 import gzip
+import os
 
 from flow.record.base import (
     RECORD_VERSION,
+    DynamicDescriptor,
     FieldType,
-    Record,
     GroupedRecord,
-    RecordDescriptor,
+    Record,
     RecordAdapter,
+    RecordDescriptor,
+    RecordDescriptorError,
     RecordField,
     RecordReader,
     RecordWriter,
+    dynamic_fieldtype,
+    extend_record,
     open_path,
     stream,
-    extend_record,
-    dynamic_fieldtype,
-    DynamicDescriptor,
-    RecordDescriptorError,
 )
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.stream import (
-    RecordOutput,
-    RecordPrinter,
-    RecordPacker,
-    RecordStreamWriter,
-    RecordStreamReader,
     PathTemplateWriter,
     RecordArchiver,
+    RecordOutput,
+    RecordPacker,
+    RecordPrinter,
+    RecordStreamReader,
+    RecordStreamWriter,
     record_stream,
 )
 

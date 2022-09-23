@@ -7,3 +7,7 @@ write_to = "flow/record/version.py"
 
 [tool.black]
 line-length = 120
+
+[tool.isort]
+profile = "black"
+known_first_party = ["flow.record"]
