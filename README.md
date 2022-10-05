@@ -6,7 +6,7 @@ tools that use `flow.record`.
 Records can be read and transformed to other formats by using output adapters, such as CSV and JSON.
 
 For more information on how Dissect uses this library, please see [the
-documentation](https://dissect.readthedocs.io/en/latest/tools/rdump.html#what-is-a-record).
+documentation](https://docs.dissect.tools/en/latest/tools/rdump.html#what-is-a-record).
 
 ## Installation
 
@@ -20,7 +20,7 @@ pip install flow.record
 
 This library contains the tool `rdump`. With `rdump` you can read, write, interact, and manipulate records from `stdin`
 or from record files saved on disk. Please refer to `rdump -h` or to the [`rdump`
-documentation](https://dissect.readthedocs.io/en/latest/tools/rdump.html) for all parameters.
+documentation](https://docs.dissect.tools/en/latest/tools/rdump.html) for all parameters.
 
 Records are the primary output type when using the various functions of `target-query`. The following command shows how
 to pipe record output from `target-query` to `rdump`:
@@ -96,12 +96,12 @@ tox
 ```
 
 For a more elaborate explanation on how to build and test the project, please see [the
-documentation](https://dissect.readthedocs.io/en/latest/contributing/developing.html#building-testing).
+documentation](https://docs.dissect.tools/en/latest/contributing/developing.html#building-testing).
 
 ## Contributing
 
 The Dissect project encourages any contribution to the codebase. To make your contribution fit into the project, please
-refer to [the style guide](https://dissect.readthedocs.io/en/latest/contributing/style-guide.html).
+refer to [the style guide](https://docs.dissect.tools/en/latest/contributing/style-guide.html).
 
 ## Copyright and license
 
