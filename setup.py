@@ -15,13 +15,13 @@ setup(
         "elastic": [
             "elasticsearch",
         ],
+        "geoip": [
+            "maxminddb",
+        ],
     },
     namespace_packages=["flow"],
     entry_points={
         "console_scripts": [
-            "r=flow.record.tools.r:main",
-            "rdd=flow.record.tools.rdd:main",
-            "rselect=flow.record.tools.rselect:main",
             "rdump=flow.record.tools.rdump:main",
             "rgeoip=flow.record.tools.geoip:main",
         ],
