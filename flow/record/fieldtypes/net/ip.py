@@ -1,5 +1,6 @@
 from ipaddress import ip_address, ip_network
 from flow.record.base import FieldType
+from flow.record.fieldtypes import defang
 
 
 class ipaddress(FieldType):
@@ -20,6 +21,11 @@ class ipaddress(FieldType):
 
     def __repr__(self):
         return "{}({!r})".format(self._type, str(self))
+
+    def __format__(self, spec):
+        if spec == "defang":
+            return defang(str(self))
+        return str.__format__(str(self), spec)
 
     def _pack(self):
         return int(self.val)
