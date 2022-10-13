@@ -585,5 +585,41 @@ def test_dynamic():
     assert isinstance(r.value, flow.record.fieldtypes.posix_path)
 
 
+@pytest.mark.parametrize(
+    "record_type,value,expected",
+    [
+        ("uri", "https://www.fox-it.com/nl-en/dissect/", "hxxps://www.fox-it[.]com/nl-en/dissect/"),
+        ("string", "https://www.fox-it.com/nl-en/dissect/", "hxxps://www.fox-it[.]com/nl-en/dissect/"),
+        ("uri", "http://docs.dissect.tools", "hxxp://docs.dissect[.]tools"),
+        (
+            "string",
+            "http://username:password@example.com/path/file.txt?query=1",
+            "hxxp://username:password@example[.]com/path/file.txt?query=1",
+        ),
+        ("net.ipaddress", "1.3.3.7", "1.3.3[.]7"),
+        ("string", "www.fox-it.com", "www.fox-it[.]com"),
+        ("string", "dissect.tools", "dissect[.]tools"),
+        ("uri", "HTtPs://SpOngEbOB.cOm", "hxxps://SpOngEbOB[.]cOm"),
+        ("uri", "ftp://user:password@127.0.0.1:21/", "fxp://user:password@127.0.0[.]1:21/"),
+        (
+            "uri",
+            "https://isc.sans.edu/forums/diary/Defang+all+the+things/22744/",
+            "hxxps://isc.sans[.]edu/forums/diary/Defang+all+the+things/22744/",
+        ),
+    ],
+)
+def test_format_defang(record_type, value, expected):
+    TestRecord = RecordDescriptor(
+        "test/format/defang",
+        [
+            (record_type, "value"),
+        ],
+    )
+
+    record = TestRecord(value)
+    assert f"{record.value:defang}" == expected
+    assert f"{record.value:>100}" == f"{value:>100}"
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())

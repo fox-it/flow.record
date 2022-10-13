@@ -30,6 +30,19 @@ float_type = float
 path_type = pathlib.PurePath
 
 
+def defang(value: str) -> str:
+    """Defangs the value to make URLs or ip addresses unclickable"""
+    value = re.sub("^http://", "hxxp://", value, flags=re.IGNORECASE)
+    value = re.sub("^https://", "hxxps://", value, flags=re.IGNORECASE)
+    value = re.sub("^ftp://", "fxp://", value, flags=re.IGNORECASE)
+    value = re.sub("^file://", "fxle://", value, flags=re.IGNORECASE)
+    value = re.sub("^ldap://", "ldxp://", value, flags=re.IGNORECASE)
+    value = re.sub("^ldaps://", "ldxps://", value, flags=re.IGNORECASE)
+    value = re.sub(r"(\w+)\.(\w+)($|/|:)", r"\1[.]\2\3", value, flags=re.IGNORECASE)
+    value = re.sub(r"(\d+)\.(\d+)\.(\d+)\.(\d+)", r"\1.\2.\3[.]\4", value, flags=re.IGNORECASE)
+    return value
+
+
 def fieldtype_for_value(value, default="string"):
     """Returns fieldtype name derived from the value. Returns `default` if it cannot be derived.
 
@@ -155,6 +168,11 @@ class string(string_type, FieldType):
 
     def _pack(self):
         return self
+
+    def __format__(self, spec):
+        if spec == "defang":
+            return defang(self)
+        return str.__format__(self, spec)
 
     @classmethod
     def _decode(cls, data, encoding):
