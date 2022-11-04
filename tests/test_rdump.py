@@ -217,8 +217,8 @@ def test_rdump_json_no_descriptors(tmp_path):
                     count=i,
                     foo="bar" * i,
                     data=b"\x00\x01\x02\x03--" + data,
-                    ip="172.16.0.{}".format(i),
-                    subnet="192.168.{}.0/24".format(i),
+                    ip=f"172.16.0.{i}",
+                    subnet=f"192.168.{i}.0/24",
                     digest=(md5, sha1, sha256),
                 )
             )
