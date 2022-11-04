@@ -11,9 +11,10 @@ log = logging.getLogger(__package__)
 
 
 class JsonRecordPacker:
-    def __init__(self, indent=None):
+    def __init__(self, indent=None, pack_descriptors=True):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
+        self.pack_descriptors = pack_descriptors
         self.indent = indent
 
     def register(self, desc, notify=False):
@@ -39,8 +40,9 @@ class JsonRecordPacker:
             if obj._desc.identifier not in self.descriptors:
                 self.register(obj._desc, True)
             serial = obj._asdict()
-            serial["_type"] = "record"
-            serial["_recorddescriptor"] = obj._desc.identifier
+            if self.pack_descriptors:
+                serial["_type"] = "record"
+                serial["_recorddescriptor"] = obj._desc.identifier
 
             # PYTHON2: Because "bytes" are also "str" we have to handle this here
             for (field_type, field_name) in obj._desc.get_field_tuples():

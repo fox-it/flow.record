@@ -2,6 +2,8 @@ import json
 import datetime
 from flow.record import RecordDescriptor, RecordWriter, RecordReader
 
+import pytest
+
 
 def generate_records(count=100):
     TestRecordEmbedded = RecordDescriptor(
@@ -75,3 +77,56 @@ def test_json_adapter_jsonlines(tmpdir):
         assert record.some_string == items[index]["some_string"]
         assert record.some_int == items[index]["some_int"]
         assert record.some_bool == items[index]["some_bool"]
+
+
+@pytest.mark.parametrize(
+    "record_adapter_path",
+    [
+        "jsonfile://{json_file}?descriptors=False",
+        "jsonfile://{json_file}?descriptors=false",
+        "jsonfile://{json_file}?descriptors=0",
+    ],
+)
+def test_json_adapter_no_record_descriptors(tmpdir, record_adapter_path):
+    json_file = tmpdir.join("records.jsonl")
+    record_adapter_path = record_adapter_path.format(json_file=json_file)
+
+    with RecordWriter(record_adapter_path) as writer:
+        for record in generate_records(100):
+            writer.write(record)
+            writer.flush()
+
+    with open(json_file, "r") as fin:
+        for line in fin:
+            record = json.loads(line)
+            assert "_recorddescriptor" not in record
+            assert "_type" not in record
+
+
+@pytest.mark.parametrize(
+    "record_adapter_path",
+    [
+        "jsonfile://{json_file}?descriptors=True",
+        "jsonfile://{json_file}?descriptors=true",
+        "jsonfile://{json_file}?descriptors=1",
+    ],
+)
+def test_json_adapter_with_record_descriptors(tmpdir, record_adapter_path):
+    json_file = tmpdir.join("records.jsonl")
+    record_adapter_path = record_adapter_path.format(json_file=json_file)
+
+    with RecordWriter(record_adapter_path) as writer:
+        for record in generate_records(100):
+            writer.write(record)
+            writer.flush()
+
+    descriptor_seen = 0
+    with open(json_file, "r") as fin:
+        for line in fin:
+            record = json.loads(line)
+            assert "_type" in record
+            if record["_type"] == "recorddescriptor":
+                descriptor_seen += 1
+            elif record["_type"] == "record":
+                assert "_recorddescriptor" in record
+    assert descriptor_seen == 2
