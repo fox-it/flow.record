@@ -133,7 +133,7 @@ def test_rdump_json(tmp_path):
     writer.close()
 
     # dump records as JSON lines
-    args = ["rdump", str(record_path), "--jsonlines"]
+    args = ["rdump", str(record_path), "-w", "jsonfile://-?descriptors=true"]
     process = subprocess.Popen(args, stdout=subprocess.PIPE)
     stdout, stderr = process.communicate()
 
@@ -189,3 +189,58 @@ def test_rdump_json(tmp_path):
                 assert record.digest.sha1 == sha1
                 assert record.digest.sha256 == sha256
                 assert record.foo == "bar" * i
+
+
+def test_rdump_json_no_descriptors(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+            ("bytes", "data"),
+            ("net.ipaddress", "ip"),
+            ("net.ipnetwork", "subnet"),
+            ("digest", "digest"),
+        ],
+    )
+
+    # generate some test records
+    record_path = tmp_path / "test.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(10):
+            data = str(i).encode()
+            md5 = hashlib.md5(data).hexdigest()
+            sha1 = hashlib.sha1(data).hexdigest()
+            sha256 = hashlib.sha256(data).hexdigest()
+            writer.write(
+                TestRecord(
+                    count=i,
+                    foo="bar" * i,
+                    data=b"\x00\x01\x02\x03--" + data,
+                    ip=f"172.16.0.{i}",
+                    subnet=f"192.168.{i}.0/24",
+                    digest=(md5, sha1, sha256),
+                )
+            )
+
+    # dump records as JSON lines
+    args = ["rdump", str(record_path), "--jsonlines"]
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    assert process.returncode == 0
+    assert stderr is None
+
+    for i, line in enumerate(stdout.splitlines()):
+        json_dict = json.loads(line)
+        assert json_dict
+        assert "_type" not in json_dict
+        assert "_recorddescriptor" not in json_dict
+        assert "_source" in json_dict
+        data = str(i).encode()
+        assert json_dict["data"] == base64.b64encode(b"\x00\x01\x02\x03--" + data).decode()
+        assert json_dict["ip"] == f"172.16.0.{i}"
+        assert json_dict["subnet"] == f"192.168.{i}.0/24"
+        assert json_dict["digest"]["md5"] == hashlib.md5(data).hexdigest()
+        assert json_dict["digest"]["sha1"] == hashlib.sha1(data).hexdigest()
+        assert json_dict["digest"]["sha256"] == hashlib.sha256(data).hexdigest()

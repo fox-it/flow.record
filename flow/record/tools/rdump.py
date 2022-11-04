@@ -167,8 +167,8 @@ def main():
     if not args.writer:
         mode_to_uri = {
             "csv": "csvfile://",
-            "json": "jsonfile://?indent=2",
-            "jsonlines": "jsonfile://",
+            "json": "jsonfile://?indent=2&descriptors=false",
+            "jsonlines": "jsonfile://?descriptors=false",
             "line": "line://",
         }
         uri = mode_to_uri.get(args.mode, uri)
