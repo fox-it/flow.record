@@ -9,7 +9,7 @@ from flow.record.fieldtypes import fieldtype_for_value
 __usage__ = """
 JSON adapter
 ---
-Write usage: rdump -w jsonfile://[PATH]?indent=[INDENT]&?descriptors=[DESCRIPTORS]
+Write usage: rdump -w jsonfile://[PATH]?indent=[INDENT]&descriptors=[DESCRIPTORS]
 Read usage: rdump jsonfile://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 [INDENT]: optional number of identation. Omit "indent" field value for jsonlines output
