@@ -239,8 +239,8 @@ def test_rdump_json_no_descriptors(tmp_path):
         assert "_source" in json_dict
         data = str(i).encode()
         assert json_dict["data"] == base64.b64encode(b"\x00\x01\x02\x03--" + data).decode()
-        assert json_dict["ip"] == "172.16.0.{}".format(i)
-        assert json_dict["subnet"] == "192.168.{}.0/24".format(i)
+        assert json_dict["ip"] == f"172.16.0.{i}"
+        assert json_dict["subnet"] == f"192.168.{i}.0/24"
         assert json_dict["digest"]["md5"] == hashlib.md5(data).hexdigest()
         assert json_dict["digest"]["sha1"] == hashlib.sha1(data).hexdigest()
         assert json_dict["digest"]["sha256"] == hashlib.sha256(data).hexdigest()
