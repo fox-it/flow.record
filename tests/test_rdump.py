@@ -244,3 +244,45 @@ def test_rdump_json_no_descriptors(tmp_path):
         assert json_dict["digest"]["md5"] == hashlib.md5(data).hexdigest()
         assert json_dict["digest"]["sha1"] == hashlib.sha1(data).hexdigest()
         assert json_dict["digest"]["sha256"] == hashlib.sha256(data).hexdigest()
+
+
+def test_rdump_format_spec_hex(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("bytes", "data"),
+        ],
+    )
+
+    # generate a test record
+    test_record = TestRecord(
+        data=b"\x00\x01--hello world--\xee\xff",
+    )
+
+    # write the test record so rdump can read it
+    record_path = tmp_path / "test.records"
+    with RecordWriter(record_path) as writer:
+        writer.write(test_record)
+
+    # rdump with --format string using our hex format spec
+    args = [
+        "rdump",
+        str(record_path),
+        "--format",
+        "hex:{data:hex} HEX:{data:HEX} x:{data:x} X:{data:X} #x:{data:#x} #X:{data:#X}",
+    ]
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    assert process.returncode == 0
+    assert stderr is None
+    assert stdout.rstrip() == b" ".join(
+        [
+            b"hex:00012d2d68656c6c6f20776f726c642d2deeff",
+            b"HEX:00012D2D68656C6C6F20776F726C642D2DEEFF",
+            b"x:00012d2d68656c6c6f20776f726c642d2deeff",
+            b"X:00012D2D68656C6C6F20776F726C642D2DEEFF",
+            b"#x:0x00012d2d68656c6c6f20776f726c642d2deeff",
+            b"#X:0x00012D2D68656C6C6F20776F726C642D2DEEFF",
+        ]
+    )

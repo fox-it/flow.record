@@ -621,5 +621,30 @@ def test_format_defang(record_type, value, expected):
     assert f"{record.value:>100}" == f"{value:>100}"
 
 
+@pytest.mark.parametrize(
+    "spec,value,expected",
+    [
+        ("x", b"\xac\xce\x55\xed", "acce55ed"),
+        ("X", b"\xac\xce\x55\xed", "ACCE55ED"),
+        ("#x", b"\xac\xce\x55\xed", "0xacce55ed"),
+        ("#X", b"\xac\xce\x55\xed", "0xACCE55ED"),
+        ("hex", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e", "000102030405060708090a0b0c0d0e"),
+        ("HEX", b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e", "000102030405060708090A0B0C0D0E"),
+        ("x", b"", ""),
+    ],
+)
+def test_format_hex(spec, value, expected):
+    TestRecord = RecordDescriptor(
+        "test/format/hex",
+        [
+            ("bytes", "value"),
+        ],
+    )
+
+    record = TestRecord(value)
+    format_str = "{:" + spec + "}"
+    assert format_str.format(record.value) == expected
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())

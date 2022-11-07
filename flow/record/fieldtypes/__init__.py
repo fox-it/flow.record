@@ -214,6 +214,17 @@ class bytes(bytes_type, FieldType):
     def __repr__(self):
         return repr(self.value)
 
+    def __format__(self, spec):
+        if spec in ("hex", "x"):
+            return self.hex()
+        elif spec in ("HEX", "X"):
+            return self.hex().upper()
+        elif spec in ("#x"):
+            return "0x" + self.hex()
+        elif spec in ("#X"):
+            return "0x" + self.hex().upper()
+        return bytes_type.__format__(self, spec)
+
 
 class datetime(_dt, FieldType):
     def __new__(cls, *args, **kwargs):
