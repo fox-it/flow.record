@@ -214,9 +214,10 @@ def test_selector_function_call_whitelisting():
             ("net.ipv4.Address", "ip"),
         ],
     )
-    rec = IPRecord("192.168.1.1")
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.1.0/24')")
-    assert rec not in Selector("r.non_existing_field in net.ipv4.Subnet('192.168.1.0/24')")
+    with pytest.deprecated_call():
+        rec = IPRecord("192.168.1.1")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.1.0/24')")
+        assert rec not in Selector("r.non_existing_field in net.ipv4.Subnet('192.168.1.0/24')")
 
     # We call net.ipv4 instead of net.ipv4.Subnet, which should fail
     with pytest.raises(Exception) as excinfo:
@@ -231,14 +232,15 @@ def test_selector_subnet():
             ("net.ipv4.Address", "ip"),
         ],
     )
-    rec = desc("192.168.10.1")
+    with pytest.deprecated_call():
+        rec = desc("192.168.10.1")
 
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.1/32')")
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.0/24')")
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.0.0/16')")
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.0.0.0/8')")
-    assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.1')")
-    assert rec in Selector("r.ip not in net.ipv4.Subnet('10.0.0.0/8')")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.1/32')")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.0/24')")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.0.0/16')")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.0.0.0/8')")
+        assert rec in Selector("r.ip in net.ipv4.Subnet('192.168.10.1')")
+        assert rec in Selector("r.ip not in net.ipv4.Subnet('10.0.0.0/8')")
 
 
 def test_field_equals():
@@ -388,16 +390,17 @@ def test_selector_typed():
             ("net.ipv4.Address", "ip"),
         ],
     )
-    rec = TestNamespaceRecord("192.168.10.1")
+    with pytest.deprecated_call():
+        rec = TestNamespaceRecord("192.168.10.1")
 
-    # This will only work in "normal" selectors, because we need to override the behaviour
-    # of the __contains__ operator to unwrap the requested values
-    assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.1/32')")
-    assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.0/24')")
-    assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.0.0/16')")
-    assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.0.0.0/8')")
-    assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.1')")
-    assert rec in Selector("Type.net.ipv4.Address not in net.ipv4.Subnet('10.0.0.0/8')")
+        # This will only work in "normal" selectors, because we need to override the behaviour
+        # of the __contains__ operator to unwrap the requested values
+        assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.1/32')")
+        assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.0/24')")
+        assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.0.0/16')")
+        assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.0.0.0/8')")
+        assert rec in Selector("Type.net.ipv4.Address in net.ipv4.Subnet('192.168.10.1')")
+        assert rec in Selector("Type.net.ipv4.Address not in net.ipv4.Subnet('10.0.0.0/8')")
 
     with pytest.raises(InvalidOperation):
         assert rec in Selector("Type.uri.filename.__class__ == 'invalid'")

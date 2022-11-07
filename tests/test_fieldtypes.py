@@ -81,18 +81,20 @@ def test_net_ipv4_address():
         ],
     )
 
-    TestRecord("1.1.1.1")
-    TestRecord("0.0.0.0")
-    TestRecord("192.168.0.1")
-    TestRecord("255.255.255.255")
+    with pytest.deprecated_call():
+        TestRecord("1.1.1.1")
+        TestRecord("0.0.0.0")
+        TestRecord("192.168.0.1")
+        TestRecord("255.255.255.255")
 
-    r = TestRecord("127.0.0.1")
+        r = TestRecord("127.0.0.1")
 
     assert isinstance(r.ip, net.ipv4.Address)
 
     for invalid in ["1.1.1.256", "192.168.0.1/24", "a.b.c.d"]:
         with pytest.raises(Exception) as excinfo:
-            TestRecord(invalid)
+            with pytest.deprecated_call():
+                TestRecord(invalid)
         excinfo.match(r".*illegal IP address string.*")
 
     r = TestRecord()
@@ -107,7 +109,8 @@ def test_net_ipv4_subnet():
         ],
     )
 
-    r = TestRecord("1.1.1.0/24")
+    with pytest.deprecated_call():
+        r = TestRecord("1.1.1.0/24")
     assert str(r.subnet) == "1.1.1.0/24"
 
     assert "1.1.1.1" in r.subnet
@@ -116,24 +119,28 @@ def test_net_ipv4_subnet():
     assert "1.1.2.1" not in r.subnet
     # assert "1.1.1.1/32" not in r.subnet
 
-    r = TestRecord("0.0.0.0")
-    r = TestRecord("192.168.0.1")
-    r = TestRecord("255.255.255.255")
+    with pytest.deprecated_call():
+        r = TestRecord("0.0.0.0")
+        r = TestRecord("192.168.0.1")
+        r = TestRecord("255.255.255.255")
 
-    r = TestRecord("127.0.0.1")
+        r = TestRecord("127.0.0.1")
 
     for invalid in ["a.b.c.d", "foo", "bar", ""]:
         with pytest.raises(Exception) as excinfo:
-            TestRecord(invalid)
+            with pytest.deprecated_call():
+                TestRecord(invalid)
         excinfo.match(r".*illegal IP address string.*")
 
     for invalid in [1, 1.0, sum, dict(), list(), True]:
         with pytest.raises(TypeError) as excinfo:
-            TestRecord(invalid)
+            with pytest.deprecated_call():
+                TestRecord(invalid)
         excinfo.match(r"Subnet\(\) argument 1 must be string, not .*")
 
     with pytest.raises(ValueError) as excinfo:
-        TestRecord("192.168.0.106/28")
+        with pytest.deprecated_call():
+            TestRecord("192.168.0.106/28")
     excinfo.match(r"Not a valid subnet '192\.168\.0\.106/28', did you mean '192\.168\.0\.96/28' ?")
 
 
@@ -329,7 +336,8 @@ def test_float():
 
     # invalid float
     with pytest.raises(ValueError):
-        r = TestRecord("abc")
+        with pytest.deprecated_call():
+            r = TestRecord("abc")
 
 
 def test_uri_type():

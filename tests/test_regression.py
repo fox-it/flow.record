@@ -336,7 +336,8 @@ def test_multi_grouped_record_serialization(tmp_path):
         ],
     )
 
-    test_rec = TestRecord("1.3.3.7")
+    with pytest.deprecated_call():
+        test_rec = TestRecord("1.3.3.7")
     geo_rec = GeoRecord(country="Netherlands", city="Delft")
 
     grouped_rec = GroupedRecord("grouped/geoip", [test_rec, geo_rec])
@@ -353,15 +354,16 @@ def test_multi_grouped_record_serialization(tmp_path):
     writer.write(record)
     writer.close()
 
-    reader = RecordReader(tmp_path / "out.record")
-    records = list(reader)
-    assert len(records) == 1
-    record = records[0]
-    assert record.ip == "1.3.3.7"
-    assert record.country == "Netherlands"
-    assert record.city == "Delft"
-    assert record.asn == "1337"
-    assert record.isp == "Cyberspace"
+    with pytest.deprecated_call():
+        reader = RecordReader(tmp_path / "out.record")
+        records = list(reader)
+        assert len(records) == 1
+        record = records[0]
+        assert record.ip == "1.3.3.7"
+        assert record.country == "Netherlands"
+        assert record.city == "Delft"
+        assert record.asn == "1337"
+        assert record.isp == "Cyberspace"
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
