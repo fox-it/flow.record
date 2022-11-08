@@ -1,5 +1,6 @@
 import struct
 import socket
+import warnings
 
 from flow.record import FieldType
 from flow.record.utils import to_native_str
@@ -39,6 +40,11 @@ class subnet(FieldType):
     _type = "net.ipv4.subnet"
 
     def __init__(self, addr, netmask=None):
+        warnings.warn(
+            "net.ipv4.subnet fieldtype is deprecated, use net.ipnetwork instead",
+            DeprecationWarning,
+            stacklevel=5,
+        )
         if isinstance(addr, type("")):
             addr = to_native_str(addr)
 
@@ -111,6 +117,11 @@ class address(FieldType):
     _type = "net.ipv4.address"
 
     def __init__(self, addr):
+        warnings.warn(
+            "net.ipv4.address fieldtype is deprecated, use net.ipaddress instead",
+            DeprecationWarning,
+            stacklevel=5,
+        )
         self.val = addr_long(addr)
 
     def __eq__(self, b):
