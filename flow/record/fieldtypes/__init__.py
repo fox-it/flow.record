@@ -219,9 +219,9 @@ class bytes(bytes_type, FieldType):
             return self.hex()
         elif spec in ("HEX", "X"):
             return self.hex().upper()
-        elif spec in ("#x"):
+        elif spec == "#x":
             return "0x" + self.hex()
-        elif spec in ("#X"):
+        elif spec == "#X":
             return "0x" + self.hex().upper()
         return bytes_type.__format__(self, spec)
 
