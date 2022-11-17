@@ -419,5 +419,20 @@ def test_grouped_replace():
     excinfo.match(".*Got unexpected field names:.*non_existing_field.*")
 
 
+def test_bytes_line_adapter(capsys):
+    TestRecord = RecordDescriptor(
+        "test/bytes_hex",
+        [
+            ("bytes", "data"),
+        ],
+    )
+
+    with RecordWriter("line://") as writer:
+        writer.write(TestRecord(b"hello world"))
+
+    captured = capsys.readouterr()
+    assert "data = b'hello world'" in captured.out
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
