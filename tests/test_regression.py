@@ -21,6 +21,7 @@ from flow.record import (
 from flow.record.base import is_valid_field_name
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import Selector, CompiledSelector
+from flow.record.utils import is_stdout
 
 
 def test_datetime_serialization():
@@ -432,6 +433,29 @@ def test_bytes_line_adapter(capsys):
 
     captured = capsys.readouterr()
     assert "data = b'hello world'" in captured.out
+
+
+def test_is_stdout(tmp_path):
+    assert is_stdout(sys.stdout)
+    assert is_stdout(sys.stdout.buffer)
+
+    assert not is_stdout(sys.stderr)
+    assert not is_stdout(sys.stderr.buffer)
+
+    with open(tmp_path / "test", "w") as f:
+        assert not is_stdout(f)
+
+    with RecordWriter() as writer:
+        assert is_stdout(writer.fp)
+
+    with RecordWriter(tmp_path / "output.records") as writer:
+        assert not is_stdout(writer.fp)
+
+    with RecordWriter("csvfile://") as writer:
+        assert is_stdout(writer.fp)
+
+    with RecordWriter("line://") as writer:
+        assert is_stdout(writer.fp)
 
 
 if __name__ == "__main__":

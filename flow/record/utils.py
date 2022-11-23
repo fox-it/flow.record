@@ -9,7 +9,7 @@ _bytes = type(b"")
 
 
 def is_stdout(fp):
-    return fp == getattr(sys.stdout, "buffer", sys.stdout)
+    return fp in (sys.stdout, sys.stdout.buffer)
 
 
 def to_bytes(value):
