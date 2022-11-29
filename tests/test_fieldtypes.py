@@ -540,6 +540,73 @@ def test_path():
     assert isinstance(test_path, flow.record.fieldtypes.posix_path)
 
 
+@pytest.mark.parametrize(
+    "path_initializer",
+    [
+        flow.record.fieldtypes.posix_path,
+        flow.record.fieldtypes.path.from_posix,
+        pathlib.PurePosixPath,
+    ],
+)
+@pytest.mark.parametrize(
+    "path,expected_repr",
+    [
+        ("/tmp/foo/bar", "/tmp/foo/bar"),
+        ("\\tmp\\foo\\bar", r"\\tmp\\foo\\bar"),
+        ("user/.bash_history", "user/.bash_history"),
+    ],
+)
+def test_path_posix(path_initializer, path, expected_repr):
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "path"),
+        ],
+    )
+
+    record = TestRecord(path=path_initializer(path))
+    assert repr(record) == f"<test/path path=posix_path('{expected_repr}')>"
+
+
+@pytest.mark.parametrize(
+    "path_initializer",
+    [
+        flow.record.fieldtypes.windows_path,
+        flow.record.fieldtypes.path.from_windows,
+        pathlib.PureWindowsPath,
+    ],
+)
+@pytest.mark.parametrize(
+    "path,expected_repr,expected_str",
+    [
+        ("c:\\windows\\temp\\foo\\bar", "c:/windows/temp/foo/bar", r"c:\windows\temp\foo\bar"),
+        (r"C:\Windows\Temp\foo\bar", "C:/Windows/Temp/foo/bar", r"C:\Windows\Temp\foo\bar"),
+        (r"d:/Users/Public", "d:/Users/Public", r"d:\Users\Public"),
+        (
+            "/sysvol/Windows/System32/drivers/null.sys",
+            "/sysvol/Windows/System32/drivers/null.sys",
+            r"\sysvol\Windows\System32\drivers\null.sys",
+        ),
+        (
+            "/c:/Windows/System32/drivers/null.sys",
+            "/c:/Windows/System32/drivers/null.sys",
+            r"\c:\Windows\System32\drivers\null.sys",
+        ),
+        ("Users\\Public", "Users/Public", r"Users\Public"),
+    ],
+)
+def test_path_windows(path_initializer, path, expected_repr, expected_str):
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "path"),
+        ],
+    )
+    record = TestRecord(path=path_initializer(path))
+    assert repr(record) == f"<test/path path=windows_path('{expected_repr}')>"
+    assert str(record.path) == expected_str
+
+
 def test_fieldtype_for_value():
     assert fieldtype_for_value(True) == "boolean"
     assert fieldtype_for_value(False) == "boolean"

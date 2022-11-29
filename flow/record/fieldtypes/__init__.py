@@ -545,8 +545,10 @@ class path(pathlib.PurePath, FieldType):
                 path_ = args[0]
                 if isinstance(path_, pathlib.PureWindowsPath):
                     cls = windows_path
+                    args = [path_.as_posix()]
                 elif isinstance(path_, pathlib.PurePosixPath):
                     cls = posix_path
+                    args = [path_.as_posix()]
 
         return cls._from_parts(args)
 
