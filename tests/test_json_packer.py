@@ -1,5 +1,7 @@
-from __future__ import print_function
+import json
 from datetime import datetime
+
+from flow.record import fieldtypes
 from flow.record import JsonRecordPacker, RecordDescriptor
 
 
@@ -29,3 +31,19 @@ def test_record_in_record():
 
     assert record_b == record_b_unpacked
     assert record_a == record_b_unpacked.record
+
+
+def test_pack_path_fieldtype():
+    packer = JsonRecordPacker()
+    TestRecord = RecordDescriptor(
+        "test/pack_path",
+        [
+            ("path", "path"),
+        ],
+    )
+
+    r = TestRecord(path=fieldtypes.path.from_windows(r"c:\windows\system32"))
+    assert json.loads(packer.pack(r))["path"] == "c:\\windows\\system32"
+
+    r = TestRecord(path=fieldtypes.path.from_posix("/root/.bash_history"))
+    assert json.loads(packer.pack(r))["path"] == "/root/.bash_history"
