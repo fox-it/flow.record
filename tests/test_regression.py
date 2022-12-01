@@ -471,12 +471,16 @@ def test_rdump_fieldtype_path_json(tmp_path):
     # write the test records so rdump can read it
     record_path = tmp_path / "test.records"
     with RecordWriter(record_path) as writer:
-        writer.write(TestRecord(
-            path=fieldtypes.path.from_windows(r"c:\windows\system32"),
-        ))
-        writer.write(TestRecord(
-            path=fieldtypes.path.from_posix("/root/.bash_history"),
-        ))
+        writer.write(
+            TestRecord(
+                path=fieldtypes.path.from_windows(r"c:\windows\system32"),
+            )
+        )
+        writer.write(
+            TestRecord(
+                path=fieldtypes.path.from_posix("/root/.bash_history"),
+            )
+        )
 
     # rdump --jsonlines
     args = [
@@ -493,7 +497,7 @@ def test_rdump_fieldtype_path_json(tmp_path):
     # strip _generated, _source, _classification from dictionary
     jsonlines = []
     for line in stdout.splitlines():
-        jsondict = {k:v for k,v in json.loads(line).items() if not k.startswith("_")}
+        jsondict = {k: v for k, v in json.loads(line).items() if not k.startswith("_")}
         jsonlines.append(jsondict)
 
     assert jsonlines == [
