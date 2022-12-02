@@ -286,3 +286,17 @@ def test_rdump_format_spec_hex(tmp_path):
             b"#X:0x00012D2D68656C6C6F20776F726C642D2DEEFF",
         ]
     )
+
+
+def test_rdump_list_adapters():
+    args = [
+        "rdump",
+        "--list-adapters",
+    ]
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    assert process.returncode == 0
+    assert stderr is None
+    for adapter in ("stream", "line", "text", "jsonfile", "csvfile"):
+        assert f"{adapter}:\n".encode() in stdout
