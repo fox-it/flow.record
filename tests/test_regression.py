@@ -521,7 +521,7 @@ def test_windows_path_regression(path_initializer):
         [
             ("path", "path"),
         ],
-    )    
+    )
     r = TestRecord(path=path_initializer("/c:/Windows/System32/drivers/null.sys"))
     assert str(r.path) == "\\c:\\Windows\\System32\\drivers\\null.sys"
     assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
