@@ -48,7 +48,9 @@ def list_adapters():
         ]
     else:
         adapters = [
-            Path(name).stem for name in loader.contents() if name.endswith(("py", "pyc")) and not name.startswith("__")
+            Path(name).stem
+            for name in loader.get_resource_reader("flow.record.adapter").contents()
+            if name.endswith(("py", "pyc")) and not name.startswith("__")
         ]
 
     print("available adapters:")
