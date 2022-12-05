@@ -516,6 +516,12 @@ def test_rdump_fieldtype_path_json(tmp_path):
     ],
 )
 def test_windows_path_regression(path_initializer):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("path", "path"),
+        ],
+    )    
     r = TestRecord(path=path_initializer("/c:/Windows/System32/drivers/null.sys"))
     assert str(r.path) == "\\c:\\Windows\\System32\\drivers\\null.sys"
     assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
