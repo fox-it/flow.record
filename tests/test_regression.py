@@ -25,6 +25,7 @@ from flow.record.base import is_valid_field_name
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import Selector, CompiledSelector
 from flow.record.utils import is_stdout
+from flow.record.tools.rdump import main as rdump_main
 
 
 def test_datetime_serialization():
@@ -541,7 +542,7 @@ def test_windows_path_regression(path_initializer):
         (5, 10, 5),
     ],
 )
-def test_rdump_count_list(tmp_path, record_count, count, expected_count):
+def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_count):
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -556,33 +557,16 @@ def test_rdump_count_list(tmp_path, record_count, count, expected_count):
             writer.write(TestRecord(count=i))
 
     # rdump --count <count>
-    args = [
-        "rdump",
-        str(record_path),
-        "--count",
-        str(count),
-    ]
-    process = subprocess.Popen(args, stdout=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-
-    assert process.returncode == 0
-    assert stderr is None
-    assert len(stdout.splitlines()) == expected_count
+    rdump_main([str(record_path), "--count", str(count)])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert len(captured.out.splitlines()) == expected_count
 
     # rdump --list --count <count>
-    args = [
-        "rdump",
-        str(record_path),
-        "--list",
-        "--count",
-        str(count),
-    ]
-    process = subprocess.Popen(args, stdout=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-
-    assert process.returncode == 0
-    assert stderr is None
-    assert f"Processed {expected_count} records".encode() in stdout
+    rdump_main([str(record_path), "--list", "--count", str(count)])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert f"Processed {expected_count} records".encode() in captured.out
 
 
 if __name__ == "__main__":

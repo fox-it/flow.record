@@ -68,7 +68,7 @@ def list_adapters():
 
 
 @catch_sigpipe
-def main():
+def main(argv=None):
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -152,7 +152,7 @@ def main():
         help="Short for --mode=line",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     level = levels[min(len(levels) - 1, args.verbose)]
