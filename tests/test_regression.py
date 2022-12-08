@@ -3,6 +3,7 @@ import codecs
 import os
 import datetime
 import sys
+import pathlib
 import json
 import subprocess
 
@@ -504,6 +505,26 @@ def test_rdump_fieldtype_path_json(tmp_path):
         {"path": "c:\\windows\\system32"},
         {"path": "/root/.bash_history"},
     ]
+
+
+@pytest.mark.parametrize(
+    "path_initializer",
+    [
+        pathlib.PureWindowsPath,
+        fieldtypes.windows_path,
+        fieldtypes.path.from_windows,
+    ],
+)
+def test_windows_path_regression(path_initializer):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("path", "path"),
+        ],
+    )
+    r = TestRecord(path=path_initializer("/c:/Windows/System32/drivers/null.sys"))
+    assert str(r.path) == "\\c:\\Windows\\System32\\drivers\\null.sys"
+    assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
 
 
 if __name__ == "__main__":
