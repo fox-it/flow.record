@@ -25,6 +25,7 @@ from flow.record.base import is_valid_field_name
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import Selector, CompiledSelector
 from flow.record.utils import is_stdout
+from flow.record.tools import rdump
 
 
 def test_datetime_serialization():
@@ -528,6 +529,44 @@ def test_windows_path_regression(path_initializer):
     r = TestRecord(path=path_initializer("/c:/Windows/System32/drivers/null.sys"))
     assert str(r.path) == "\\c:\\Windows\\System32\\drivers\\null.sys"
     assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
+
+
+@pytest.mark.parametrize(
+    "record_count,count,expected_count",
+    [
+        (10, 10, 10),
+        (0, 10, 0),
+        (1, 10, 1),
+        (5, 0, 5),  # --count 0 should be ignored
+        (5, 1, 1),
+        (5, 10, 5),
+    ],
+)
+def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_count):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+        ],
+    )
+
+    # write the test records so rdump can read it
+    record_path = tmp_path / "test.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(record_count):
+            writer.write(TestRecord(count=i))
+
+    # rdump --count <count>
+    rdump.main([str(record_path), "--count", str(count)])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert len(captured.out.splitlines()) == expected_count
+
+    # rdump --list --count <count>
+    rdump.main([str(record_path), "--list", "--count", str(count)])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert f"Processed {expected_count} records".encode() in captured.out
 
 
 if __name__ == "__main__":
