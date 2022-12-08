@@ -438,7 +438,7 @@ def test_bytes_line_adapter(capsys):
     assert "data = b'hello world'" in captured.out
 
 
-def test_is_stdout(tmp_path):
+def test_is_stdout(tmp_path, capsysbinary):
     assert is_stdout(sys.stdout)
     assert is_stdout(sys.stdout.buffer)
 
@@ -450,6 +450,9 @@ def test_is_stdout(tmp_path):
 
     with RecordWriter() as writer:
         assert is_stdout(writer.fp)
+
+    out, err = capsysbinary.readouterr()
+    assert out.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
     with RecordWriter(tmp_path / "output.records") as writer:
         assert not is_stdout(writer.fp)
