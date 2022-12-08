@@ -25,7 +25,7 @@ from flow.record.base import is_valid_field_name
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import Selector, CompiledSelector
 from flow.record.utils import is_stdout
-from flow.record.tools.rdump import main as rdump_main
+from flow.record.tools import rdump
 
 
 def test_datetime_serialization():
@@ -557,13 +557,13 @@ def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_
             writer.write(TestRecord(count=i))
 
     # rdump --count <count>
-    rdump_main([str(record_path), "--count", str(count)])
+    rdump.main([str(record_path), "--count", str(count)])
     captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert len(captured.out.splitlines()) == expected_count
 
     # rdump --list --count <count>
-    rdump_main([str(record_path), "--list", "--count", str(count)])
+    rdump.main([str(record_path), "--list", "--count", str(count)])
     captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert f"Processed {expected_count} records".encode() in captured.out
