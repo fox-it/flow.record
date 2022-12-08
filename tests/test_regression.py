@@ -530,5 +530,60 @@ def test_windows_path_regression(path_initializer):
     assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
 
 
+@pytest.mark.parametrize(
+    "record_count,count,expected_count",
+    [
+        (10, 10, 10),
+        (0, 10, 0),
+        (1, 10, 1),
+        (5, 0, 5),  # --count 0 should be ignored
+        (5, 1, 1),
+        (5, 10, 5),
+    ],
+)
+def test_rdump_count_list(tmp_path, record_count, count, expected_count):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+        ],
+    )
+
+    # write the test records so rdump can read it
+    record_path = tmp_path / "test.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(record_count):
+            writer.write(TestRecord(count=i))
+
+    # rdump --count <count>
+    args = [
+        "rdump",
+        str(record_path),
+        "--count",
+        str(count),
+    ]
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    assert process.returncode == 0
+    assert stderr is None
+    assert len(stdout.splitlines()) == expected_count
+
+    # rdump --list --count <count>
+    args = [
+        "rdump",
+        str(record_path),
+        "--list",
+        "--count",
+        str(count),
+    ]
+    process = subprocess.Popen(args, stdout=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+
+    assert process.returncode == 0
+    assert stderr is None
+    assert f"Processed {expected_count} records".encode() in stdout
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())

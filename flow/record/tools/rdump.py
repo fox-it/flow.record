@@ -190,10 +190,7 @@ def main():
     seen_desc = set()
     count = 0
     with RecordWriter(uri) as record_writer:
-        for count, rec in enumerate(record_stream(args.src, selector)):
-            if args.count and count >= args.count:
-                break
-
+        for count, rec in enumerate(record_stream(args.src, selector), start=1):
             if args.record_source is not None:
                 rec._source = args.record_source
             if args.record_classification is not None:
@@ -201,17 +198,20 @@ def main():
             if record_field_rewriter:
                 rec = record_field_rewriter.rewrite(rec)
 
-            # Dump RecordDescriptors
             if args.list:
+                # Dump RecordDescriptors
                 desc = rec._desc
                 if desc.descriptor_hash not in seen_desc:
                     seen_desc.add(desc.descriptor_hash)
-                    print("# {}".format(desc))
+                    print(f"# {desc}")
                     print(desc.definition())
                     print()
-                continue
+            else:
+                # Dump Records
+                record_writer.write(rec)
 
-            record_writer.write(rec)
+            if args.count and count >= args.count:
+                break
 
     if args.list:
         print("Processed {} records".format(count))
