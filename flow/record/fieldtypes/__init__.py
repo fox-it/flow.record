@@ -233,14 +233,16 @@ class datetime(_dt, FieldType):
             if isinstance(arg, bytes_type):
                 arg = arg.decode("utf-8")
             if isinstance(arg, string_type):
-                # I expect ISO 8601 format e.g. datetime.isformat()
-                # When the microseconds part is 0, str(datetime) will not print the microsecond part (only seconds)
-                # So we have to account for this.
+                # I expect ISO 8601 format e.g. datetime.isoformat()
                 # String constructor is used for example in JsonRecordAdapter
-                if "." in arg:
-                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f")
+                # Note: ISO 8601 is fully implemented in fromisoformat() from Python 3.11 and onwards.
+                # Until then, we need to manually detect timezone info and handle it.
+                if any(z in arg[19:] for z in ["Z", "+", "-"]):
+                    if "." in arg[19:]:
+                        return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
                 else:
-                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S")
+                    return cls.fromisoformat(arg)
             elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
