@@ -7,6 +7,8 @@ import pathlib
 import json
 import subprocess
 
+from unittest.mock import patch, mock_open
+
 import msgpack
 
 from flow.record import (
@@ -567,6 +569,17 @@ def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_
     captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert f"Processed {expected_count} records".encode() in captured.out
+
+
+def test_record_adapter_windows_path():
+    with patch("io.open", mock_open(read_data=b"TEST DATA")) as m:
+        with pytest.raises(IOError, match="Unknown file format, not a RecordStream"):
+            adapter = RecordReader(r"c:\users\user\test.records")
+        m.assert_called_once_with(r"c:\users\user\test.records", "rb")
+
+    with patch("io.open", mock_open()) as m:
+        adapter = RecordWriter(r"c:\users\user\test.records")
+        m.assert_called_once_with(r"c:\users\user\test.records", "wb")
 
 
 if __name__ == "__main__":
