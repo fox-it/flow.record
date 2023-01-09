@@ -571,14 +571,27 @@ def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_
     assert f"Processed {expected_count} records".encode() in captured.out
 
 
-def test_record_adapter_windows_path():
-    with patch("io.open", mock_open(read_data=b"TEST DATA")) as m:
-        with pytest.raises(IOError, match="Unknown file format, not a RecordStream"):
-            adapter = RecordReader(r"c:\users\user\test.records")
+def test_record_adapter_windows_path(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
+    path_records = tmp_path / "test.records"
+    with RecordWriter(path_records) as writer:
+        writer.write(TestRecord("foo"))
+        writer.write(TestRecord("bar"))
+
+    with patch("io.open", mock_open(read_data=path_records.read_bytes())) as m:
+        adapter = RecordReader(r"c:\users\user\test.records")
+        assert type(adapter).__name__ == "StreamReader"
         m.assert_called_once_with(r"c:\users\user\test.records", "rb")
+        assert [r.text for r in adapter] == ["foo", "bar"]
 
     with patch("io.open", mock_open()) as m:
         adapter = RecordWriter(r"c:\users\user\test.records")
+        assert type(adapter).__name__ == "StreamWriter"
         m.assert_called_once_with(r"c:\users\user\test.records", "wb")
 
 
