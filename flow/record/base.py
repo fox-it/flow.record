@@ -11,12 +11,8 @@ import hashlib
 import functools
 import collections
 
-try:
-    # Python 2
-    import urlparse
-except ImportError:
-    # Python 3
-    import urllib.parse as urlparse
+from urllib.parse import urlparse, parse_qsl
+
 try:
     import lz4.frame as lz4
 
@@ -673,8 +669,7 @@ def open_path(path, mode, clobber=True):
 
 
 def RecordAdapter(url, out, selector=None, clobber=True):
-    url = url or ""
-    url = str(url)
+    url = str(url or "")
 
     # Guess adapter based on extension
     ext_to_adapter = {
@@ -683,20 +678,19 @@ def RecordAdapter(url, out, selector=None, clobber=True):
     }
     _, ext = os.path.splitext(url)
 
-    p = urlparse.urlparse(url, ext_to_adapter.get(ext, "stream"))
+    adapter_scheme = ext_to_adapter.get(ext, "stream")
+    if "://" not in url:
+        url = f"{adapter_scheme}://{url}"
 
-    if "+" in p.scheme:
-        adapter, sub_adapter = p.scheme.split("+", 1)
-    else:
-        adapter = p.scheme
-        sub_adapter = None
+    p = urlparse(url, scheme=adapter_scheme)
+    adapter, _, sub_adapter = p.scheme.partition("+")
 
     mod = importlib.import_module("flow.record.adapter.{}".format(adapter))
 
     clsname = ("{}Writer" if out else "{}Reader").format(adapter.title())
 
     cls = getattr(mod, clsname)
-    arg_dict = dict(urlparse.parse_qsl(p.query))
+    arg_dict = dict(parse_qsl(p.query))
     cls_url = p.netloc + p.path
     if sub_adapter:
         cls_url = sub_adapter + "://" + cls_url
