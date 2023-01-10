@@ -1,17 +1,17 @@
+import collections
+import functools
+import gzip
+import hashlib
 import importlib
 import io
-import re
-import os
-import sys
-import gzip
-import struct
-import logging
 import keyword
-import hashlib
-import functools
-import collections
-
-from urllib.parse import urlparse, parse_qsl
+import logging
+import os
+import re
+import struct
+import sys
+from typing import Iterator
+from urllib.parse import parse_qsl, urlparse
 
 try:
     import lz4.frame as lz4
@@ -34,8 +34,9 @@ except ImportError:
 
 from collections import OrderedDict
 from operator import itemgetter as _itemgetter
+
+from .utils import to_native_str, to_str
 from .whitelist import WHITELIST, WHITELIST_TREE
-from .utils import to_str, to_native_str
 
 log = logging.getLogger(__package__)
 
@@ -806,3 +807,36 @@ class DynamicFieldtypeModule:
 
 net = DynamicFieldtypeModule("net")
 dynamic_fieldtype = DynamicFieldtypeModule()
+
+TimestampRecord = RecordDescriptor(
+    "record/timestamp",
+    [
+        ("datetime", "ts"),
+        ("string", "ts_description"),
+    ],
+)
+
+
+def iter_timestamped_records(record: Record) -> Iterator[Record]:
+    """Yields timestamped annotated records for each `datetime` fieldtype in `record`.
+    If `record` does not have any `datetime` fields the original record is returned.
+
+    Args:
+        record: Record to add timestamp fields for.
+
+    Yields:
+        Record annotated with `ts` and `ts_description` fields for each `datetime` fieldtype.
+    """
+    # get all `datetime` fields. (excluding _generated).
+    dt_fields = record._desc.getfields("datetime")
+    if not dt_fields:
+        yield record
+        return
+
+    # yield a new record for each `datetime` field assigned as `ts`.
+    record_name = record._desc.name
+    for field in dt_fields:
+        ts_record = TimestampRecord(getattr(record, field.name), field.name)
+        # we extend `ts_record` with original `record` so TSRecord info goes first.
+        record = extend_record(ts_record, [record], name=record_name)
+        yield record

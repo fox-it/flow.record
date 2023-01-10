@@ -24,7 +24,6 @@ setup(
         "console_scripts": [
             "rdump=flow.record.tools.rdump:main",
             "rgeoip=flow.record.tools.geoip:main",
-            "rmulti-timestamp=flow.record.tools.multi_timestamp:main",
         ],
     },
 )
