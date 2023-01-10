@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 from binascii import a2b_hex, b2a_hex
-from datetime import datetime as _dt, timedelta
+from datetime import datetime as _dt, timezone
 from posixpath import basename, dirname
 from typing import Tuple
 
@@ -261,7 +261,11 @@ class datetime(_dt, FieldType):
         return _dt.__new__(cls, *args, **kwargs)
 
     def __eq__(self, other):
-        return self - other == timedelta(0)
+        # Avoid TypeError: can't compare offset-naive and offset-aware datetimes
+        # naive datetimes are treated as UTC in flow.record instead of local time
+        ts1 = self.timestamp() if self.tzinfo else self.replace(tzinfo=timezone.utc).timestamp()
+        ts2 = other.timestamp() if other.tzinfo else other.replace(tzinfo=timezone.utc).timestamp()
+        return ts1 == ts2
 
     def _pack(self):
         return self
