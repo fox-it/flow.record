@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from flow.record import RecordDescriptor
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import net
 from flow.record.fieldtypes import uri
 from flow.record.fieldtypes import fieldtype_for_value
@@ -414,6 +414,42 @@ def test_datetime():
 
     r = TestRecord(1521731723.123456)
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
+
+
+@pytest.mark.parametrize(
+    "value,expected_dt",
+    [
+        ("2023-12-31T13:37:01.123456Z", datetime.datetime(2023, 12, 31, 13, 37, 1, 123456)),
+        ("2023-01-10T16:12:01+00:00", datetime.datetime(2023, 1, 10, 16, 12, 1)),
+        ("2023-01-10T16:12:01", datetime.datetime(2023, 1, 10, 16, 12, 1)),
+        ("2023-01-10T16:12:01Z", datetime.datetime(2023, 1, 10, 16, 12, 1)),
+        ("2022-12-01T13:00:23.499460Z", datetime.datetime(2022, 12, 1, 13, 0, 23, 499460)),
+        ("2019-09-26T07:58:30.996+0200", datetime.datetime(2019, 9, 26, 5, 58, 30, 996000)),
+        ("2011-11-04T00:05:23+04:00", datetime.datetime(2011, 11, 3, 20, 5, 23)),
+        ("2023-01-01T12:00:00+01:00", datetime.datetime(2023, 1, 1, 11, 0, 0, tzinfo=datetime.timezone.utc)),
+        (datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc), datetime.datetime(2023, 1, 1)),
+        (0, datetime.datetime(1970, 1, 1, 0, 0)),
+    ],
+)
+def test_datetime_formats(tmp_path, value, expected_dt):
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+    record = TestRecord(dt=value)
+    assert record.dt == expected_dt
+
+    # test packing / serialization of datetime fields
+    path = tmp_path / "datetime.records"
+    with RecordWriter(path) as writer:
+        writer.write(record)
+
+    # test unpacking / deserialization of datetime fields
+    with RecordReader(path) as reader:
+        record = next(iter(reader))
+        assert record.dt == expected_dt
 
 
 def test_digest():

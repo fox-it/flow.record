@@ -84,3 +84,30 @@ def test_multi_timestamp_ts_fieldname():
     assert len(ts_records) == 1
     assert ts_records[0].ts == test_record.ts
     assert ts_records[0].ts_description == "ts"
+
+
+def test_multi_timestamp_timezone():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("datetime", "ts"),
+            ("string", "data"),
+        ],
+    )
+
+    correct_ts = datetime.datetime(2023, 12, 31, 13, 37, 1, 123456, tzinfo=datetime.timezone.utc)
+
+    ts_notations = [
+        correct_ts,
+        "2023-12-31T13:37:01.123456Z",
+    ]
+
+    for i, ts_notation in enumerate(ts_notations):
+        test_record = TestRecord(
+            ts=ts_notation,
+            data=f"record with timezone ({str(i)})",
+        )
+        ts_records = list(iter_timestamped_records(test_record))
+        assert len(ts_records) == 1
+        assert ts_records[0].ts == correct_ts
+        assert ts_records[0].ts_description == "ts"

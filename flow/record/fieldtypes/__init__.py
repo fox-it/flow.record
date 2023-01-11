@@ -4,7 +4,7 @@ import os
 import pathlib
 import re
 from binascii import a2b_hex, b2a_hex
-from datetime import datetime as _dt, timedelta
+from datetime import datetime as _dt, timezone
 from posixpath import basename, dirname
 from typing import Tuple
 
@@ -233,14 +233,16 @@ class datetime(_dt, FieldType):
             if isinstance(arg, bytes_type):
                 arg = arg.decode("utf-8")
             if isinstance(arg, string_type):
-                # I expect ISO 8601 format e.g. datetime.isformat()
-                # When the microseconds part is 0, str(datetime) will not print the microsecond part (only seconds)
-                # So we have to account for this.
+                # I expect ISO 8601 format e.g. datetime.isoformat()
                 # String constructor is used for example in JsonRecordAdapter
-                if "." in arg:
-                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f")
+                # Note: ISO 8601 is fully implemented in fromisoformat() from Python 3.11 and onwards.
+                # Until then, we need to manually detect timezone info and handle it.
+                if any(z in arg[19:] for z in ["Z", "+", "-"]):
+                    if "." in arg[19:]:
+                        return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
                 else:
-                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S")
+                    return cls.fromisoformat(arg)
             elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
@@ -259,7 +261,11 @@ class datetime(_dt, FieldType):
         return _dt.__new__(cls, *args, **kwargs)
 
     def __eq__(self, other):
-        return self - other == timedelta(0)
+        # Avoid TypeError: can't compare offset-naive and offset-aware datetimes
+        # naive datetimes are treated as UTC in flow.record instead of local time
+        ts1 = self.timestamp() if self.tzinfo else self.replace(tzinfo=timezone.utc).timestamp()
+        ts2 = other.timestamp() if other.tzinfo else other.replace(tzinfo=timezone.utc).timestamp()
+        return ts1 == ts2
 
     def _pack(self):
         return self
