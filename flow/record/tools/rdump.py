@@ -3,11 +3,10 @@ from __future__ import print_function
 
 import logging
 import sys
-import urllib.parse as urlparse
 from importlib import import_module
 from pathlib import Path
 from textwrap import indent
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from zipimport import zipimporter
 
 import flow.record.adapter
@@ -173,7 +172,7 @@ def main(argv=None):
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
-        uri += "&" if urlparse.urlparse(uri).query else "?" + query
+        uri += "&" if urlparse(uri).query else "?" + query
 
     record_field_rewriter = None
     if fields or fields_to_exclude or args.exec_expression:
