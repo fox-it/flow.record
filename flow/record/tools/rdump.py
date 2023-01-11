@@ -3,9 +3,11 @@ from __future__ import print_function
 
 import logging
 import sys
+import urllib.parse as urlparse
 from importlib import import_module
 from pathlib import Path
 from textwrap import indent
+from urllib.parse import urlencode
 from zipimport import zipimporter
 
 import flow.record.adapter
@@ -20,16 +22,6 @@ except ImportError:
     version = "unknown"
 
 log = logging.getLogger(__name__)
-
-try:
-    # Python 2
-    from urllib import urlencode
-
-    import urlparse
-except ImportError:
-    # Python 3
-    import urllib.parse as urlparse
-    from urllib.parse import urlencode
 
 
 def list_adapters():
