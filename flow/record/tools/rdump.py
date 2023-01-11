@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-import sys
 import logging
-
+import sys
 from importlib import import_module
 from pathlib import Path
 from textwrap import indent
+from urllib.parse import urlencode, urlparse
 from zipimport import zipimporter
 
 import flow.record.adapter
-from flow.record import RecordWriter, record_stream
-from flow.record.stream import RecordFieldRewriter
+from flow.record import RecordWriter, iter_timestamped_records, record_stream
 from flow.record.selector import make_selector
+from flow.record.stream import RecordFieldRewriter
 from flow.record.utils import catch_sigpipe
 
 try:
@@ -21,15 +21,6 @@ except ImportError:
     version = "unknown"
 
 log = logging.getLogger(__name__)
-
-try:
-    # Python 2
-    import urlparse
-    from urllib import urlencode
-except ImportError:
-    # Python 3
-    import urllib.parse as urlparse
-    from urllib.parse import urlencode
 
 
 def list_adapters():
@@ -106,6 +97,7 @@ def main(argv=None):
     output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument("-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line"), help="Output mode")
+    output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -180,7 +172,7 @@ def main(argv=None):
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
-        uri += "&" if urlparse.urlparse(uri).query else "?" + query
+        uri += "&" if urlparse(uri).query else "?" + query
 
     record_field_rewriter = None
     if fields or fields_to_exclude or args.exec_expression:
@@ -208,7 +200,11 @@ def main(argv=None):
                     print()
             else:
                 # Dump Records
-                record_writer.write(rec)
+                if args.multi_timestamp:
+                    for record in iter_timestamped_records(rec):
+                        record_writer.write(record)
+                else:
+                    record_writer.write(rec)
 
             if args.count and count >= args.count:
                 break

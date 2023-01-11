@@ -1,7 +1,7 @@
 import datetime
 
 from flow.record import RecordDescriptor
-from flow.record.tools.multi_timestamp import iter_timestamped_records
+from flow.record import iter_timestamped_records
 
 
 def test_multi_timestamp():

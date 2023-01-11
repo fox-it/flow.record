@@ -15,6 +15,7 @@ from flow.record.base import (
     RecordWriter,
     dynamic_fieldtype,
     extend_record,
+    iter_timestamped_records,
     open_path,
     stream,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "RecordDescriptorError",
     "record_stream",
     "extend_record",
+    "iter_timestamped_records",
 ]
 
 
