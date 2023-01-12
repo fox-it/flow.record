@@ -403,3 +403,35 @@ def test_recordstream_header_stdout(capsysbinary):
     writer.close()
     out, err = capsysbinary.readouterr()
     assert out == b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n"
+
+
+def test_csv_adapter_lineterminator(capsysbinary):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+
+    with RecordWriter(r"csvfile://?lineterminator=\r\n&exclude=_source,_classification,_generated,_version") as writer:
+        for i in range(3):
+            rec = TestRecord(count=i, foo="hello", bar="world")
+            writer.write(rec)
+    out, _ = capsysbinary.readouterr()
+    assert out == b'count,foo,bar\r\n0,hello,world\r\n1,hello,world\r\n2,hello,world\r\n'
+
+    with RecordWriter(r"csvfile://?lineterminator=\n&exclude=_source,_classification,_generated,_version") as writer:
+        for i in range(3):
+            rec = TestRecord(count=i, foo="hello", bar="world")
+            writer.write(rec)
+    out, _ = capsysbinary.readouterr()
+    assert out == b'count,foo,bar\n0,hello,world\n1,hello,world\n2,hello,world\n'
+
+    with RecordWriter(r"csvfile://?lineterminator=@&exclude=_source,_classification,_generated,_version") as writer:
+        for i in range(3):
+            rec = TestRecord(count=i, foo="hello", bar="world")
+            writer.write(rec)
+    out, _ = capsysbinary.readouterr()
+    assert out == b'count,foo,bar@0,hello,world@1,hello,world@2,hello,world@'
