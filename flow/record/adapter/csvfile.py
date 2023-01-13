@@ -9,7 +9,7 @@ from flow.record.adapter import AbstractWriter
 __usage__ = """
 Comma-separated values (CSV) adapter
 ---
-Write usage: rdump -w csvfile://[PATH]&lineterminator=[TERMINATOR]
+Write usage: rdump -w csvfile://[PATH]?lineterminator=[TERMINATOR]
 Read usage: rdump csvfile://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 [TERMINATOR]: line terminator, default is \\r\\n
