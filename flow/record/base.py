@@ -65,6 +65,8 @@ RECORD_CLASS_TEMPLATE = """
 from datetime import datetime
 from itertools import zip_longest
 
+_utcnow = datetime.utcnow
+
 class {name}(Record):
     _desc = desc
     _field_types = {field_types}
@@ -409,7 +411,7 @@ class RecordDescriptor:
                 ).format(field=field.name, default=default)
             unpack_code += "\t\t)"
 
-        init_code += "\t\t__self._generated = _generated or datetime.utcnow()\n\t\t__self._version = RECORD_VERSION"
+        init_code += "\t\t__self._generated = _generated or _utcnow()\n\t\t__self._version = RECORD_VERSION"
         # Store the fieldtypes so we can enforce them in __setattr__()
         field_types = "{\n"
         for field in all_fields:

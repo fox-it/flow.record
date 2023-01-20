@@ -595,5 +595,15 @@ def test_record_adapter_windows_path(tmp_path):
         m.assert_called_once_with(r"c:\users\user\test.records", "wb")
 
 
+def test_datetime_as_fieldname():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "datetime"),
+        ],
+    )
+    TestRecord()
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
