@@ -6,7 +6,7 @@ import sys
 from importlib import import_module
 from pathlib import Path
 from textwrap import indent
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse
 from zipimport import zipimporter
 
 import flow.record.adapter
@@ -97,6 +97,12 @@ def main(argv=None):
     output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument("-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line"), help="Output mode")
+    output.add_argument(
+        "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
+    )
+    output.add_argument(
+        "--suffix-length", metavar="LEN", default=2, type=int, help="Generate suffixes of length LEN for splitted output files"
+    )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
 
     advanced = parser.add_argument_group("advanced")
@@ -173,6 +179,17 @@ def main(argv=None):
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
         uri += "&" if urlparse(uri).query else "?" + query
+
+    if args.split:
+        if not args.writer:
+            parser.error("--split only makes sense in combination with -w/--writer")
+
+        uri = f"split://{uri}" if "://" not in uri else f"split+{uri}"
+        parsed = urlparse(uri)
+        query_dict = dict(parse_qsl(parsed.query))
+        query_dict.update({"count": args.split, "suffix-length": args.suffix_length})
+        query = urlencode(query_dict)
+        uri = parsed.scheme + "://" + parsed.netloc + parsed.path + "?" + query
 
     record_field_rewriter = None
     if fields or fields_to_exclude or args.exec_expression:

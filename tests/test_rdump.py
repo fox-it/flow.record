@@ -5,6 +5,9 @@ import subprocess
 
 from flow.record import RecordDescriptor
 from flow.record import RecordWriter, RecordReader
+from flow.record.tools import rdump
+
+import pytest
 
 
 def test_rdump_pipe(tmp_path):
@@ -300,3 +303,105 @@ def test_rdump_list_adapters():
     assert stderr is None
     for adapter in ("stream", "line", "text", "jsonfile", "csvfile"):
         assert f"{adapter}:\n".encode() in stdout
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "output",
+        "output.records",
+        "output.records.gz",
+        "output.records.bz2",
+        "output.records.json",
+    ],
+)
+def test_rdump_split(tmp_path, filename):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+        ],
+    )
+
+    # generate test records so rdump can read it
+    record_path = tmp_path / "input.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(100):
+            writer.write(TestRecord(count=i))
+
+    # rdump --split=10 -w output.records
+    output_path = tmp_path / filename
+    rdump.main([str(record_path), "--split=10", "-w", str(output_path)])
+
+    # verify output
+    for i in range(10):
+        path = output_path.with_suffix(f".{i:02d}{output_path.suffix}")
+        assert path.exists()
+        with RecordReader(path) as reader:
+            for j, record in enumerate(reader):
+                assert record.count == i * 10 + j
+
+
+def test_rdump_split_suffix_length(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+        ],
+    )
+
+    # generate test records so rdump can read it
+    record_path = tmp_path / "input.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(100):
+            writer.write(TestRecord(count=i))
+
+    # rdump --split=10 --suffix-length=4 -w output.records
+    output_path = tmp_path / "output.records"
+    rdump.main([str(record_path), "--split=10", "--suffix-length=4", "-w", str(output_path)])
+    for i in range(10):
+        output_path = tmp_path / f"output.{i:04d}.records"
+        assert output_path.exists()
+
+
+@pytest.mark.parametrize(
+    "scheme,first_line",
+    [
+        ("csvfile://", b"count,"),
+        ("jsonfile://", b"recorddescriptor"),
+        ("jsonfile://?descriptors=false", b"X-TEST-"),
+        ("text://", b"<test/record"),
+    ],
+)
+def test_rdump_split_using_uri(tmp_path, scheme, first_line, capsysbinary):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "count"),
+        ],
+    )
+
+    # generate test records so rdump can read it
+    record_path = tmp_path / "input.records"
+    with RecordWriter(record_path) as writer:
+        for i in range(10):
+            writer.write(TestRecord(count=f"X-TEST-{i}-TEST-X"))
+
+    # test stdout: rdump --split=10 $scheme
+    rdump.main([str(record_path), "--split=10", "-w", scheme])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert b"X-TEST-9-TEST-X" in captured.out.splitlines()[-1]
+
+    # test file: rdump --split=10 scheme://output
+    output_path = tmp_path / "output"
+    scheme, _, options = scheme.partition("?")
+    cmd = [str(record_path), "--split=5", "-w", f"{scheme}{output_path}?{options}"]
+    rdump.main(cmd)
+
+    # verify output
+    for i in range(2):
+        path = output_path.with_suffix(f".{i:02d}{output_path.suffix}")
+        assert path.exists()
+        with open(path, "rb") as f:
+            assert first_line in next(f)
