@@ -101,7 +101,11 @@ def main(argv=None):
         "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
     )
     output.add_argument(
-        "--suffix-length", metavar="LEN", default=2, type=int, help="Generate suffixes of length LEN for splitted output files"
+        "--suffix-length",
+        metavar="LEN",
+        default=2,
+        type=int,
+        help="Generate suffixes of length LEN for splitted output files",
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
 
