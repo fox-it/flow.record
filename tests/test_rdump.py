@@ -313,6 +313,7 @@ def test_rdump_list_adapters():
         "output.records.gz",
         "output.records.bz2",
         "output.records.json",
+        "output.records.jsonl",
     ],
 )
 def test_rdump_split(tmp_path, filename):
@@ -405,3 +406,10 @@ def test_rdump_split_using_uri(tmp_path, scheme, first_line, capsysbinary):
         assert path.exists()
         with open(path, "rb") as f:
             assert first_line in next(f)
+
+
+def test_rdump_split_without_writer(capsysbinary):
+    with pytest.raises(SystemExit):
+        rdump.main(["--split=10"])
+    captured = capsysbinary.readouterr()
+    assert b"error: --split only makes sense in combination with -w/--writer" in captured.err

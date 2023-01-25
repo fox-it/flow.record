@@ -678,6 +678,7 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
     ext_to_adapter = {
         ".avro": "avro",
         ".json": "jsonfile",
+        ".jsonl": "jsonfile",
     }
     _, ext = os.path.splitext(url)
 
