@@ -28,6 +28,10 @@ def identifier_to_str(identifier):
         return to_str(identifier)
 
 
+class UnknownRecordDescriptorIdentifier(Exception):
+    pass
+
+
 class RecordPacker:
     EXT_TYPE = RECORD_PACK_EXT_TYPE
     TYPES = [FieldType, Record, RecordDescriptor]
@@ -107,6 +111,10 @@ class RecordPacker:
         if subtype == RECORD_PACK_TYPE_RECORD:
             identifier, values = value
             identifier = identifier_to_str(identifier)
+
+            if identifier not in self.descriptors:
+                raise UnknownRecordDescriptorIdentifier(f"No record descriptor found for: {identifier}")
+
             desc = self.descriptors[identifier]
 
             # Compatibility for older records
