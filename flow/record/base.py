@@ -756,6 +756,30 @@ def fieldtype(clspath):
     return t
 
 
+@functools.lru_cache(maxsize=4069)
+def merge_record_descriptors(descriptors, replace=False, name=None):
+    """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
+    This function uses a cache to avoid creating the same descriptor multiple times.
+
+    Duplicate fields are ignored in `descriptors` unless `replace=True`.
+
+    Args:
+        descriptors (Tuple[RecordDescriptor]): Tuple of RecordDescriptors we use for extending/replacing.
+        replace (bool): if `True`, it will replace existing field names, eg: last descriptor always wins.
+        name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from first descriptor.
+
+    Returns:
+        RecordDescriptor: Merged RecordDescriptor
+    """
+    field_map = collections.OrderedDict()
+    for desc in descriptors:
+        for (ftype, fname) in desc.get_field_tuples():
+            if not replace and fname in field_map:
+                continue
+            field_map[fname] = ftype
+    return RecordDescriptor(name or descriptors[0].name, zip(field_map.values(), field_map.keys()))
+
+
 def extend_record(record, other_records, replace=False, name=None):
     """Extend `record` with fields and values from `other_records`.
 
@@ -768,20 +792,17 @@ def extend_record(record, other_records, replace=False, name=None):
             in `record` from fields and values from `other_records`. Last record always wins.
         name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from
             initial `record`.
+
+    Returns:
+        Record: Extended Record
     """
-    field_map = collections.OrderedDict((fname, ftype) for (ftype, fname) in record._desc.get_field_tuples())
-    record_maps = [record._asdict()]
-    for other in other_records:
-        for (ftype, fname) in other._desc.get_field_tuples():
-            if not replace and fname in field_map:
-                continue
-            field_map[fname] = ftype
-        record_maps.append(other._asdict())
-    field_tuples = [(ftype, fname) for (fname, ftype) in field_map.items()]
-    ExtendedRecord = RecordDescriptor(name or record._desc.name, field_tuples)
+    records = (record, *other_records)
+    descriptors = tuple(rec._desc for rec in records)
+    ExtendedRecord = merge_record_descriptors(descriptors, replace, name)
+    kv_maps = tuple(rec._asdict() for rec in records)
     if replace:
-        record_maps = record_maps[::-1]
-    return ExtendedRecord.init_from_dict(collections.ChainMap(*record_maps))
+        kv_maps = kv_maps[::-1]
+    return ExtendedRecord.init_from_dict(collections.ChainMap(*kv_maps))
 
 
 class DynamicFieldtypeModule:

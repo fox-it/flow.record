@@ -7,6 +7,7 @@ from flow.record import RecordWriter, RecordReader, RecordPrinter
 from flow.record import Record, GroupedRecord
 from flow.record import record_stream, extend_record
 from flow.record import fieldtypes
+from flow.record.base import merge_record_descriptors
 from flow.record.stream import RecordFieldRewriter
 
 from . import utils_inspect as inspect
@@ -698,3 +699,48 @@ def test_extend_record_with_replace():
     assert isinstance(new.location, str)
     assert new._desc.name == "test/replaced"
     assert "<test/replaced " in repr(new)
+
+
+def test_extend_record_cache():
+    TestRecord = RecordDescriptor(
+        "test/record_a",
+        [
+            ("net.ipaddress", "ip"),
+            ("uint16", "port"),
+            ("bytes", "data"),
+        ],
+    )
+    NoteRecord = RecordDescriptor(
+        "test/record_b",
+        [
+            ("string", "note"),
+        ],
+    )
+    start_info = merge_record_descriptors.cache_info()
+    a = TestRecord("1.2.3.4", 80, b"hello")
+    b = NoteRecord("webserver")
+    new = extend_record(a, [b], name="test/record")
+    assert new._desc.name == "test/record"
+    assert new.ip == "1.2.3.4"
+    assert new.port == 80
+    assert new.data == b"hello"
+    assert new.note == "webserver"
+
+    # check cache, w should have a miss
+    info1 = merge_record_descriptors.cache_info()
+    assert info1.misses == start_info.misses + 1
+    assert info1.hits == start_info.hits
+
+    a = TestRecord("8.8.8.8", 53, b"world")
+    b = NoteRecord("dns server")
+    new = extend_record(a, [b], name="test/record")
+    assert new._desc.name == "test/record"
+    assert new.ip == "8.8.8.8"
+    assert new.port == 53
+    assert new.data == b"world"
+    assert new.note == "dns server"
+
+    # check cache, we should now have a hit and miss unchanged
+    info2 = merge_record_descriptors.cache_info()
+    assert info2.misses == info1.misses
+    assert info2.hits == start_info.hits + 1
