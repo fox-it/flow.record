@@ -757,5 +757,44 @@ def test_format_hex(spec, value, expected):
     assert format_str.format(record.value) == expected
 
 
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "test.records",
+        "test.records.gz",
+        "test.records.json",
+    ],
+)
+@pytest.mark.parametrize(
+    "str_bytes,unicode_errors,expected_str",
+    [
+        (b"hello \xa7 world", "surrogateescape", "hello \udca7 world"),
+        (b"hello \xa7 world", "backslashreplace", "hello \\xa7 world"),
+        (b"hello \xa7 world", "replace", "hello \ufffd world"),
+        (b"hello \xa7 world", "ignore", "hello  world"),
+    ],
+)
+def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, expected_str):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "str_value"),
+        ],
+    )
+
+    str_value = str_bytes.decode("utf-8", errors=unicode_errors)
+    record = TestRecord(str_value=str_value)
+    assert str_value == expected_str
+    assert record.str_value == expected_str
+
+    with RecordWriter(tmp_path / filename) as writer:
+        writer.write(record)
+
+    with RecordReader(tmp_path / filename) as reader:
+        record = next(iter(reader))
+        assert str(record.str_value) == expected_str
+        assert record.str_value == expected_str
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
