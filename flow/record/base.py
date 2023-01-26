@@ -671,13 +671,14 @@ def open_path(path, mode, clobber=True):
     return fp
 
 
-def RecordAdapter(url, out, selector=None, clobber=True):
+def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
     url = str(url or "")
 
     # Guess adapter based on extension
     ext_to_adapter = {
         ".avro": "avro",
         ".json": "jsonfile",
+        ".jsonl": "jsonfile",
     }
     _, ext = os.path.splitext(url)
 
@@ -694,6 +695,7 @@ def RecordAdapter(url, out, selector=None, clobber=True):
 
     cls = getattr(mod, clsname)
     arg_dict = dict(parse_qsl(p.query))
+    arg_dict.update(kwargs)
     cls_url = p.netloc + p.path
     if sub_adapter:
         cls_url = sub_adapter + "://" + cls_url
@@ -708,12 +710,12 @@ def RecordAdapter(url, out, selector=None, clobber=True):
     return cls(cls_url, **arg_dict)
 
 
-def RecordReader(url=None, selector=None):
-    return RecordAdapter(url, False, selector=selector)
+def RecordReader(url=None, selector=None, **kwargs):
+    return RecordAdapter(url, False, selector=selector, **kwargs)
 
 
-def RecordWriter(url=None, clobber=True):
-    return RecordAdapter(url, True, clobber=clobber)
+def RecordWriter(url=None, clobber=True, **kwargs):
+    return RecordAdapter(url, True, clobber=clobber, **kwargs)
 
 
 def stream(src, dst):
