@@ -8,8 +8,8 @@ from .base import Record, FieldType, RecordDescriptor, GroupedRecord, RESERVED_F
 from .utils import EventHandler, to_str
 
 # Override defaults for msgpack packb/unpackb
-packb = functools.partial(msgpack.packb, use_bin_type=True)
-unpackb = functools.partial(msgpack.unpackb, raw=False)
+packb = functools.partial(msgpack.packb, use_bin_type=True, unicode_errors="surrogateescape")
+unpackb = functools.partial(msgpack.unpackb, raw=False, unicode_errors="surrogateescape")
 
 RECORD_PACK_EXT_TYPE = 0xE
 

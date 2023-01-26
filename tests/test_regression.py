@@ -605,5 +605,28 @@ def test_datetime_as_fieldname():
     TestRecord()
 
 
+def test_string_surrogateescape_serialization(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "str_value"),
+        ],
+    )
+
+    str_value = b"hello \xa7 world".decode(errors="surrogateescape")
+    record = TestRecord(str_value=str_value)
+    assert str_value == "hello \udca7 world"
+    assert record.str_value == str_value
+
+    with RecordWriter(tmp_path / "test.records") as writer:
+        writer.write(record)
+
+    with RecordReader(tmp_path / "test.records") as reader:
+        record = next(iter(reader))
+        assert str(record.str_value) == str_value
+        assert record.str_value == str_value
+        assert record.str_value.encode(errors="surrogateescape") == b"hello \xa7 world"
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
