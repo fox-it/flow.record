@@ -45,7 +45,7 @@ class SplitWriter(AbstractWriter):
         if "://" in path:
             scheme, sep, path = path.partition("://")
 
-        suffix = f"{self.file_count}".rjust(self.suffix_length, "0")
+        suffix = str(self.file_count).rjust(self.suffix_length, "0")
         path = Path(path)
         path = path.with_suffix(f".{suffix}{path.suffix}")
 
