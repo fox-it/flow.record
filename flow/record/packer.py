@@ -113,7 +113,7 @@ class RecordPacker:
             identifier = identifier_to_str(identifier)
 
             if identifier not in self.descriptors:
-                raise UnknownRecordDescriptorIdentifier(f"No record descriptor found for: {identifier}")
+                raise RecordDescriptorNotFound(f"No RecordDescriptor found for: {identifier}")
 
             desc = self.descriptors[identifier]
 
