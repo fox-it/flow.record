@@ -112,10 +112,9 @@ class RecordPacker:
             identifier, values = value
             identifier = identifier_to_str(identifier)
 
-            if identifier not in self.descriptors:
+            desc = self.descriptors.get(identifier)
+            if not desc:
                 raise RecordDescriptorNotFound(f"No RecordDescriptor found for: {identifier}")
-
-            desc = self.descriptors[identifier]
 
             # Compatibility for older records
             # We check the actual amount of values against the expected amount of values
