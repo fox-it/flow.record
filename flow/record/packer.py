@@ -1,10 +1,19 @@
-import warnings
 import datetime
-import msgpack
 import functools
+import warnings
+
+import msgpack
 
 from . import fieldtypes
-from .base import Record, FieldType, RecordDescriptor, GroupedRecord, RESERVED_FIELDS, RECORD_VERSION
+from .base import (
+    RECORD_VERSION,
+    RESERVED_FIELDS,
+    FieldType,
+    GroupedRecord,
+    Record,
+    RecordDescriptor,
+)
+from .exceptions import RecordDescriptorNotFound
 from .utils import EventHandler, to_str
 
 # Override defaults for msgpack packb/unpackb
@@ -26,10 +35,6 @@ def identifier_to_str(identifier):
         return (to_str(identifier[0]), identifier[1])
     else:
         return to_str(identifier)
-
-
-class RecordDescriptorNotFound(Exception):
-    pass
 
 
 class RecordPacker:

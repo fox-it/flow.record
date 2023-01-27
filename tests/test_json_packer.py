@@ -1,8 +1,8 @@
 import json
 from datetime import datetime
 
-from flow.record import fieldtypes
-from flow.record import JsonRecordPacker, RecordDescriptor
+from flow.record import JsonRecordPacker, RecordDescriptor, fieldtypes
+from flow.record.exceptions import RecordDescriptorNotFound
 
 
 def test_record_in_record():
@@ -47,3 +47,14 @@ def test_pack_path_fieldtype():
 
     r = TestRecord(path=fieldtypes.path.from_posix("/root/.bash_history"))
     assert json.loads(packer.pack(r))["path"] == "/root/.bash_history"
+
+
+def test_record_descriptor_not_found():
+    packer = JsonRecordPacker()
+    data = {"_type": "record", "_recorddescriptor": "Unknown"}
+    result = None
+    try:
+        packer.unpack_obj(data)
+    except Exception as error:
+        result = error
+    assert isinstance(result, RecordDescriptorNotFound)

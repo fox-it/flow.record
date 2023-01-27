@@ -1,10 +1,11 @@
-import json
 import base64
+import json
 import logging
 from datetime import datetime
 
 from . import fieldtypes
 from .base import Record, RecordDescriptor
+from .exceptions import RecordDescriptorNotFound
 from .utils import EventHandler
 
 log = logging.getLogger(__package__)
@@ -80,7 +81,11 @@ class JsonRecordPacker:
             if _type == "record":
                 record_descriptor_identifier = obj["_recorddescriptor"]
                 record_descriptor_identifier = tuple(record_descriptor_identifier)
-                record_descriptor = self.descriptors[record_descriptor_identifier]
+
+                record_descriptor = self.descriptors.get(record_descriptor_identifier)
+                if not record_descriptor:
+                    raise RecordDescriptorNotFound(f"No RecordDescriptor found for: {record_descriptor_identifier}")
+
                 del obj["_recorddescriptor"]
                 del obj["_type"]
                 for (field_type, field_name) in record_descriptor.get_field_tuples():
