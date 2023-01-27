@@ -28,7 +28,7 @@ def identifier_to_str(identifier):
         return to_str(identifier)
 
 
-class UnknownRecordDescriptorIdentifier(Exception):
+class RecordDescriptorNotFound(Exception):
     pass
 
 
