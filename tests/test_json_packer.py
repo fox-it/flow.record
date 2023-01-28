@@ -4,6 +4,8 @@ from datetime import datetime
 from flow.record import JsonRecordPacker, RecordDescriptor, fieldtypes
 from flow.record.exceptions import RecordDescriptorNotFound
 
+import pytest
+
 
 def test_record_in_record():
     packer = JsonRecordPacker()
@@ -50,11 +52,20 @@ def test_pack_path_fieldtype():
 
 
 def test_record_descriptor_not_found():
+    TestRecord = RecordDescriptor(
+        "test/descriptor_not_found",
+        [
+            ("string", "foo"),
+        ],
+    )
+
+    # pack a record into bytes
     packer = JsonRecordPacker()
-    data = {"_type": "record", "_recorddescriptor": "Unknown"}
-    result = None
-    try:
-        packer.unpack_obj(data)
-    except Exception as error:
-        result = error
-    assert isinstance(result, RecordDescriptorNotFound)
+    data = packer.pack(TestRecord(foo="bar"))
+    assert isinstance(data, str)
+    assert json.loads(data)["foo"] == "bar"
+
+    # create a new packer and try to unpack the bytes
+    packer = JsonRecordPacker()
+    with pytest.raises(RecordDescriptorNotFound, match="No RecordDescriptor found for: .*test/descriptor_not_found"):
+        packer.unpack(data)

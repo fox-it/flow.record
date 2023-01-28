@@ -249,11 +249,19 @@ def test_record_array():
 
 
 def test_record_descriptor_not_found():
+    TestRecord = RecordDescriptor(
+        "test/descriptor_not_found",
+        [
+            ("string", "foo"),
+        ],
+    )
+
+    # pack a record into bytes
     packer = RecordPacker()
-    data = b"\x92\x01\x92\xa9test/pack\x91\x92\xa6string\xa1a"
-    result = None
-    try:
-        packer.unpack_obj(RECORD_PACK_EXT_TYPE, data)
-    except Exception as error:
-        result = error
-    assert isinstance(result, RecordDescriptorNotFound)
+    data = packer.pack(TestRecord(foo="bar"))
+    assert isinstance(data, bytes)
+
+    # create a new packer and try to unpack the bytes
+    packer = RecordPacker()
+    with pytest.raises(RecordDescriptorNotFound, match="No RecordDescriptor found for: .*test/descriptor_not_found"):
+        packer.unpack(data)
