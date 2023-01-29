@@ -10,7 +10,7 @@ import os
 import re
 import struct
 import sys
-from typing import Iterator
+from typing import Iterator, Tuple
 from urllib.parse import parse_qsl, urlparse
 
 try:
@@ -347,6 +347,9 @@ class RecordDescriptor:
     _desc_hash = None
 
     def __init__(self, name, fields=None):
+        if not name:
+            raise RecordDescriptorError(f"Record name is required, got {name!r}")
+
         name = to_str(name)
 
         if isinstance(fields, RecordDescriptor):
@@ -757,16 +760,16 @@ def fieldtype(clspath):
 
 
 @functools.lru_cache(maxsize=4069)
-def merge_record_descriptors(descriptors, replace=False, name=None):
+def merge_record_descriptors(descriptors: Tuple[RecordDescriptor], replace: bool = False, name: str = None):
     """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
     This function uses a cache to avoid creating the same descriptor multiple times.
 
-    Duplicate fields are ignored in `descriptors` unless `replace=True`.
+    Duplicate fields are ignored in ``descriptors`` unless ``replace=True``.
 
     Args:
-        descriptors (Tuple[RecordDescriptor]): Tuple of RecordDescriptors we use for extending/replacing.
-        replace (bool): if `True`, it will replace existing field names, eg: last descriptor always wins.
-        name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from first descriptor.
+        descriptors (Tuple[RecordDescriptor]): Tuple of RecordDescriptors to merge.
+        replace (bool): if ``True``, it will replace existing field names. Last descriptor always wins.
+        name (str): rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
 
     Returns:
         RecordDescriptor: Merged RecordDescriptor
@@ -777,21 +780,23 @@ def merge_record_descriptors(descriptors, replace=False, name=None):
             if not replace and fname in field_map:
                 continue
             field_map[fname] = ftype
-    return RecordDescriptor(name or descriptors[0].name, zip(field_map.values(), field_map.keys()))
+    if name is None and descriptors:
+        name = descriptors[0].name
+    return RecordDescriptor(name, zip(field_map.values(), field_map.keys()))
 
 
 def extend_record(record, other_records, replace=False, name=None):
-    """Extend `record` with fields and values from `other_records`.
+    """Extend ``record`` with fields and values from ``other_records``.
 
-    Duplicate fields are ignored in `other_records` unless `replace=True`.
+    Duplicate fields are ignored in ``other_records`` unless ``replace=True``.
 
     Args:
-        record (Record): Initial Record we want to extend.
-        other_records (List[Record]): List of Records we use for extending/replacing.
-        replace (bool): if `True`, it will replace existing fields and values
-            in `record` from fields and values from `other_records`. Last record always wins.
-        name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from
-            initial `record`.
+        record (Record): Initial Record to extend.
+        other_records (List[Record]): List of Records to use for extending/replacing.
+        replace (bool): if ``True``, it will replace existing fields and values
+            in ``record`` from fields and values from ``other_records``. Last record always wins.
+        name (str): rename the RecordDescriptor name to ``name``. Otherwise, use name from
+            initial ``record``.
 
     Returns:
         Record: Extended Record

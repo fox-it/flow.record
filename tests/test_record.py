@@ -744,3 +744,31 @@ def test_extend_record_cache():
     info2 = merge_record_descriptors.cache_info()
     assert info2.misses == info1.misses
     assert info2.hits == start_info.hits + 1
+
+
+def test_merge_record_descriptor_name():
+    TestRecord = RecordDescriptor(
+        "test/ip_record",
+        [
+            ("net.ipaddress", "ip"),
+            ("uint16", "port"),
+            ("bytes", "data"),
+        ],
+    )
+    NoteRecord = RecordDescriptor(
+        "test/note_record",
+        [
+            ("string", "note"),
+        ],
+    )
+    descriptors = (TestRecord, NoteRecord)
+
+    MergedRecord = merge_record_descriptors(descriptors, name="test/merged")
+    assert MergedRecord.name == "test/merged"
+    record = MergedRecord()
+    assert record._desc.name == "test/merged"
+
+    MergedRecord = merge_record_descriptors(descriptors)
+    assert MergedRecord.name == "test/ip_record"
+    record = MergedRecord()
+    assert record._desc.name == "test/ip_record"
