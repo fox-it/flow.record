@@ -759,7 +759,7 @@ def fieldtype(clspath):
 
 @functools.lru_cache(maxsize=4069)
 def merge_record_descriptors(
-    descriptors: Tuple[RecordDescriptor], replace: Optional[bool] = False, name: Optional[str] = None
+    descriptors: Tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
 ) -> RecordDescriptor:
     """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
     This function uses a cache to avoid creating the same descriptor multiple times.
