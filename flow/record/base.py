@@ -786,7 +786,7 @@ def merge_record_descriptors(
 
 
 def extend_record(
-    record: Record, other_records: List[Record], replace: Optional[bool] = False, name: Optional[str] = None
+    record: Record, other_records: List[Record], replace: bool = False, name: Optional[str] = None
 ) -> Record:
     """Extend ``record`` with fields and values from ``other_records``.
 
