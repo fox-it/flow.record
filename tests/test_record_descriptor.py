@@ -184,8 +184,8 @@ def test_record_descriptor_empty_fields():
 
 
 def test_record_descriptor_empty_name():
-    with pytest.raises(RecordDescriptorError, match="Record name is required, got None"):
+    with pytest.raises(RecordDescriptorError, match="Record name is required"):
         RecordDescriptor(None, [])
 
-    with pytest.raises(RecordDescriptorError, match="Record name is required, got ''"):
+    with pytest.raises(RecordDescriptorError, match="Record name is required"):
         RecordDescriptor("", [])

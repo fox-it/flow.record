@@ -346,7 +346,7 @@ class RecordDescriptor:
 
     def __init__(self, name, fields=None):
         if not name:
-            raise RecordDescriptorError(f"Record name is required, got {name!r}")
+            raise RecordDescriptorError("Record name is required")
 
         name = to_str(name)
 
