@@ -3,6 +3,9 @@ import hashlib
 
 from flow.record import RecordDescriptor
 from flow.record import RecordField
+from flow.record.exceptions import RecordDescriptorError
+
+import pytest
 
 
 def test_record_descriptor():
@@ -173,3 +176,16 @@ def test_record_descriptor_hash_eq():
     assert TestRecordSame1 == TestRecordSame2
     assert TestRecordSame1 != TestRecordDifferentName
     assert TestRecordDifferentName != TestRecordDifferentFields
+
+
+def test_record_descriptor_empty_fields():
+    TestRecord = RecordDescriptor("test/empty", [])
+    assert TestRecord()
+
+
+def test_record_descriptor_empty_name():
+    with pytest.raises(RecordDescriptorError, match="Record name is required"):
+        RecordDescriptor(None, [])
+
+    with pytest.raises(RecordDescriptorError, match="Record name is required"):
+        RecordDescriptor("", [])

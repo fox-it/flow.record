@@ -2,6 +2,7 @@ import datetime
 
 from flow.record import RecordDescriptor
 from flow.record import iter_timestamped_records
+from flow.record.base import merge_record_descriptors
 
 
 def test_multi_timestamp():
@@ -111,3 +112,37 @@ def test_multi_timestamp_timezone():
         assert len(ts_records) == 1
         assert ts_records[0].ts == correct_ts
         assert ts_records[0].ts_description == "ts"
+
+
+def test_multi_timestamp_descriptor_cache():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("datetime", "ctime"),
+            ("datetime", "atime"),
+            ("varint", "count"),
+            ("string", "data"),
+        ],
+    )
+
+    merge_record_descriptors.cache_clear()
+    for i in range(10):
+        test_record = TestRecord(
+            ctime=datetime.datetime.utcnow() + datetime.timedelta(hours=69),
+            atime=datetime.datetime.utcnow() + datetime.timedelta(hours=420),
+            count=i,
+            data=f"test {i}",
+        )
+        for record in iter_timestamped_records(test_record):
+            assert record.data == f"test {i}"
+            assert record.count == i
+            assert record.ctime == test_record.ctime
+            assert record.atime == test_record.atime
+            assert hasattr(record, "ts")
+            assert hasattr(record, "ts_description")
+            tsfield = record.ts_description
+            assert record.ts == getattr(test_record, tsfield)
+
+    cache_info = merge_record_descriptors.cache_info()
+    assert cache_info.misses == 2
+    assert cache_info.hits == 18

@@ -10,8 +10,10 @@ import os
 import re
 import struct
 import sys
-from typing import Iterator
+from typing import List, Iterator, Optional, Tuple
 from urllib.parse import parse_qsl, urlparse
+
+from .exceptions import RecordDescriptorError
 
 try:
     import lz4.frame as lz4
@@ -111,10 +113,6 @@ class Peekable:
         self.buffer = None
         self.fd.close()
         self.fd = None
-
-
-class RecordDescriptorError(Exception):
-    pass
 
 
 class FieldType:
@@ -347,6 +345,9 @@ class RecordDescriptor:
     _desc_hash = None
 
     def __init__(self, name, fields=None):
+        if not name:
+            raise RecordDescriptorError("Record name is required")
+
         name = to_str(name)
 
         if isinstance(fields, RecordDescriptor):
@@ -756,32 +757,59 @@ def fieldtype(clspath):
     return t
 
 
-def extend_record(record, other_records, replace=False, name=None):
-    """Extend `record` with fields and values from `other_records`.
+@functools.lru_cache(maxsize=4069)
+def merge_record_descriptors(
+    descriptors: Tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
+) -> RecordDescriptor:
+    """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
+    This function uses a cache to avoid creating the same descriptor multiple times.
 
-    Duplicate fields are ignored in `other_records` unless `replace=True`.
+    Duplicate fields are ignored in ``descriptors`` unless ``replace=True``.
 
     Args:
-        record (Record): Initial Record we want to extend.
-        other_records (List[Record]): List of Records we use for extending/replacing.
-        replace (bool): if `True`, it will replace existing fields and values
-            in `record` from fields and values from `other_records`. Last record always wins.
-        name (str): rename the RecordDescriptor name to `name`. Otherwise, use name from
-            initial `record`.
+        descriptors: Tuple of RecordDescriptors to merge.
+        replace: if ``True``, it will replace existing field names. Last descriptor always wins.
+        name: rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
+
+    Returns:
+        Merged RecordDescriptor
     """
-    field_map = collections.OrderedDict((fname, ftype) for (ftype, fname) in record._desc.get_field_tuples())
-    record_maps = [record._asdict()]
-    for other in other_records:
-        for (ftype, fname) in other._desc.get_field_tuples():
+    field_map = collections.OrderedDict()
+    for desc in descriptors:
+        for (ftype, fname) in desc.get_field_tuples():
             if not replace and fname in field_map:
                 continue
             field_map[fname] = ftype
-        record_maps.append(other._asdict())
-    field_tuples = [(ftype, fname) for (fname, ftype) in field_map.items()]
-    ExtendedRecord = RecordDescriptor(name or record._desc.name, field_tuples)
+    if name is None and descriptors:
+        name = descriptors[0].name
+    return RecordDescriptor(name, zip(field_map.values(), field_map.keys()))
+
+
+def extend_record(
+    record: Record, other_records: List[Record], replace: bool = False, name: Optional[str] = None
+) -> Record:
+    """Extend ``record`` with fields and values from ``other_records``.
+
+    Duplicate fields are ignored in ``other_records`` unless ``replace=True``.
+
+    Args:
+        record: Initial Record to extend.
+        other_records: List of Records to use for extending/replacing.
+        replace: if ``True``, it will replace existing fields and values
+            in ``record`` from fields and values from ``other_records``. Last record always wins.
+        name: rename the RecordDescriptor name to ``name``. Otherwise, use name from
+            initial ``record``.
+
+    Returns:
+        Extended Record
+    """
+    records = (record, *other_records)
+    descriptors = tuple(rec._desc for rec in records)
+    ExtendedRecord = merge_record_descriptors(descriptors, replace, name)
+    kv_maps = tuple(rec._asdict() for rec in records)
     if replace:
-        record_maps = record_maps[::-1]
-    return ExtendedRecord.init_from_dict(collections.ChainMap(*record_maps))
+        kv_maps = kv_maps[::-1]
+    return ExtendedRecord.init_from_dict(collections.ChainMap(*kv_maps))
 
 
 class DynamicFieldtypeModule:
