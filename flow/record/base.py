@@ -10,8 +10,10 @@ import os
 import re
 import struct
 import sys
-from typing import Iterator, Tuple
+from typing import List, Iterator, Optional, Tuple
 from urllib.parse import parse_qsl, urlparse
+
+from .exceptions import RecordDescriptorError
 
 try:
     import lz4.frame as lz4
@@ -111,10 +113,6 @@ class Peekable:
         self.buffer = None
         self.fd.close()
         self.fd = None
-
-
-class RecordDescriptorError(Exception):
-    pass
 
 
 class FieldType:
@@ -760,7 +758,9 @@ def fieldtype(clspath):
 
 
 @functools.lru_cache(maxsize=4069)
-def merge_record_descriptors(descriptors: Tuple[RecordDescriptor], replace: bool = False, name: str = None):
+def merge_record_descriptors(
+    descriptors: Tuple[RecordDescriptor], replace: Optional[bool] = False, name: Optional[str] = None
+) -> RecordDescriptor:
     """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
     This function uses a cache to avoid creating the same descriptor multiple times.
 
@@ -785,21 +785,23 @@ def merge_record_descriptors(descriptors: Tuple[RecordDescriptor], replace: bool
     return RecordDescriptor(name, zip(field_map.values(), field_map.keys()))
 
 
-def extend_record(record, other_records, replace=False, name=None):
+def extend_record(
+    record: Record, other_records: List[Record], replace: Optional[bool] = False, name: Optional[str] = None
+) -> Record:
     """Extend ``record`` with fields and values from ``other_records``.
 
     Duplicate fields are ignored in ``other_records`` unless ``replace=True``.
 
     Args:
-        record (Record): Initial Record to extend.
-        other_records (List[Record]): List of Records to use for extending/replacing.
-        replace (bool): if ``True``, it will replace existing fields and values
+        record: Initial Record to extend.
+        other_records: List of Records to use for extending/replacing.
+        replace: if ``True``, it will replace existing fields and values
             in ``record`` from fields and values from ``other_records``. Last record always wins.
-        name (str): rename the RecordDescriptor name to ``name``. Otherwise, use name from
+        name: rename the RecordDescriptor name to ``name``. Otherwise, use name from
             initial ``record``.
 
     Returns:
-        Record: Extended Record
+        Extended Record
     """
     records = (record, *other_records)
     descriptors = tuple(rec._desc for rec in records)

@@ -3,7 +3,7 @@ import hashlib
 
 from flow.record import RecordDescriptor
 from flow.record import RecordField
-from flow.record.base import RecordDescriptorError
+from flow.record.exceptions import RecordDescriptorError
 
 import pytest
 
