@@ -1,10 +1,19 @@
-import warnings
 import datetime
-import msgpack
 import functools
+import warnings
+
+import msgpack
 
 from . import fieldtypes
-from .base import Record, FieldType, RecordDescriptor, GroupedRecord, RESERVED_FIELDS, RECORD_VERSION
+from .base import (
+    RECORD_VERSION,
+    RESERVED_FIELDS,
+    FieldType,
+    GroupedRecord,
+    Record,
+    RecordDescriptor,
+)
+from .exceptions import RecordDescriptorNotFound
 from .utils import EventHandler, to_str
 
 # Override defaults for msgpack packb/unpackb
@@ -107,7 +116,10 @@ class RecordPacker:
         if subtype == RECORD_PACK_TYPE_RECORD:
             identifier, values = value
             identifier = identifier_to_str(identifier)
-            desc = self.descriptors[identifier]
+
+            desc = self.descriptors.get(identifier)
+            if not desc:
+                raise RecordDescriptorNotFound(f"No RecordDescriptor found for: {identifier}")
 
             # Compatibility for older records
             # We check the actual amount of values against the expected amount of values

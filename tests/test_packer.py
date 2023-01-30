@@ -2,11 +2,10 @@ import datetime
 
 import pytest
 
-from flow.record import fieldtypes
-from flow.record import RecordDescriptor
-from flow.record import RecordPacker
-from flow.record.packer import RECORD_PACK_EXT_TYPE
+from flow.record import RecordDescriptor, RecordPacker, fieldtypes
+from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.fieldtypes import uri
+from flow.record.packer import RECORD_PACK_EXT_TYPE
 
 
 def test_uri_packing():
@@ -247,3 +246,22 @@ def test_record_array():
     parent_unpacked = packer.unpack(data_record_parent)
 
     assert parent == parent_unpacked
+
+
+def test_record_descriptor_not_found():
+    TestRecord = RecordDescriptor(
+        "test/descriptor_not_found",
+        [
+            ("string", "foo"),
+        ],
+    )
+
+    # pack a record into bytes
+    packer = RecordPacker()
+    data = packer.pack(TestRecord(foo="bar"))
+    assert isinstance(data, bytes)
+
+    # create a new packer and try to unpack the bytes
+    packer = RecordPacker()
+    with pytest.raises(RecordDescriptorNotFound, match="No RecordDescriptor found for: .*test/descriptor_not_found"):
+        packer.unpack(data)
