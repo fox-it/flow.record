@@ -767,12 +767,12 @@ def merge_record_descriptors(descriptors: Tuple[RecordDescriptor], replace: bool
     Duplicate fields are ignored in ``descriptors`` unless ``replace=True``.
 
     Args:
-        descriptors (Tuple[RecordDescriptor]): Tuple of RecordDescriptors to merge.
-        replace (bool): if ``True``, it will replace existing field names. Last descriptor always wins.
-        name (str): rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
+        descriptors: Tuple of RecordDescriptors to merge.
+        replace: if ``True``, it will replace existing field names. Last descriptor always wins.
+        name: rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
 
     Returns:
-        RecordDescriptor: Merged RecordDescriptor
+        Merged RecordDescriptor
     """
     field_map = collections.OrderedDict()
     for desc in descriptors:
