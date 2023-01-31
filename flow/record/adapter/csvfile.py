@@ -67,15 +67,17 @@ class CsvfileReader(AbstractReader):
             self.fp = open(path, "r", newline="")
         self.reader = csv.reader(self.fp)
 
+        # create RecordDescriptor from csv header
+        row = next(self.reader)
+        self.desc = RecordDescriptor("csv/reader", [("string", col) for col in row])
+
     def close(self):
         if self.fp:
             self.fp.close()
         self.fp = None
 
     def __iter__(self):
-        row = next(self.reader)
-        desc = RecordDescriptor("csv/reader", [("string", col) for col in row])
         for row in self.reader:
-            record = desc(*row)
+            record = self.desc(*row)
             if not self.selector or self.selector.match(record):
                 yield record
