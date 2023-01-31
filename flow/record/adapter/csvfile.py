@@ -1,18 +1,21 @@
 from __future__ import absolute_import
 
+import csv
 import sys
-from csv import DictWriter
 
+from flow.record import RecordDescriptor
+from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
-from flow.record.adapter import AbstractWriter
 
 __usage__ = """
 Comma-separated values (CSV) adapter
 ---
 Write usage: rdump -w csvfile://[PATH]?lineterminator=[TERMINATOR]
-Read usage: rdump csvfile://[PATH]
+Read usage: rdump csvfile://[PATH]?fields=[FIELDS]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 [TERMINATOR]: line terminator, default is \\r\\n
+[FIELDS]: comma-separated list of CSV fields (in case of missing CSV header)
 """
 
 
@@ -40,7 +43,7 @@ class CsvfileWriter(AbstractWriter):
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)
         if not self.desc or self.desc != r._desc:
             self.desc = r._desc
-            self.writer = DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
+            self.writer = csv.DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
             self.writer.writeheader()
         self.writer.writerow(rdict)
 
@@ -52,3 +55,36 @@ class CsvfileWriter(AbstractWriter):
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
         self.fp = None
+
+
+class CsvfileReader(AbstractReader):
+    fp = None
+
+    def __init__(self, path, selector=None, fields=None, **kwargs):
+        self.selector = make_selector(selector)
+        if path in (None, "", "-"):
+            self.fp = sys.stdin
+        else:
+            self.fp = open(path, "r", newline="")
+        self.reader = csv.reader(self.fp)
+
+        if isinstance(fields, str):
+            # parse fields from fields argument (comma-separated string)
+            self.fields = fields.split(",")
+        else:
+            # parse fields from first CSV row
+            self.fields = next(self.reader)
+
+        # Create RecordDescriptor from fields
+        self.desc = RecordDescriptor("csv/reader", [("string", col) for col in self.fields])
+
+    def close(self):
+        if self.fp:
+            self.fp.close()
+        self.fp = None
+
+    def __iter__(self):
+        for row in self.reader:
+            record = self.desc(*row)
+            if not self.selector or self.selector.match(record):
+                yield record

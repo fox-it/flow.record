@@ -1,13 +1,12 @@
-import json
 import base64
 import hashlib
+import json
 import subprocess
 
-from flow.record import RecordDescriptor
-from flow.record import RecordWriter, RecordReader
-from flow.record.tools import rdump
-
 import pytest
+
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record.tools import rdump
 
 
 def test_rdump_pipe(tmp_path):
@@ -413,3 +412,40 @@ def test_rdump_split_without_writer(capsysbinary):
         rdump.main(["--split=10"])
     captured = capsysbinary.readouterr()
     assert b"error: --split only makes sense in combination with -w/--writer" in captured.err
+
+
+def test_rdump_csv(tmp_path, capsysbinary):
+    path = tmp_path / "test.csv"
+    with open(path, "w") as f:
+        f.write("count,text\n")
+        f.write("1,hello\n")
+        f.write("2,world\n")
+        f.write("3,bar\n")
+
+    rdump.main([str(path)])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out.splitlines() == [
+        b"<csv/reader count='1' text='hello'>",
+        b"<csv/reader count='2' text='world'>",
+        b"<csv/reader count='3' text='bar'>",
+    ]
+
+
+def test_rdump_headerless_csv(tmp_path, capsysbinary):
+    # write out headerless CSV file
+    path = tmp_path / "test.csv"
+    with open(path, "w") as f:
+        f.write("1,hello\n")
+        f.write("2,world\n")
+        f.write("3,bar\n")
+
+    # manualy specify CSV fields
+    rdump.main([f"csvfile://{path}?fields=count,text"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out.splitlines() == [
+        b"<csv/reader count='1' text='hello'>",
+        b"<csv/reader count='2' text='world'>",
+        b"<csv/reader count='3' text='bar'>",
+    ]
