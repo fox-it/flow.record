@@ -62,7 +62,7 @@ class CsvfileReader(AbstractReader):
     def __init__(self, path, selector=None, **kwargs):
         self.selector = make_selector(selector)
         if path in (None, "", "-"):
-            self.fp = sys.stdout
+            self.fp = sys.stdin
         else:
             self.fp = open(path, "r", newline="")
         self.reader = csv.reader(self.fp)
