@@ -58,6 +58,7 @@ class CsvfileWriter(AbstractWriter):
 
 class CsvfileReader(AbstractReader):
     fp = None
+
     def __init__(self, path, selector=None, **kwargs):
         self.selector = make_selector(selector)
         if path in (None, "", "-"):
