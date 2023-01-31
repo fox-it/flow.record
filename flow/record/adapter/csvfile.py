@@ -1,10 +1,12 @@
 from __future__ import absolute_import
 
+import csv
 import sys
-from csv import DictWriter
 
+from flow.record import RecordDescriptor
+from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
-from flow.record.adapter import AbstractWriter
 
 __usage__ = """
 Comma-separated values (CSV) adapter
@@ -40,7 +42,7 @@ class CsvfileWriter(AbstractWriter):
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)
         if not self.desc or self.desc != r._desc:
             self.desc = r._desc
-            self.writer = DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
+            self.writer = csv.DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
             self.writer.writeheader()
         self.writer.writerow(rdict)
 
@@ -52,3 +54,28 @@ class CsvfileWriter(AbstractWriter):
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
         self.fp = None
+
+
+class CsvfileReader(AbstractReader):
+    fp = None
+    def __init__(self, path, selector=None, **kwargs):
+        self.selector = make_selector(selector)
+        if path in (None, "", "-"):
+            self.fp = sys.stdout
+        else:
+            self.fp = open(path, "r", newline="")
+        self.desc = None
+        self.reader = csv.reader(self.fp)
+
+    def close(self):
+        if self.fp:
+            self.fp.close()
+        self.fp = None
+
+    def __iter__(self):
+        row = next(self.reader)
+        desc = RecordDescriptor("csv/reader", [("string", col) for col in row])
+        for row in self.reader:
+            record = desc(*row)
+            if not self.selector or self.selector.match(record):
+                yield record

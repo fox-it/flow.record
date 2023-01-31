@@ -1,25 +1,31 @@
-import pytest
-
 import datetime
 import sys
+
+import pytest
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import BytesIO as StringIO
 
-from flow.record import RecordDescriptor
-from flow.record import RecordReader, RecordWriter, RecordOutput, RecordStreamReader
-from flow.record import PathTemplateWriter, RecordArchiver
-from flow.record.selector import Selector, CompiledSelector
+from flow.record import (
+    PathTemplateWriter,
+    RecordArchiver,
+    RecordDescriptor,
+    RecordOutput,
+    RecordReader,
+    RecordStreamReader,
+    RecordWriter,
+)
 from flow.record.base import (
-    GZIP_MAGIC,
     BZ2_MAGIC,
-    LZ4_MAGIC,
-    ZSTD_MAGIC,
+    GZIP_MAGIC,
     HAS_LZ4,
     HAS_ZSTD,
+    LZ4_MAGIC,
+    ZSTD_MAGIC,
 )
+from flow.record.selector import CompiledSelector, Selector
 
 
 def generate_records(count=100):
@@ -435,3 +441,21 @@ def test_csv_adapter_lineterminator(capsysbinary):
             writer.write(rec)
     out, _ = capsysbinary.readouterr()
     assert out == b"count,foo,bar@0,hello,world@1,hello,world@2,hello,world@"
+
+
+def test_csvfilereader(tmp_path):
+    path = tmp_path / "test.csv"
+    with path.open("wb") as f:
+        f.write(b"count,foo,bar\r\n")
+        for i in range(10):
+            f.write(f"{i},hello,world\r\n".encode())
+
+    with RecordReader(f"csvfile://{path}") as reader:
+        for i, rec in enumerate(reader):
+            assert rec.count == str(i)
+            assert rec.foo == "hello"
+            assert rec.bar == "world"
+
+    with RecordReader(f"csvfile://{path}", selector="r.count == '2'") as reader:
+        for i, rec in enumerate(reader):
+            assert rec.count == "2"
