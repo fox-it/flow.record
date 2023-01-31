@@ -12,9 +12,10 @@ __usage__ = """
 Comma-separated values (CSV) adapter
 ---
 Write usage: rdump -w csvfile://[PATH]?lineterminator=[TERMINATOR]
-Read usage: rdump csvfile://[PATH]
+Read usage: rdump csvfile://[PATH]?fields=[FIELDS]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 [TERMINATOR]: line terminator, default is \\r\\n
+[FIELDS]: comma-separated list of CSV fields (in case of missing CSV header)
 """
 
 
@@ -59,7 +60,7 @@ class CsvfileWriter(AbstractWriter):
 class CsvfileReader(AbstractReader):
     fp = None
 
-    def __init__(self, path, selector=None, **kwargs):
+    def __init__(self, path, selector=None, fields=None, **kwargs):
         self.selector = make_selector(selector)
         if path in (None, "", "-"):
             self.fp = sys.stdin
@@ -67,9 +68,15 @@ class CsvfileReader(AbstractReader):
             self.fp = open(path, "r", newline="")
         self.reader = csv.reader(self.fp)
 
-        # create RecordDescriptor from csv header
-        row = next(self.reader)
-        self.desc = RecordDescriptor("csv/reader", [("string", col) for col in row])
+        if isinstance(fields, str):
+            # parse fields from fields argument (comma-separated string)
+            self.fields = fields.split(",")
+        else:
+            # parse fields from first CSV row
+            self.fields = next(self.reader)
+
+        # Create RecordDescriptor from fields
+        self.desc = RecordDescriptor("csv/reader", [("string", col) for col in self.fields])
 
     def close(self):
         if self.fp:

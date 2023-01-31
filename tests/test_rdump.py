@@ -430,3 +430,22 @@ def test_rdump_csv(tmp_path, capsysbinary):
         b"<csv/reader count='2' text='world'>",
         b"<csv/reader count='3' text='bar'>",
     ]
+
+
+def test_rdump_headerless_csv(tmp_path, capsysbinary):
+    # write out headerless CSV file
+    path = tmp_path / "test.csv"
+    with open(path, "w") as f:
+        f.write("1,hello\n")
+        f.write("2,world\n")
+        f.write("3,bar\n")
+
+    # manualy specify CSV fields
+    rdump.main([f"csvfile://{path}?fields=count,text"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out.splitlines() == [
+        b"<csv/reader count='1' text='hello'>",
+        b"<csv/reader count='2' text='world'>",
+        b"<csv/reader count='3' text='bar'>",
+    ]
