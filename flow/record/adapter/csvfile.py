@@ -65,7 +65,6 @@ class CsvfileReader(AbstractReader):
             self.fp = sys.stdout
         else:
             self.fp = open(path, "r", newline="")
-        self.desc = None
         self.reader = csv.reader(self.fp)
 
     def close(self):
