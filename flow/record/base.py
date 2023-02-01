@@ -10,7 +10,7 @@ import os
 import re
 import struct
 import sys
-from typing import List, Iterator, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlparse
 
 from .exceptions import RecordDescriptorError
@@ -726,7 +726,15 @@ def stream(src, dst):
     dst.flush()
 
 
-def fieldtype(clspath):
+def fieldtype(clspath: str) -> FieldType:
+    """Return the FieldType class for the given field type class path.
+
+    Args:
+        clspath: class path of the field type. eg: ``uint32``, ``net.ipaddress``, ``string[]``
+
+    Returns:
+        The FieldType class.
+    """
     base_module_path = "flow.record.fieldtypes"
 
     if clspath.endswith("[]"):
@@ -739,26 +747,21 @@ def fieldtype(clspath):
     if clspath not in WHITELIST:
         raise AttributeError("Invalid field type: {}".format(clspath))
 
-    p = clspath.rsplit(".", 1)
-    module_path = base_module_path
-    clsname = p.pop()
-    if p:
-        module_path += "." + p[0]
-
+    namespace, _, clsname = clspath.rpartition(".")
+    module_path = f"{base_module_path}.{namespace}" if namespace else base_module_path
     mod = importlib.import_module(module_path)
 
-    t = getattr(mod, clsname)
+    fieldtype_cls = getattr(mod, clsname)
 
-    if not issubclass(t, FieldType):
+    if not issubclass(fieldtype_cls, FieldType):
         raise AttributeError("Field type does not derive from FieldType")
 
     if islist:
         base_mod = importlib.import_module(base_module_path)
         listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
-        listtype.__type__ = t
-        t = listtype
+        listtype.__type__, fieldtype_cls = fieldtype_cls, listtype
 
-    return t
+    return fieldtype_cls
 
 
 @functools.lru_cache(maxsize=4069)
