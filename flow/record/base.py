@@ -540,7 +540,7 @@ class RecordDescriptor:
         The descriptor hash is the first 4 bytes of the sha256sum of the descriptor name and field names and types.
         """
         h = hashlib.sha256(name.encode("utf-8"))
-        for (typename, name) in fields:
+        for typename, name in fields:
             h.update(name.encode("utf-8"))
             h.update(typename.encode("utf-8"))
         return struct.unpack(">L", h.digest()[:4])[0]
@@ -727,6 +727,8 @@ def stream(src, dst):
 
 
 def fieldtype(clspath):
+    base_module_path = "flow.record.fieldtypes"
+
     if clspath.endswith("[]"):
         origpath = clspath
         clspath = clspath[:-2]
@@ -738,7 +740,7 @@ def fieldtype(clspath):
         raise AttributeError("Invalid field type: {}".format(clspath))
 
     p = clspath.rsplit(".", 1)
-    module_path = "flow.record.fieldtypes"
+    module_path = base_module_path
     clsname = p.pop()
     if p:
         module_path += "." + p[0]
@@ -751,7 +753,8 @@ def fieldtype(clspath):
         raise AttributeError("Field type does not derive from FieldType")
 
     if islist:
-        listtype = type(origpath, mod.typedlist.__bases__, dict(mod.typedlist.__dict__))
+        base_mod = importlib.import_module(base_module_path)
+        listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
         listtype.__type__ = t
         t = listtype
 
@@ -777,7 +780,7 @@ def merge_record_descriptors(
     """
     field_map = collections.OrderedDict()
     for desc in descriptors:
-        for (ftype, fname) in desc.get_field_tuples():
+        for ftype, fname in desc.get_field_tuples():
             if not replace and fname in field_map:
                 continue
             field_map[fname] = ftype
