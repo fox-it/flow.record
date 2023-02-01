@@ -46,7 +46,7 @@ class JsonRecordPacker:
                 serial["_recorddescriptor"] = obj._desc.identifier
 
             # PYTHON2: Because "bytes" are also "str" we have to handle this here
-            for (field_type, field_name) in obj._desc.get_field_tuples():
+            for field_type, field_name in obj._desc.get_field_tuples():
                 if field_type == "bytes" and isinstance(serial[field_name], str):
                     serial[field_name] = base64.b64encode(serial[field_name]).decode()
 
@@ -88,7 +88,7 @@ class JsonRecordPacker:
 
                 del obj["_recorddescriptor"]
                 del obj["_type"]
-                for (field_type, field_name) in record_descriptor.get_field_tuples():
+                for field_type, field_name in record_descriptor.get_field_tuples():
                     if field_type == "bytes":
                         obj[field_name] = base64.b64decode(obj[field_name])
                 result = record_descriptor.recordType(**obj)
