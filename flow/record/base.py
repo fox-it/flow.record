@@ -753,13 +753,13 @@ def fieldtype(clspath: str) -> FieldType:
 
     fieldtype_cls = getattr(mod, clsname)
 
-    if not issubclass(fieldtype_cls, FieldType):
-        raise AttributeError("Field type does not derive from FieldType")
-
     if islist:
         base_mod = importlib.import_module(base_module_path)
         listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
         listtype.__type__, fieldtype_cls = fieldtype_cls, listtype
+
+    if not issubclass(fieldtype_cls, FieldType):
+        raise TypeError("Field type does not derive from FieldType")
 
     return fieldtype_cls
 
