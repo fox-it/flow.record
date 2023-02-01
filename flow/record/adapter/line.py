@@ -31,7 +31,7 @@ class LineWriter(AbstractWriter):
         self.fp.write("--[ RECORD {} ]--\n".format(self.count).encode())
         if rdict:
             fmt = "{{:>{width}}} = {{}}\n".format(width=max(len(k) for k in rdict))
-        for (key, value) in rdict.items():
+        for key, value in rdict.items():
             self.fp.write(fmt.format(key, value).encode())
 
     def flush(self):

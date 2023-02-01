@@ -109,7 +109,6 @@ class dynamic(FieldType):
 
 
 class typedlist(list, FieldType):
-
     __type__ = None
 
     def __init__(self, values=None):
@@ -286,7 +285,6 @@ class float(float, FieldType):
 
 
 class uint16(int, FieldType):
-
     value = None
 
     def __init__(self, value):

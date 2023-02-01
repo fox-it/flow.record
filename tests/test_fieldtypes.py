@@ -226,10 +226,11 @@ def test_typedlist():
             ("string[]", "string_value"),
             ("uint32[]", "uint32_value"),
             ("uri[]", "uri_value"),
+            ("net.ipaddress[]", "ip_value"),
         ],
     )
 
-    r = TestRecord(["a", "b", "c"], [1, 2, 3], ["/etc/passwd", "/etc/shadow"])
+    r = TestRecord(["a", "b", "c"], [1, 2, 3], ["/etc/passwd", "/etc/shadow"], ["1.1.1.1", "8.8.8.8"])
     assert len(r.string_value) == 3
     assert len(r.uint32_value) == 3
     assert len(r.uri_value) == 2
@@ -237,11 +238,13 @@ def test_typedlist():
     assert r.uint32_value[1] == 2
     assert all([isinstance(v, uri) for v in r.uri_value])
     assert r.uri_value[1].filename == "shadow"
+    assert list(map(str, r.ip_value)) == ["1.1.1.1", "8.8.8.8"]
 
     r = TestRecord()
     assert r.string_value == []
     assert r.uint32_value == []
     assert r.uri_value == []
+    assert r.ip_value == []
 
     with pytest.raises(ValueError):
         r = TestRecord(uint32_value=["a", "b", "c"])

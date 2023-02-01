@@ -10,7 +10,7 @@ import os
 import re
 import struct
 import sys
-from typing import List, Iterator, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 from urllib.parse import parse_qsl, urlparse
 
 from .exceptions import RecordDescriptorError
@@ -540,7 +540,7 @@ class RecordDescriptor:
         The descriptor hash is the first 4 bytes of the sha256sum of the descriptor name and field names and types.
         """
         h = hashlib.sha256(name.encode("utf-8"))
-        for (typename, name) in fields:
+        for typename, name in fields:
             h.update(name.encode("utf-8"))
             h.update(typename.encode("utf-8"))
         return struct.unpack(">L", h.digest()[:4])[0]
@@ -726,7 +726,17 @@ def stream(src, dst):
     dst.flush()
 
 
-def fieldtype(clspath):
+def fieldtype(clspath: str) -> FieldType:
+    """Return the FieldType class for the given field type class path.
+
+    Args:
+        clspath: class path of the field type. eg: ``uint32``, ``net.ipaddress``, ``string[]``
+
+    Returns:
+        The FieldType class.
+    """
+    base_module_path = "flow.record.fieldtypes"
+
     if clspath.endswith("[]"):
         origpath = clspath
         clspath = clspath[:-2]
@@ -737,25 +747,21 @@ def fieldtype(clspath):
     if clspath not in WHITELIST:
         raise AttributeError("Invalid field type: {}".format(clspath))
 
-    p = clspath.rsplit(".", 1)
-    module_path = "flow.record.fieldtypes"
-    clsname = p.pop()
-    if p:
-        module_path += "." + p[0]
-
+    namespace, _, clsname = clspath.rpartition(".")
+    module_path = f"{base_module_path}.{namespace}" if namespace else base_module_path
     mod = importlib.import_module(module_path)
 
-    t = getattr(mod, clsname)
-
-    if not issubclass(t, FieldType):
-        raise AttributeError("Field type does not derive from FieldType")
+    fieldtype_cls = getattr(mod, clsname)
 
     if islist:
-        listtype = type(origpath, mod.typedlist.__bases__, dict(mod.typedlist.__dict__))
-        listtype.__type__ = t
-        t = listtype
+        base_mod = importlib.import_module(base_module_path)
+        listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
+        listtype.__type__, fieldtype_cls = fieldtype_cls, listtype
 
-    return t
+    if not issubclass(fieldtype_cls, FieldType):
+        raise TypeError("Field type does not derive from FieldType")
+
+    return fieldtype_cls
 
 
 @functools.lru_cache(maxsize=4069)
@@ -777,7 +783,7 @@ def merge_record_descriptors(
     """
     field_map = collections.OrderedDict()
     for desc in descriptors:
-        for (ftype, fname) in desc.get_field_tuples():
+        for ftype, fname in desc.get_field_tuples():
             if not replace and fname in field_map:
                 continue
             field_map[fname] = ftype

@@ -6,7 +6,6 @@ from flow.record.adapter.splunk import splunkify
 
 
 def test_splunkify_reserved_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
@@ -24,7 +23,6 @@ def test_splunkify_reserved_field():
 
 
 def test_splunkify_normal_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
@@ -42,7 +40,6 @@ def test_splunkify_normal_field():
 
 
 def test_splunkify_rdtag_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
@@ -59,7 +56,6 @@ def test_splunkify_rdtag_field():
 
 
 def test_splunkify_none_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
@@ -77,7 +73,6 @@ def test_splunkify_none_field():
 
 
 def test_splunkify_byte_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",
@@ -95,7 +90,6 @@ def test_splunkify_byte_field():
 
 
 def test_splunkify_backslash_quote_field():
-
     with mock.patch.object(
         flow.record.adapter.splunk,
         "RESERVED_SPLUNK_FIELDS",

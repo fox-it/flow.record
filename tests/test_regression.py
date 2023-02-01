@@ -23,7 +23,7 @@ from flow.record import (
     RecordReader,
     RecordWriter,
 )
-from flow.record.base import is_valid_field_name
+from flow.record.base import is_valid_field_name, fieldtype
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import Selector, CompiledSelector
 from flow.record.utils import is_stdout
@@ -626,6 +626,13 @@ def test_string_surrogateescape_serialization(tmp_path):
         assert str(record.str_value) == str_value
         assert record.str_value == str_value
         assert record.str_value.encode(errors="surrogateescape") == b"hello \xa7 world"
+
+
+def test_fieldtype_typedlist_net_ipaddress():
+    assert fieldtype("net.ipaddress[]")
+    assert fieldtype("net.ipaddress[]").__type__ == fieldtypes.net.ipaddress
+    assert issubclass(fieldtype("net.ipaddress[]"), list)
+    assert issubclass(fieldtype("net.ipaddress[]"), fieldtypes.FieldType)
 
 
 if __name__ == "__main__":
