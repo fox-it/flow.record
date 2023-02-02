@@ -318,7 +318,7 @@ class RecordField:
     typename = None
     type = None
 
-    def __init__(self, name: str, typename: str) -> None:
+    def __init__(self, name: str, typename: str):
         if not is_valid_field_name(name, check_reserved=False):
             raise RecordDescriptorError("Invalid field name: {}".format(name))
 
