@@ -487,7 +487,7 @@ class RecordDescriptor:
     @property
     def fields(self) -> Mapping[str, RecordField]:
         """
-        Get fields mapping. eg:
+        Get fields mapping (without required fields). eg:
 
         {
             "foo": RecordField("foo", "string"),
@@ -509,6 +509,10 @@ class RecordDescriptor:
             "ts": RecordField("ts", "datetime"),
             "foo": RecordField("foo", "string"),
             "bar": RecordField("bar", "varint"),
+            "_source": RecordField("_source", "string"),
+            "_classification": RecordField("_classification", "datetime"),
+            "_generated": RecordField("_generated", "datetime"),
+            "_version": RecordField("_version", "vaeint"),
         }
 
         Returns:
