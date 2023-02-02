@@ -8,7 +8,6 @@ import keyword
 import logging
 import os
 import re
-import struct
 import sys
 import warnings
 from datetime import datetime
@@ -38,7 +37,6 @@ except ImportError:
     HAS_ZSTD = False
 
 from collections import OrderedDict
-from operator import itemgetter as _itemgetter
 
 from .utils import to_native_str, to_str
 from .whitelist import WHITELIST, WHITELIST_TREE

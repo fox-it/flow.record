@@ -54,14 +54,6 @@ def test_datetime_serialization():
 def test_long_int_serialization():
     packer = RecordPacker()
 
-    desc = """
-    test/long_types
-    varint long_type;
-    varint int_type;
-    varint long_type_neg;
-    varint int_type_neg;
-    varint max_int_as_long;
-    """
     long_types = RecordDescriptor(
         "test/long_types",
         [
