@@ -788,6 +788,7 @@ def stream(src, dst):
     dst.flush()
 
 
+@functools.lru_cache()
 def fieldtype(clspath: str) -> FieldType:
     """Return the FieldType class for the given field type class path.
 
