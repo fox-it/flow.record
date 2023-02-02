@@ -10,7 +10,10 @@ import os
 import re
 import struct
 import sys
-from typing import Iterator, List, Optional, Tuple
+import warnings
+from datetime import datetime
+from itertools import zip_longest
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import parse_qsl, urlparse
 
 from .exceptions import RecordDescriptorError
@@ -64,13 +67,8 @@ RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*(?:\[\])?$")
 RE_VALID_RECORD_TYPE_NAME = re.compile("^[a-zA-Z][a-zA-Z0-9_]*(/[a-zA-Z][a-zA-Z0-9_]*)*$")
 
 RECORD_CLASS_TEMPLATE = """
-from datetime import datetime
-from itertools import zip_longest
-
-_utcnow = datetime.utcnow
-
 class {name}(Record):
-    _desc = desc
+    _desc = None
     _field_types = {field_types}
 
     __slots__ = {slots_tuple}
@@ -298,6 +296,7 @@ def is_valid_field_name(name, check_reserved=True):
 
 
 def parse_def(definition):
+    warnings.warn("parse_def() is deprecated", DeprecationWarning)
     record_type = None
     fields = []
     for line in definition.split("\n"):
@@ -321,7 +320,7 @@ class RecordField:
     typename = None
     type = None
 
-    def __init__(self, name, typename):
+    def __init__(self, name: str, typename: str) -> None:
         if not is_valid_field_name(name, check_reserved=False):
             raise RecordDescriptorError("Invalid field name: {}".format(name))
 
@@ -338,142 +337,199 @@ class RecordFieldSet(list):
     pass
 
 
-class RecordDescriptor:
-    name = None
-    fields = None
-    recordType = None
-    _desc_hash = None
+@functools.lru_cache(maxsize=4096)
+def _generate_record_class(name: str, fields: Tuple[Tuple[str, str]]) -> type:
+    """Generate a record class
 
-    def __init__(self, name, fields=None):
+    Args:
+        name: The name of the Record class.
+        fields: A tuple of (fieldtype, fieldname) tuples.
+
+    Returns:
+        Record class
+    """
+
+    contains_keyword = False
+    for _, fieldname in fields:
+        if not is_valid_field_name(fieldname):
+            raise RecordDescriptorError("Field '{}' is an invalid or reserved field name.".format(fieldname))
+
+        # Reserved Python keywords are allowed as field names, but at a cost.
+        # When a Python keyword is used as a field name, you can't use it as a kwarg anymore
+        # You'll be forced to either use *args or a expanding a dict to kwargs to initialize a record
+        # E.g. Record('from_value', 'and_value') or Record(**{'from': 1, 'and': 2})
+        # You'll also only be able to get or set reserved attributes using getattr or setattr.
+        # Record initialization will also be slower, due to a different (slower) implementation
+        # that is compatible with this method of initializing records.
+        if keyword.iskeyword(fieldname):
+            contains_keyword = True
+
+    all_fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in fields])
+    all_fields.update(RecordDescriptor.get_required_fields())
+
+    if not RE_VALID_RECORD_TYPE_NAME.match(name):
+        raise RecordDescriptorError("Invalid record type name")
+
+    name = name.replace("/", "_")
+    args = ""
+    init_code = ""
+    unpack_code = ""
+
+    if len(all_fields) >= 255 and not (sys.version_info >= (3, 7)) or contains_keyword:
+        args = "*args, **kwargs"
+        init_code = (
+            "\t\tfor k, v in _zip_longest(__self.__slots__, args):\n"
+            "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n"
+            "\t\t_generated = __self._generated\n"
+        )
+        unpack_code = (
+            "\t\tvalues = dict([(f, __cls._field_types[f]._unpack(kwargs.get(f, v)) "
+            "if kwargs.get(f, v) is not None else None) for f, v in _zip_longest(__cls.__slots__, args)])\n"
+            "\t\treturn __cls(**values)"
+        )
+    else:
+        args = ", ".join(["{}=None".format(k) for k in all_fields])
+        unpack_code = "\t\treturn __cls(\n"
+        for field in all_fields.values():
+            if field.type.default == FieldType.default:
+                default = FieldType.default()
+            else:
+                default = "_field_{field.name}.type.default()".format(field=field)
+            init_code += "\t\t__self.{field} = {field} if {field} is not None else {default}\n".format(
+                field=field.name, default=default
+            )
+            unpack_code += (
+                "\t\t\t{field} = _field_{field}.type._unpack({field}) " + "if {field} is not None else {default},\n"
+            ).format(field=field.name, default=default)
+        unpack_code += "\t\t)"
+
+    init_code += "\t\t__self._generated = _generated or _utcnow()\n\t\t__self._version = RECORD_VERSION"
+    # Store the fieldtypes so we can enforce them in __setattr__()
+    field_types = "{\n"
+    for field in all_fields:
+        field_types += "\t\t{field!r}: _field_{field}.type,\n".format(field=field)
+    field_types += "\t}"
+
+    code = RECORD_CLASS_TEMPLATE.format(
+        name=name,
+        args=args,
+        slots_tuple=tuple(all_fields.keys()),
+        init_code=init_code,
+        unpack_code=unpack_code,
+        field_types=field_types,
+    ).replace("\t", "    ")
+
+    _globals = {
+        "Record": Record,
+        "RECORD_VERSION": RECORD_VERSION,
+        "_utcnow": datetime.utcnow,
+        "_zip_longest": zip_longest,
+    }
+    for field in all_fields.values():
+        _globals[f"_field_{field.name}"] = field
+
+    exec(code, _globals)
+
+    return _globals[name]
+
+
+class RecordDescriptor:
+    name: str = None
+    recordType: type = None
+    _desc_hash: int = None
+    _fields: Mapping[str, RecordField] = None
+    _all_fields: Mapping[str, RecordField] = None
+    _field_tuples: Sequence[Tuple[str, str]] = None
+
+    def __init__(self, name: str, fields: Optional[Sequence[Tuple[str, str]]] = None) -> None:
         if not name:
             raise RecordDescriptorError("Record name is required")
 
+        # Marked for deprecation
         name = to_str(name)
-
         if isinstance(fields, RecordDescriptor):
+            warnings.warn(
+                "RecordDescriptor initialization with another RecordDescriptor is deprecated",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             # Clone fields
             fields = fields.get_field_tuples()
-        elif not fields:
+        elif fields is None:
+            warnings.warn(
+                "RecordDescriptor initialization by string only definition is deprecated",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             name, fields = parse_def(name)
 
-        fields = list([(to_native_str(k), to_str(v)) for k, v in fields])
-
-        contains_keyword = False
-        for fieldtype, fieldname in fields:
-            if not is_valid_field_name(fieldname):
-                raise RecordDescriptorError("Field '{}' is an invalid or reserved field name.".format(fieldname))
-
-            # Reserved Python keywords are allowed as field names, but at a cost.
-            # When a Python keyword is used as a field name, you can't use it as a kwarg anymore
-            # You'll be forced to either use *args or a expanding a dict to kwargs to initialize a record
-            # E.g. Record('from_value', 'and_value') or Record(**{'from': 1, 'and': 2})
-            # You'll also only be able to get or set reserved attributes using getattr or setattr.
-            # Record initialization will also be slower, due to a different (slower) implementation
-            # that is compatible with this method of initializing records.
-            if keyword.iskeyword(fieldname):
-                contains_keyword = True
-
-        self.fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in fields])
-        all_fields = self.get_all_fields()
         self.name = name
-
-        if not RE_VALID_RECORD_TYPE_NAME.match(name):
-            raise RecordDescriptorError("Invalid record type name")
-
-        args = ""
-        init_code = ""
-        unpack_code = ""
-
-        if len(all_fields) >= 255 and not (sys.version_info >= (3, 7)) or contains_keyword:
-            args = "*args, **kwargs"
-            init_code = (
-                "\t\tfor k, v in zip_longest(__self.__slots__, args):\n"
-                "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n"
-                "\t\t_generated = __self._generated\n"
-            )
-            unpack_code = (
-                "\t\tvalues = dict([(f, __cls._field_types[f]._unpack(kwargs.get(f, v)) "
-                "if kwargs.get(f, v) is not None else None) for f, v in zip_longest(__cls.__slots__, args)])\n"
-                "\t\treturn __cls(**values)"
-            )
-        else:
-            args = ", ".join(["{}=None".format(k) for k in all_fields])
-            unpack_code = "\t\treturn __cls(\n"
-            for field in all_fields.values():
-                if field.type.default == FieldType.default:
-                    default = FieldType.default()
-                else:
-                    default = "_field_{field.name}.type.default()".format(field=field)
-                init_code += "\t\t__self.{field} = {field} if {field} is not None else {default}\n".format(
-                    field=field.name, default=default
-                )
-                unpack_code += (
-                    "\t\t\t{field} = _field_{field}.type._unpack({field}) " + "if {field} is not None else {default},\n"
-                ).format(field=field.name, default=default)
-            unpack_code += "\t\t)"
-
-        init_code += "\t\t__self._generated = _generated or _utcnow()\n\t\t__self._version = RECORD_VERSION"
-        # Store the fieldtypes so we can enforce them in __setattr__()
-        field_types = "{\n"
-        for field in all_fields:
-            field_types += "\t\t{field!r}: _field_{field}.type,\n".format(field=field)
-        field_types += "\t}"
-
-        code = RECORD_CLASS_TEMPLATE.format(
-            name=name.replace("/", "_"),
-            args=args,
-            slots_tuple=tuple(all_fields.keys()),
-            init_code=init_code,
-            unpack_code=unpack_code,
-            field_types=field_types,
-        )
-
-        code = code.replace("\t", "    ")
-        c = compile(code, "<record code>", "exec")
-
-        data = {
-            "desc": self,
-            "Record": Record,
-            "OrderedDict": OrderedDict,
-            "_itemgetter": _itemgetter,
-            "_property": property,
-            "RECORD_VERSION": RECORD_VERSION,
-        }
-        for field in all_fields.values():
-            data["_field_{}".format(field.name)] = field
-
-        exec(c, data)
-
-        self.recordType = data[name.replace("/", "_")]
-
-        self.identifier = (self.name, self.descriptor_hash)
+        self._field_tuples = tuple([(to_native_str(k), to_str(v)) for k, v in fields])
+        self.recordType = _generate_record_class(name, self._field_tuples)
+        self.recordType._desc = self
 
     @staticmethod
-    def get_required_fields():
+    @functools.lru_cache()
+    def get_required_fields() -> Mapping[str, RecordField]:
         """
-        Get required fields.
+        Get required fields mapping. eg:
+
+        {
+            "_source": RecordField("_source", "string"),
+            "_classification": RecordField("_classification", "datetime"),
+            "_generated": RecordField("_generated", "datetime"),
+            "_version": RecordField("_version", "vaeint"),
+        }
 
         Returns:
-            OrderedDict
-
+            Mapping of required fields
         """
-        required_fields = OrderedDict([(k, RecordField(k, v)) for k, v in RESERVED_FIELDS.items()])
-        return required_fields
+        return OrderedDict([(k, RecordField(k, v)) for k, v in RESERVED_FIELDS.items()])
 
-    def get_all_fields(self):
+    @property
+    def fields(self) -> Mapping[str, RecordField]:
         """
-        Get all fields including required meta fields.
+        Get fields mapping. eg:
+
+        {
+            "foo": RecordField("foo", "string"),
+            "bar": RecordField("bar", "varint"),
+        }
 
         Returns:
-            OrderedDict
-
+            Mapping of Record fields
         """
-        required_fields = self.get_required_fields()
-        fields = self.fields.copy()
-        fields.update(required_fields)
-        return fields
+        if self._fields is None:
+            self._fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in self._field_tuples])
+        return self._fields
 
-    def getfields(self, typename):
+    def get_all_fields(self) -> Mapping[str, RecordField]:
+        """
+        Get all fields including required meta fields. eg:
+
+        {
+            "ts": RecordField("ts", "datetime"),
+            "foo": RecordField("foo", "string"),
+            "bar": RecordField("bar", "varint"),
+        }
+
+        Returns:
+            Mapping of all Record fields
+        """
+        if self._all_fields is None:
+            self._all_fields = self.fields.copy()
+            self._all_fields.update(self.get_required_fields())
+        return self._all_fields
+
+    def getfields(self, typename: str) -> RecordFieldSet:
+        """Get fields of a given type.
+
+        Args:
+            typename: The typename of the fields to return. eg: "string" or "datetime"
+
+        Returns:
+            RecordFieldSet of fields with the given typename
+        """
         if isinstance(typename, DynamicFieldtypeModule):
             name = typename.gettypename()
         else:
@@ -481,10 +537,11 @@ class RecordDescriptor:
 
         return RecordFieldSet(field for field in self.fields.values() if field.typename == name)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Record:
+        """Create a new Record initialized with `args` and `kwargs`."""
         return self.recordType(*args, **kwargs)
 
-    def init_from_dict(self, rdict, raise_unknown=False):
+    def init_from_dict(self, rdict: Dict[str, Any], raise_unknown=False) -> Record:
         """Create a new Record initialized with key, value pairs from `rdict`.
 
         If `raise_unknown=True` then fields on `rdict` that are unknown to this
@@ -492,15 +549,14 @@ class RecordDescriptor:
         with unknown keyword arguments. (default: False)
 
         Returns:
-            Record
-
+            Record with data from `rdict`
         """
 
         if not raise_unknown:
             rdict = {k: v for k, v in rdict.items() if k in self.recordType.__slots__}
         return self.recordType(**rdict)
 
-    def init_from_record(self, record, raise_unknown=False):
+    def init_from_record(self, record: Record, raise_unknown=False) -> Record:
         """Create a new Record initialized with data from another `record`.
 
         If `raise_unknown=True` then fields on `record` that are unknown to this
@@ -508,73 +564,77 @@ class RecordDescriptor:
         with unknown keyword arguments. (default: False)
 
         Returns:
-            Record
-
+            Record with data from `record`
         """
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
-    def extend(self, fields):
+    def extend(self, fields: Sequence[Tuple[str, str]]) -> "RecordDescriptor":
         """Returns a new RecordDescriptor with the extended fields
 
         Returns:
-            RecordDescriptor
+            RecordDescriptor with extended fields
         """
         new_fields = list(self.get_field_tuples()) + fields
         return RecordDescriptor(self.name, new_fields)
 
-    def get_field_tuples(self):
+    def get_field_tuples(self) -> Tuple[Tuple[str, str]]:
         """Returns a tuple containing the (typename, name) tuples, eg:
 
         (('boolean', 'foo'), ('string', 'bar'))
 
         Returns:
-            tuple
+            Tuple of (typename, name) tuples
         """
-        return tuple((self.fields[f].typename, self.fields[f].name) for f in self.fields)
+        return self._field_tuples
 
     @staticmethod
     @functools.lru_cache(maxsize=256)
-    def calc_descriptor_hash(name, fields):
+    def calc_descriptor_hash(name, fields: Sequence[Tuple[str, str]]) -> int:
         """Calculate and return the (cached) descriptor hash as a 32 bit integer.
 
         The descriptor hash is the first 4 bytes of the sha256sum of the descriptor name and field names and types.
         """
-        h = hashlib.sha256(name.encode("utf-8"))
-        for typename, name in fields:
-            h.update(name.encode("utf-8"))
-            h.update(typename.encode("utf-8"))
-        return struct.unpack(">L", h.digest()[:4])[0]
+        data = name + "".join(f"{n}{t}" for t, n in fields)
+        return int.from_bytes(hashlib.sha256(data.encode()).digest()[:4], byteorder="big")
 
     @property
-    def descriptor_hash(self):
+    def descriptor_hash(self) -> int:
         """Returns the (cached) descriptor hash"""
         if not self._desc_hash:
-            self._desc_hash = self.calc_descriptor_hash(self.name, self.get_field_tuples())
+            self._desc_hash = self.calc_descriptor_hash(self.name, self._field_tuples)
         return self._desc_hash
 
-    def __hash__(self):
+    @property
+    def identifier(self) -> Tuple[str, int]:
+        """Returns a tuple containing the descriptor name and hash"""
+        return (self.name, self.descriptor_hash)
+
+    def __hash__(self) -> int:
         return hash((self.name, self.get_field_tuples()))
 
-    def __eq__(self, other):
+    def __eq__(self, other: "RecordDescriptor") -> bool:
         if isinstance(other, RecordDescriptor):
             return self.name == other.name and self.get_field_tuples() == other.get_field_tuples()
         return NotImplemented
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<RecordDescriptor {}, hash={:04x}>".format(self.name, self.descriptor_hash)
 
-    def definition(self, reserved=True):
+    def definition(self, reserved: bool = True) -> str:
         """Return the RecordDescriptor as Python definition string.
 
         If `reserved` is True it will also return the reserved fields.
+
+        Returns:
+            Descriptor definition string
         """
         fields = []
         for ftype in self.get_all_fields().values():
             if not reserved and ftype.name.startswith("_"):
                 continue
-            fields.append('    ("{ftype.typename}", "{ftype.name}"),'.format(ftype=ftype))
+            fields.append(f'    ("{ftype.typename}", "{ftype.name}"),')
         fields_str = "\n".join(fields)
-        return 'RecordDescriptor("{}", [\n{}\n])'.format(self.name, fields_str)
+        return f'RecordDescriptor("{self.name}", [\n{fields_str}\n])'
 
     def base(self, **kwargs_sink):
         def wrapper(**kwargs):
@@ -583,11 +643,11 @@ class RecordDescriptor:
 
         return wrapper
 
-    def _pack(self):
-        return self.name, [(field.typename, field.name) for field in self.fields.values()]
+    def _pack(self) -> Tuple[str, Tuple[Tuple[str, str]]]:
+        return (self.name, self._field_tuples)
 
     @staticmethod
-    def _unpack(name, fields):
+    def _unpack(name, fields: Tuple[Tuple[str, str]]) -> "RecordDescriptor":
         return RecordDescriptor(name, fields)
 
 

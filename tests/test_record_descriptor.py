@@ -1,11 +1,10 @@
-import struct
 import hashlib
-
-from flow.record import RecordDescriptor
-from flow.record import RecordField
-from flow.record.exceptions import RecordDescriptorError
+import struct
 
 import pytest
+
+from flow.record import RecordDescriptor, RecordField
+from flow.record.exceptions import RecordDescriptorError
 
 
 def test_record_descriptor():
@@ -46,7 +45,8 @@ def test_record_descriptor_clone():
     )
 
     # Clone record descriptor
-    OtherRecord = RecordDescriptor("other/record", TestRecord)
+    with pytest.deprecated_call():
+        OtherRecord = RecordDescriptor("other/record", TestRecord)
 
     assert TestRecord.name == "test/record"
     assert OtherRecord.name == "other/record"
@@ -82,6 +82,7 @@ def test_record_descriptor_hash_cache():
             ("string", "query"),
         ],
     )
+    assert TestRecord1.identifier == ("test/record", 2149661789)
     info = RecordDescriptor.calc_descriptor_hash.cache_info()
 
     # Create same descriptor, check cache hit increase
@@ -92,6 +93,7 @@ def test_record_descriptor_hash_cache():
             ("string", "query"),
         ],
     )
+    assert TestRecord2.identifier == ("test/record", 2149661789)
     info2 = RecordDescriptor.calc_descriptor_hash.cache_info()
     assert info2.hits == info.hits + 1
     assert info.misses == info2.misses
@@ -106,6 +108,7 @@ def test_record_descriptor_hash_cache():
             ("boolean", "test"),
         ],
     )
+    assert TestRecord3.identifier == ("test/record", 1878143470)
     info3 = RecordDescriptor.calc_descriptor_hash.cache_info()
     assert info2.hits == info.hits + 1
     assert info3.misses == info.misses + 1
