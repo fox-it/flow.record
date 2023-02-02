@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import functools
 import gzip
@@ -570,7 +572,7 @@ class RecordDescriptor:
         """
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
-    def extend(self, fields: Sequence[Tuple[str, str]]) -> "RecordDescriptor":
+    def extend(self, fields: Sequence[Tuple[str, str]]) -> RecordDescriptor:
         """Returns a new RecordDescriptor with the extended fields
 
         Returns:
@@ -614,7 +616,7 @@ class RecordDescriptor:
     def __hash__(self) -> int:
         return hash((self.name, self.get_field_tuples()))
 
-    def __eq__(self, other: "RecordDescriptor") -> bool:
+    def __eq__(self, other: RecordDescriptor) -> bool:
         if isinstance(other, RecordDescriptor):
             return self.name == other.name and self.get_field_tuples() == other.get_field_tuples()
         return NotImplemented
@@ -649,7 +651,7 @@ class RecordDescriptor:
         return (self.name, self._field_tuples)
 
     @staticmethod
-    def _unpack(name, fields: Tuple[Tuple[str, str]]) -> "RecordDescriptor":
+    def _unpack(name, fields: Tuple[Tuple[str, str]]) -> RecordDescriptor:
         return RecordDescriptor(name, fields)
 
 
