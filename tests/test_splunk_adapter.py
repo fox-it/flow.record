@@ -1,7 +1,7 @@
 from unittest import mock
 
-from flow.record import RecordDescriptor
 import flow.record.adapter.splunk
+from flow.record import RecordDescriptor
 from flow.record.adapter.splunk import splunkify
 
 
@@ -45,9 +45,7 @@ def test_splunkify_rdtag_field():
         "RESERVED_SPLUNK_FIELDS",
         set(),
     ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-        )
+        test_record_descriptor = RecordDescriptor("test/record", [])
 
         test_record = test_record_descriptor()
 

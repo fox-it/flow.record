@@ -1,33 +1,32 @@
-import pytest
 import codecs
-import os
 import datetime
-import sys
-import pathlib
 import json
+import os
+import pathlib
 import subprocess
-
-from unittest.mock import patch, mock_open
+import sys
+from unittest.mock import mock_open, patch
 
 import msgpack
+import pytest
 
 from flow.record import (
-    base,
-    whitelist,
-    fieldtypes,
-    Record,
+    RECORD_VERSION,
     GroupedRecord,
+    Record,
     RecordDescriptor,
     RecordPacker,
-    RECORD_VERSION,
     RecordReader,
     RecordWriter,
+    base,
+    fieldtypes,
+    whitelist,
 )
-from flow.record.base import is_valid_field_name, fieldtype
+from flow.record.base import _generate_record_class, fieldtype, is_valid_field_name
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
-from flow.record.selector import Selector, CompiledSelector
-from flow.record.utils import is_stdout
+from flow.record.selector import CompiledSelector, Selector
 from flow.record.tools import rdump
+from flow.record.utils import is_stdout
 
 
 def test_datetime_serialization():
@@ -38,11 +37,12 @@ def test_datetime_serialization():
     for tz in ["UTC", "Europe/Amsterdam"]:
         os.environ["TZ"] = tz
 
-        desc = """
-        test/datetime
-        datetime datetime;
-        """
-        descriptor = RecordDescriptor(desc)
+        descriptor = RecordDescriptor(
+            "test/datetime",
+            [
+                ("datetime", "datetime"),
+            ],
+        )
 
         record = descriptor.recordType(datetime=now)
         data = packer.pack(record)
@@ -54,15 +54,16 @@ def test_datetime_serialization():
 def test_long_int_serialization():
     packer = RecordPacker()
 
-    desc = """
-    test/long_types
-    varint long_type;
-    varint int_type;
-    varint long_type_neg;
-    varint int_type_neg;
-    varint max_int_as_long;
-    """
-    long_types = RecordDescriptor(desc)
+    long_types = RecordDescriptor(
+        "test/long_types",
+        [
+            ("varint", "long_type"),
+            ("varint", "int_type"),
+            ("varint", "long_type_neg"),
+            ("varint", "int_type_neg"),
+            ("varint", "max_int_as_long"),
+        ],
+    )
 
     l = 1239812398217398127398217389217389217398271398217321  # noqa: E741
     i = 888888
@@ -84,11 +85,12 @@ def test_long_int_serialization():
 def test_unicode_serialization():
     packer = RecordPacker()
 
-    desc = """
-    test/unicode
-    string text;
-    """
-    descriptor = RecordDescriptor(desc)
+    descriptor = RecordDescriptor(
+        "test/unicode",
+        [
+            ("string", "text"),
+        ],
+    )
 
     puny_domains = [b"xn--s7y.co", b"xn--80ak6aa92e.com", b"xn--pple-43d.com"]
 
@@ -243,6 +245,8 @@ def test_reserved_field_count_regression():
     base.RESERVED_FIELDS["_extra"] = "varint"
     base.RESERVED_FIELDS["_version"] = "varint"
 
+    RecordDescriptor.get_required_fields.cache_clear()
+    _generate_record_class.cache_clear()
     TestRecordExtra = RecordDescriptor(
         "test/record",
         [
@@ -252,6 +256,8 @@ def test_reserved_field_count_regression():
 
     del base.RESERVED_FIELDS["_extra"]
 
+    RecordDescriptor.get_required_fields.cache_clear()
+    _generate_record_class.cache_clear()
     TestRecordBase = RecordDescriptor(
         "test/record",
         [

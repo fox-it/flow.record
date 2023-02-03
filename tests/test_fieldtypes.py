@@ -7,12 +7,15 @@ import pathlib
 
 import pytest
 
-from flow.record import RecordDescriptor, RecordReader, RecordWriter
-from flow.record.fieldtypes import net
-from flow.record.fieldtypes import uri
-from flow.record.fieldtypes import fieldtype_for_value
-from flow.record.fieldtypes import PATH_POSIX, PATH_WINDOWS
 import flow.record.fieldtypes
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record.fieldtypes import (
+    PATH_POSIX,
+    PATH_WINDOWS,
+    fieldtype_for_value,
+    net,
+    uri,
+)
 
 INT64_MAX = (1 << 63) - 1
 INT32_MAX = (1 << 31) - 1
