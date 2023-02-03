@@ -434,6 +434,8 @@ def _generate_record_class(name: str, fields: Tuple[Tuple[str, str]]) -> type:
 
 
 class RecordDescriptor:
+    """Record Descriptor class for defining a Record type and its fields."""
+
     name: str = None
     recordType: type = None
     _desc_hash: int = None
@@ -441,7 +443,7 @@ class RecordDescriptor:
     _all_fields: Mapping[str, RecordField] = None
     _field_tuples: Sequence[Tuple[str, str]] = None
 
-    def __init__(self, name: str, fields: Optional[Sequence[Tuple[str, str]]] = None) -> None:
+    def __init__(self, name: str, fields: Optional[Sequence[Tuple[str, str]]] = None):
         if not name:
             raise RecordDescriptorError("Record name is required")
 
