@@ -4,7 +4,8 @@ import os
 import pathlib
 import re
 from binascii import a2b_hex, b2a_hex
-from datetime import datetime as _dt, timezone
+from datetime import datetime as _dt
+from datetime import timezone
 from posixpath import basename, dirname
 from typing import Tuple
 

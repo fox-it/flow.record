@@ -1,4 +1,5 @@
 from ipaddress import ip_address, ip_network
+
 from flow.record.base import FieldType
 from flow.record.fieldtypes import defang
 

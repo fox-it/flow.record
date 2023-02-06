@@ -1,8 +1,9 @@
-import json
 import datetime
-from flow.record import RecordDescriptor, RecordWriter, RecordReader
+import json
 
 import pytest
+
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
 
 
 def generate_records(count=100):

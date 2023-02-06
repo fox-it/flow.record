@@ -1,15 +1,23 @@
 import sys
+
 import pytest
-from flow.record import RECORD_VERSION
-from flow.record import RecordDescriptor
-from flow.record import RecordPacker
-from flow.record import RecordWriter, RecordReader, RecordPrinter
-from flow.record import Record, GroupedRecord
-from flow.record import record_stream, extend_record
-from flow.record import fieldtypes
+
+from flow.record import (
+    RECORD_VERSION,
+    GroupedRecord,
+    Record,
+    RecordDescriptor,
+    RecordPacker,
+    RecordPrinter,
+    RecordReader,
+    RecordWriter,
+    extend_record,
+    fieldtypes,
+    record_stream,
+)
 from flow.record.base import merge_record_descriptors
-from flow.record.stream import RecordFieldRewriter
 from flow.record.exceptions import RecordDescriptorError
+from flow.record.stream import RecordFieldRewriter
 
 from . import utils_inspect as inspect
 

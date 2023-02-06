@@ -1,6 +1,6 @@
 from flow import record
-from flow.record.utils import is_stdout
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.utils import is_stdout
 
 __usage__ = """
 Binary stream adapter (default adapter if none are specified)

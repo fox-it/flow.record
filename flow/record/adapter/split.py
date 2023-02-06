@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from urllib.parse import urlparse
 
 from flow.record.adapter import AbstractWriter

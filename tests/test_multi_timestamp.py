@@ -1,7 +1,6 @@
 import datetime
 
-from flow.record import RecordDescriptor
-from flow.record import iter_timestamped_records
+from flow.record import RecordDescriptor, iter_timestamped_records
 from flow.record.base import merge_record_descriptors
 
 

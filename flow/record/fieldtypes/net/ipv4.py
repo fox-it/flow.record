@@ -1,5 +1,5 @@
-import struct
 import socket
+import struct
 import warnings
 
 from flow.record import FieldType

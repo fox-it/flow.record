@@ -1,5 +1,6 @@
-from flow.record.adapter import AbstractWriter, AbstractReader
 from flow.broker import Publisher, Subscriber
+
+from flow.record.adapter import AbstractReader, AbstractWriter
 
 __usage__ = """
 PubSub adapter using flow.broker
