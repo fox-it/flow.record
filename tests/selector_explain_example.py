@@ -1,5 +1,5 @@
-from flow.record.selector import Selector
 from flow.record import RecordDescriptor
+from flow.record.selector import Selector
 
 desc = RecordDescriptor(
     "test/samplerecord",

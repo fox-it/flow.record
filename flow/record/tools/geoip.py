@@ -1,22 +1,17 @@
 # Python imports
-import re
-import sys
-import random
 import argparse
 import logging
-
-# Flow imports
-from flow.record.utils import catch_sigpipe
-from flow.record import (
-    RecordDescriptor,
-    RecordWriter,
-    record_stream,
-    extend_record,
-)
+import random
+import re
+import sys
 
 # Third party imports
 import maxminddb
 
+from flow.record import RecordDescriptor, RecordWriter, extend_record, record_stream
+
+# Flow imports
+from flow.record.utils import catch_sigpipe
 
 logger = logging.getLogger(__name__)
 

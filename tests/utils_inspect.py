@@ -4,8 +4,8 @@ Backport of `inspect.signature` for Python 2.
 Based on: https://github.com/python/cpython/blob/3.7/Lib/inspect.py
 """
 
-import inspect
 import collections
+import inspect
 
 
 class _empty:

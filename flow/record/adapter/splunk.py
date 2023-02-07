@@ -1,8 +1,8 @@
-import socket
 import logging
+import socket
 
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.utils import to_str, to_bytes, to_base64
+from flow.record.utils import to_base64, to_bytes, to_str
 
 __usage__ = """
 Splunk output adapter (writer only)

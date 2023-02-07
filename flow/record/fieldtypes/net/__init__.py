@@ -1,5 +1,6 @@
 from flow.record.fieldtypes import string
-from .ip import ipaddress, ipnetwork, IPAddress, IPNetwork
+
+from .ip import IPAddress, IPNetwork, ipaddress, ipnetwork
 
 __all__ = [
     "ipaddress",

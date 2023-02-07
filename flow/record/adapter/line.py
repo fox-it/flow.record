@@ -1,5 +1,5 @@
-from flow.record.adapter import AbstractWriter
 from flow.record import open_path
+from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
 
 __usage__ = """

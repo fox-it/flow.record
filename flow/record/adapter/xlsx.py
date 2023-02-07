@@ -1,9 +1,9 @@
 import openpyxl
 
 from flow import record
-from flow.record.utils import is_stdout
+from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import make_selector
-from flow.record.adapter import AbstractWriter, AbstractReader
+from flow.record.utils import is_stdout
 
 __usage__ = """
 Microsoft Excel spreadsheet adapter

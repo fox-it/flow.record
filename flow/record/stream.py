@@ -1,19 +1,19 @@
 from __future__ import print_function
 
-import os
-import sys
-import struct
-import logging
 import datetime
-from functools import lru_cache
+import logging
+import os
+import struct
+import sys
 from collections import ChainMap
+from functools import lru_cache
+
+from flow.record import RecordWriter
+from flow.record.fieldtypes import fieldtype_for_value
+from flow.record.selector import make_selector
 
 from .base import RecordDescriptor, RecordReader
 from .packer import RecordPacker
-from flow.record import RecordWriter
-from flow.record.selector import make_selector
-from flow.record.fieldtypes import fieldtype_for_value
-
 
 log = logging.getLogger(__package__)
 

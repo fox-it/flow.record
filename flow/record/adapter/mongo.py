@@ -1,8 +1,9 @@
 import bson
+from pymongo import MongoClient
+
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import make_selector
-from pymongo import MongoClient
 
 __usage__ = """
 MongoDB adapter

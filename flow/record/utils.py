@@ -1,6 +1,6 @@
+import base64
 import os
 import sys
-import base64
 from functools import wraps
 
 _native = str

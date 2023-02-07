@@ -1,10 +1,10 @@
 import json
 from datetime import datetime
 
+import pytest
+
 from flow.record import JsonRecordPacker, RecordDescriptor, fieldtypes
 from flow.record.exceptions import RecordDescriptorNotFound
-
-import pytest
 
 
 def test_record_in_record():

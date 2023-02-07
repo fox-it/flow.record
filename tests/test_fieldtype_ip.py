@@ -1,13 +1,13 @@
 from __future__ import unicode_literals
-import random
+
 import ipaddress
+import random
 
 import pytest
 
-from flow.record import RecordDescriptor, RecordWriter, RecordReader
-from flow.record import RecordPacker
+from flow.record import RecordDescriptor, RecordPacker, RecordReader, RecordWriter
 from flow.record.fieldtypes import net
-from flow.record.selector import Selector, CompiledSelector
+from flow.record.selector import CompiledSelector, Selector
 
 
 def test_field_ipaddress():
