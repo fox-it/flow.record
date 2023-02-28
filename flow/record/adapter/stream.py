@@ -43,7 +43,7 @@ class StreamReader(AbstractReader):
     stream = None
 
     def __init__(self, path, selector=None, **kwargs):
-        self.fp = record.open_path(path, "rb")
+        self.fp = record.open_file(path, "rb")
         self.stream = record.RecordStreamReader(self.fp, selector=selector)
 
     def __iter__(self):

@@ -18,6 +18,9 @@ setup(
         "geoip": [
             "maxminddb",
         ],
+        "avro": [
+            "fastavro",
+        ],
     },
     namespace_packages=["flow"],
     entry_points={

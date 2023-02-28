@@ -8,7 +8,7 @@ import sys
 from collections import ChainMap
 from functools import lru_cache
 
-from flow.record import RecordWriter
+from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.selector import make_selector
 
@@ -16,8 +16,6 @@ from .base import RecordDescriptor, RecordReader
 from .packer import RecordPacker
 
 log = logging.getLogger(__package__)
-
-RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
 
 
 def RecordOutput(fp):

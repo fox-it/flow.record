@@ -14,6 +14,7 @@ import sys
 import warnings
 from datetime import datetime
 from itertools import zip_longest
+from pathlib import Path
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import parse_qsl, urlparse
 
@@ -37,6 +38,13 @@ try:
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
+
+try:
+    import fastavro as avro  # noqa
+
+    HAS_AVRO = True
+except ImportError:
+    HAS_AVRO = False
 
 from collections import OrderedDict
 
@@ -62,6 +70,10 @@ GZIP_MAGIC = b"\x1f\x8b"
 BZ2_MAGIC = b"BZh"
 LZ4_MAGIC = b"\x04\x22\x4d\x18"
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+AVRO_MAGIC = b"Obj"
+
+RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
+RECORDSTREAM_MAGIC_DEPTH = 4 + 2 + len(RECORDSTREAM_MAGIC)
 
 RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*(?:\[\])?$")
 RE_VALID_RECORD_TYPE_NAME = re.compile("^[a-zA-Z][a-zA-Z0-9_]*(/[a-zA-Z][a-zA-Z0-9_]*)*$")
@@ -88,21 +100,25 @@ class Peekable:
     def __init__(self, fd):
         self.fd = fd
         self.buffer = None
+        self.peeked_data = None
 
     def peek(self, size):
         if self.buffer is not None:
             raise BufferError("Only 1 peek allowed")
         data = self.fd.read(size)
         self.buffer = io.BytesIO(data)
+        self.peeked_data = data
         return data
 
     def read(self, size=None):
-        data = b""
         if self.buffer is None:
-            data = self.fd.read(size)
+            return self.fd.read(size)
         else:
+            data = b""
             data = self.buffer.read(size)
-            if len(data) < size:
+            if size is None:
+                data += self.fd.read()
+            elif len(data) < size:
                 data += self.fd.read(size - len(data))
                 self.buffer = None
         return data
@@ -661,6 +677,52 @@ def DynamicDescriptor(name, fields):
     return RecordDescriptor(name, [("dynamic", field) for field in fields])
 
 
+def open_stream(fp, mode):
+    if not hasattr(fp, "peek"):
+        fp = Peekable(fp)
+
+    # We peek into the file at the maximum possible length we might need, which is the amount of bytes needed to
+    # determine whether a stream is a RECORDSTREAM or not.
+    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+
+    if peek_data[:2] == GZIP_MAGIC:
+        fp = gzip.GzipFile(fileobj=fp, mode=mode)
+    elif HAS_BZ2 and peek_data[:3] == BZ2_MAGIC:
+        fp = bz2.BZ2File(fp, mode=mode)
+    elif HAS_LZ4 and peek_data[:4] == LZ4_MAGIC:
+        fp = lz4.open(fp, mode=mode)
+    elif HAS_ZSTD and peek_data[:4] == ZSTD_MAGIC:
+        dctx = zstd.ZstdDecompressor()
+        fp = dctx.stream_reader(fp)
+
+    return fp
+
+
+def find_adapter_for_stream(fp: Peekable) -> str:
+    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+    if fp.peeked_data is not None:
+        peek_data = fp.peeked_data
+    else:
+        peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+    if peek_data[:3] == AVRO_MAGIC and HAS_AVRO:
+        return "avro"
+    elif RECORDSTREAM_MAGIC in peek_data:
+        return "stream"
+
+
+def open_file(path, mode, clobber=True):
+    if isinstance(path, Path):
+        path = str(path)
+    if isinstance(path, str):
+        return open_path(path, mode, clobber)
+    elif isinstance(path, Peekable):
+        return path
+    elif isinstance(path, io.IOBase):
+        return open_stream(path, "rb")
+    else:
+        raise ValueError(f"Unsupported path type {path}")
+
+
 def open_path(path, mode, clobber=True):
     """
     Open `path` using `mode` and returns a file object.
@@ -723,24 +785,11 @@ def open_path(path, mode, clobber=True):
             fp = io.open(path, mode)
         # check if we are reading a compressed stream
         if not out and binary:
-            if not hasattr(fp, "peek"):
-                fp = Peekable(fp)
-            peek_data = fp.peek(4)
-            if peek_data[:2] == GZIP_MAGIC:
-                fp = gzip.GzipFile(fileobj=fp, mode=mode)
-            elif HAS_BZ2 and peek_data[:3] == BZ2_MAGIC:
-                fp = bz2.BZ2File(fp, mode=mode)
-            elif HAS_LZ4 and peek_data[:4] == LZ4_MAGIC:
-                fp = lz4.open(fp, mode=mode)
-            elif HAS_ZSTD and peek_data[:4] == ZSTD_MAGIC:
-                dctx = zstd.ZstdDecompressor()
-                fp = dctx.stream_reader(fp)
+            fp = open_stream(fp, mode)
     return fp
 
 
 def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
-    url = str(url or "")
-
     # Guess adapter based on extension
     ext_to_adapter = {
         ".avro": "avro",
@@ -748,26 +797,41 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
         ".jsonl": "jsonfile",
         ".csv": "csvfile",
     }
-    _, ext = os.path.splitext(url)
+    cls_stream = None
+    if not out and hasattr(url, "read") and hasattr(url, "seek"):
+        # This record adapter has received a file-like object.
+        # We just need to find the right adapter
+        # by peeking into the first few bytes.
+        cls_stream = Peekable(open_stream(url, "rb"))
 
-    adapter_scheme = ext_to_adapter.get(ext, "stream")
-    if "://" not in url:
-        url = f"{adapter_scheme}://{url}"
+        # We will again peek into the bytes to find an adapter
+        adapter = find_adapter_for_stream(cls_stream)
+        if adapter is None:
+            raise IOError("Could not find adapter for file-like object")
+        arg_dict = kwargs.copy()
 
-    p = urlparse(url, scheme=adapter_scheme)
-    adapter, _, sub_adapter = p.scheme.partition("+")
+    else:
+        # Either stdout / stdin is given, or a path-like string.
+        url = str(url or "")
+        _, ext = os.path.splitext(url)
+
+        adapter_scheme = ext_to_adapter.get(ext, "stream")
+        if "://" not in url:
+            url = f"{adapter_scheme}://{url}"
+        p = urlparse(url, scheme=adapter_scheme)
+        adapter, _, sub_adapter = p.scheme.partition("+")
+
+        arg_dict = dict(parse_qsl(p.query))
+        arg_dict.update(kwargs)
+
+        cls_url = p.netloc + p.path
+        if sub_adapter:
+            cls_url = sub_adapter + "://" + cls_url
 
     mod = importlib.import_module("flow.record.adapter.{}".format(adapter))
-
     clsname = ("{}Writer" if out else "{}Reader").format(adapter.title())
 
     cls = getattr(mod, clsname)
-    arg_dict = dict(parse_qsl(p.query))
-    arg_dict.update(kwargs)
-    cls_url = p.netloc + p.path
-    if sub_adapter:
-        cls_url = sub_adapter + "://" + cls_url
-
     if not out and selector:
         arg_dict["selector"] = selector
 
@@ -775,6 +839,9 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
         arg_dict["clobber"] = clobber
 
     log.debug("Creating {!r} for {!r} with args {!r}".format(cls, url, arg_dict))
+
+    if cls_stream:
+        return cls(cls_stream, **arg_dict)
     return cls(cls_url, **arg_dict)
 
 
