@@ -1,3 +1,5 @@
+from typing import Iterator
+
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.utils import is_stdout
@@ -19,16 +21,16 @@ class StreamWriter(AbstractWriter):
         self.fp = record.open_path(path, "wb", clobber=clobber)
         self.stream = record.RecordOutput(self.fp)
 
-    def write(self, r):
+    def write(self, r) -> None:
         self.stream.write(r)
 
-    def flush(self):
+    def flush(self) -> None:
         if self.stream and hasattr(self.stream, "flush"):
             self.stream.flush()
         if self.fp:
             self.fp.flush()
 
-    def close(self):
+    def close(self) -> None:
         if self.stream:
             self.stream.close()
         self.stream = None
@@ -46,10 +48,10 @@ class StreamReader(AbstractReader):
         self.fp = record.open_file(path, "rb")
         self.stream = record.RecordStreamReader(self.fp, selector=selector)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[record.Record]:
         return iter(self.stream)
 
-    def close(self):
+    def close(self) -> None:
         if self.stream:
             self.stream.close()
         self.stream = None

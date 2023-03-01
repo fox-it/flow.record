@@ -15,10 +15,12 @@ import warnings
 from datetime import datetime
 from itertools import zip_longest
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import IO, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import parse_qsl, urlparse
 
-from .exceptions import RecordDescriptorError
+from flow.record.adapter import AbstractReader, AbstractWriter
+
+from .exceptions import RecordAdapterNotFound, RecordDescriptorError
 
 try:
     import lz4.frame as lz4
@@ -677,7 +679,7 @@ def DynamicDescriptor(name, fields):
     return RecordDescriptor(name, [("dynamic", field) for field in fields])
 
 
-def open_stream(fp, mode):
+def open_stream(fp, mode) -> IO | Peekable:
     if not hasattr(fp, "peek"):
         fp = Peekable(fp)
 
@@ -685,6 +687,7 @@ def open_stream(fp, mode):
     # determine whether a stream is a RECORDSTREAM or not.
     peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
 
+    # If the data stream is compressed, we wrap the file pointer in a reader that can decompress accordingly.
     if peek_data[:2] == GZIP_MAGIC:
         fp = gzip.GzipFile(fileobj=fp, mode=mode)
     elif HAS_BZ2 and peek_data[:3] == BZ2_MAGIC:
@@ -708,9 +711,10 @@ def find_adapter_for_stream(fp: Peekable) -> str:
         return "avro"
     elif RECORDSTREAM_MAGIC in peek_data:
         return "stream"
+    return None
 
 
-def open_file(path, mode, clobber=True):
+def open_file(path: Any, mode: str, clobber=True) -> IO | Peekable:
     if isinstance(path, Path):
         path = str(path)
     if isinstance(path, str):
@@ -723,7 +727,7 @@ def open_file(path, mode, clobber=True):
         raise ValueError(f"Unsupported path type {path}")
 
 
-def open_path(path, mode, clobber=True):
+def open_path(path: str, mode: str, clobber=True) -> IO:
     """
     Open `path` using `mode` and returns a file object.
 
@@ -789,7 +793,7 @@ def open_path(path, mode, clobber=True):
     return fp
 
 
-def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
+def RecordAdapter(url, out: bool, selector=None, clobber=True, **kwargs) -> AbstractWriter | AbstractReader:
     # Guess adapter based on extension
     ext_to_adapter = {
         ".avro": "avro",
@@ -802,12 +806,14 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
         # This record adapter has received a file-like object.
         # We just need to find the right adapter
         # by peeking into the first few bytes.
+
+        # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
         cls_stream = Peekable(open_stream(url, "rb"))
 
-        # We will again peek into the bytes to find an adapter
+        # We will again peek into the bytes to find an adapter, so we wrap the cls_stream into a Peekable object.
         adapter = find_adapter_for_stream(cls_stream)
         if adapter is None:
-            raise IOError("Could not find adapter for file-like object")
+            raise RecordAdapterNotFound("Could not find adapter for file-like object")
         arg_dict = kwargs.copy()
 
     else:
@@ -845,11 +851,11 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
     return cls(cls_url, **arg_dict)
 
 
-def RecordReader(url=None, selector=None, **kwargs):
+def RecordReader(url=None, selector=None, **kwargs) -> AbstractReader:
     return RecordAdapter(url, False, selector=selector, **kwargs)
 
 
-def RecordWriter(url=None, clobber=True, **kwargs):
+def RecordWriter(url=None, clobber=True, **kwargs) -> AbstractWriter:
     return RecordAdapter(url, True, clobber=clobber, **kwargs)
 
 
