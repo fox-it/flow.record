@@ -435,6 +435,8 @@ def test_datetime():
         ("2023-01-01T12:00:00+01:00", datetime.datetime(2023, 1, 1, 11, 0, 0, tzinfo=datetime.timezone.utc)),
         (datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc), datetime.datetime(2023, 1, 1)),
         (0, datetime.datetime(1970, 1, 1, 0, 0)),
+        (1235813213, datetime.datetime(2009, 2, 28, 9, 26, 53, tzinfo=datetime.timezone.utc)),
+        (1235813213.455891, datetime.datetime(2009, 2, 28, 9, 26, 53, 455891, tzinfo=datetime.timezone.utc)),
     ],
 )
 def test_datetime_formats(tmp_path, value, expected_dt):

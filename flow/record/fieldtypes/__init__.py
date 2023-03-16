@@ -244,7 +244,9 @@ class datetime(_dt, FieldType):
                 else:
                     return cls.fromisoformat(arg)
             elif isinstance(arg, (int, float_type)):
-                return cls.utcfromtimestamp(arg)
+                # When we receive integers and floats we expect
+                # them to be epoch timestamps which are UTC by definition.
+                return cls.fromtimestamp(arg, tz=timezone.utc)
             elif isinstance(arg, (_dt,)):
                 return _dt.__new__(
                     cls,
