@@ -71,8 +71,13 @@ class AvroWriter(AbstractWriter):
         self.writer.write(r._packdict())
 
     def flush(self):
-        if self.writer:
-            self.writer.flush()
+        if not self.writer:
+            self.writer = fastavro.write.Writer(
+                self.fp,
+                fastavro.parse_schema({"type": "record", "name": "empty"}),
+                codec=self.codec,
+            )
+        self.writer.flush()
 
     def close(self):
         if self.fp and not is_stdout(self.fp):
