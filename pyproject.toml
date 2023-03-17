@@ -42,7 +42,7 @@ avro = [
 test = [
     "lz4",
     "zstandard",
-    "fastavro[snappy]",
+    "fastavro",
 ]
 
 [project.scripts]
