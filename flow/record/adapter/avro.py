@@ -71,8 +71,13 @@ class AvroWriter(AbstractWriter):
         self.writer.write(r._packdict())
 
     def flush(self):
-        if self.writer:
-            self.writer.flush()
+        if not self.writer:
+            self.writer = fastavro.write.Writer(
+                self.fp,
+                fastavro.parse_schema({"type": "record", "name": "empty"}),
+                codec=self.codec,
+            )
+        self.writer.flush()
 
     def close(self):
         if self.fp and not is_stdout(self.fp):
@@ -89,7 +94,7 @@ class AvroReader(AbstractReader):
         self.selector = make_selector(selector)
 
         self.reader = fastavro.reader(self.fp)
-        self.schema = self.reader.schema
+        self.schema = self.reader.writer_schema
         if not self.schema:
             raise Exception("Missing Avro schema")
 

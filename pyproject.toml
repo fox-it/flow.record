@@ -36,6 +36,14 @@ elastic = [
 geoip = [
     "maxminddb",
 ]
+avro = [
+    "fastavro[snappy]",
+]
+test = [
+    "lz4",
+    "zstandard",
+    "fastavro",
+]
 
 [project.scripts]
 rdump = "flow.record.tools.rdump:main"
