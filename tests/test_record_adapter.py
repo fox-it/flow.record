@@ -1,4 +1,5 @@
 import datetime
+import platform
 import sys
 
 import pytest
@@ -84,6 +85,11 @@ def test_compressed_writer_reader(tmpdir, compression):
         pytest.skip("lz4 module not installed")
     if compression == "zstd" and not HAS_ZSTD:
         pytest.skip("zstandard module not installed")
+
+    if compression == "lz4" and platform.python_implementation() == "PyPy":
+        pytest.skip("lz4 module not supported on PyPy")
+    if compression == "zstd" and platform.python_implementation() == "PyPy":
+        pytest.skip("zstandard module not supported on PyPy")
 
     p = tmpdir.mkdir("{}-test".format(compression))
     path = str(p.join("test.records.{}".format(compression)))
