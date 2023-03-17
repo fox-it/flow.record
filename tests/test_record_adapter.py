@@ -28,25 +28,7 @@ from flow.record.base import (
 )
 from flow.record.selector import CompiledSelector, Selector
 
-
-def generate_records(count=100):
-    TestRecordEmbedded = RecordDescriptor(
-        "test/embedded_record",
-        [
-            ("datetime", "dt"),
-        ],
-    )
-    TestRecord = RecordDescriptor(
-        "test/adapter",
-        [
-            ("uint32", "number"),
-            ("record", "record"),
-        ],
-    )
-
-    for i in range(count):
-        embedded = TestRecordEmbedded(datetime.datetime.utcnow())
-        yield TestRecord(number=i, record=embedded)
+from ._utils import generate_records
 
 
 def test_stream_writer_reader():

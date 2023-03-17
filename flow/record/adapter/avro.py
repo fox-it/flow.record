@@ -94,7 +94,7 @@ class AvroReader(AbstractReader):
         self.selector = make_selector(selector)
 
         self.reader = fastavro.reader(self.fp)
-        self.schema = self.reader.schema
+        self.schema = self.reader.writer_schema
         if not self.schema:
             raise Exception("Missing Avro schema")
 
