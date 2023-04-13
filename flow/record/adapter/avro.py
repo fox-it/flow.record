@@ -190,7 +190,7 @@ def avro_type_to_flow_type(ftype):
                 return "{}[]".format(item_type)
             else:
                 logical_type = t.get("logicalType")
-                if logical_type and "time" in logical_type or "date" in logical_type:
+                if logical_type and ("time" in logical_type or "date" in logical_type):
                     return "datetime"
 
         if t == "null":
