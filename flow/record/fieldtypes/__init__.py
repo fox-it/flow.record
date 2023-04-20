@@ -19,6 +19,7 @@ import warnings
 from flow.record.base import FieldType
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
+RE_STRIP_NANOSECS = re.compile(r"(\.\d{6})\d+")
 NATIVE_UNICODE = isinstance("", str)
 
 PATH_POSIX = 0
@@ -239,7 +240,11 @@ class datetime(_dt, FieldType):
                 # Until then, we need to manually detect timezone info and handle it.
                 if any(z in arg[19:] for z in ["Z", "+", "-"]):
                     if "." in arg[19:]:
-                        return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                        try:
+                            return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                        except ValueError:
+                            # Sometimes nanoseconds need to be stripped
+                            return cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), "%Y-%m-%dT%H:%M:%S.%f%z")
                     return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
                 else:
                     return cls.fromisoformat(arg)
