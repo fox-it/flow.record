@@ -9,13 +9,9 @@ import pytest
 
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
-from flow.record.fieldtypes import (
-    PATH_POSIX,
-    PATH_WINDOWS,
-    fieldtype_for_value,
-    net,
-    uri,
-)
+from flow.record.fieldtypes import PATH_POSIX, PATH_WINDOWS
+from flow.record.fieldtypes import datetime as dt
+from flow.record.fieldtypes import fieldtype_for_value, net, uri
 
 INT64_MAX = (1 << 63) - 1
 INT32_MAX = (1 << 31) - 1
@@ -800,6 +796,14 @@ def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, exp
         record = next(iter(reader))
         assert str(record.str_value) == expected_str
         assert record.str_value == expected_str
+
+
+def test_datetime_strip_nanoseconds():
+    d1 = dt("1984-01-01T08:10:12.123456789Z")
+    d2 = dt("1984-01-01T08:10:12.123456Z")
+    assert isinstance(d1, dt)
+    assert isinstance(d2, dt)
+    assert d1 == d2
 
 
 if __name__ == "__main__":
