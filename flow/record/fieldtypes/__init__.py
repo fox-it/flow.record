@@ -247,7 +247,8 @@ class datetime(_dt, FieldType):
                             return cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), "%Y-%m-%dT%H:%M:%S.%f%z")
                     return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
                 else:
-                    return cls.fromisoformat(arg)
+                    # Sometimes nanoseconds need to be stripped
+                    return cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "", arg))
             elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
