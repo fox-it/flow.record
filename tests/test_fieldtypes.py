@@ -806,12 +806,14 @@ def test_datetime_strip_nanoseconds():
     assert isinstance(d2, dt)
     assert d1 == d2
 
+
 def test_datetime_strip_nanoseconds_without_timezone():
     d1 = dt("2006-11-10T14:29:55.5851926")
     d2 = dt("2006-11-10T14:29:55")
     assert isinstance(d1, dt)
     assert isinstance(d2, dt)
     assert d1 == d2
+
 
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
