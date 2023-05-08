@@ -429,7 +429,8 @@ def test_datetime():
         ("2019-09-26T07:58:30.996+0200", datetime.datetime(2019, 9, 26, 5, 58, 30, 996000)),
         ("2011-11-04T00:05:23+04:00", datetime.datetime(2011, 11, 3, 20, 5, 23)),
         ("2023-01-01T12:00:00+01:00", datetime.datetime(2023, 1, 1, 11, 0, 0, tzinfo=datetime.timezone.utc)),
-        ("2006-11-10T14:29:55.5851926", datetime.datetime(2006, 11, 10, 14, 29, 55)),
+        ("2006-11-10T14:29:55.5851926", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
+        ("2006-11-10T14:29:55.585192699999999", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
         (datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc), datetime.datetime(2023, 1, 1)),
         (0, datetime.datetime(1970, 1, 1, 0, 0)),
     ],
@@ -807,12 +808,15 @@ def test_datetime_strip_nanoseconds():
     assert d1 == d2
 
 
-def test_datetime_strip_nanoseconds_without_timezone():
+def test_datetime_handle_nanoseconds_without_timezone():
     d1 = dt("2006-11-10T14:29:55.5851926")
     d2 = dt("2006-11-10T14:29:55")
     assert isinstance(d1, dt)
     assert isinstance(d2, dt)
-    assert d1 == d2
+    assert d1 == datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)
+    assert d1.microsecond == 585192
+    assert d2 == datetime.datetime(2006, 11, 10, 14, 29, 55)
+    assert d2.microsecond == 0
 
 
 if __name__ == "__main__":

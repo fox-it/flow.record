@@ -251,7 +251,7 @@ class datetime(_dt, FieldType):
                         return cls.fromisoformat(arg)
                     except ValueError:
                         # Sometimes nanoseconds need to be stripped
-                        return cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "", arg))
+                        return cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "\\1", arg))
             elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
