@@ -9,7 +9,12 @@ import pytest
 
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
-from flow.record.fieldtypes import PATH_POSIX, PATH_WINDOWS
+from flow.record.fieldtypes import (
+    PATH_POSIX,
+    PATH_WINDOWS,
+    _is_posixlike_path,
+    _is_windowslike_path,
+)
 from flow.record.fieldtypes import datetime as dt
 from flow.record.fieldtypes import fieldtype_for_value, net, uri
 
@@ -513,6 +518,50 @@ def test_digest():
         excinfo.match(r".*Invalid MD5.*")
 
 
+def custom_pure_path(sep, altsep):
+    class CustomFlavour(pathlib._PosixFlavour):
+        def __new__(cls):
+            instance = pathlib._PosixFlavour.__new__(cls)
+            instance.sep = sep
+            instance.altsep = altsep
+            return instance
+
+    class PureCustomPath(pathlib.PurePath):
+        _flavour = CustomFlavour()
+
+    return PureCustomPath
+
+
+@pytest.mark.parametrize(
+    "path_, is_posix",
+    [
+        (pathlib.PurePosixPath("/foo/bar"), True),
+        (pathlib.PureWindowsPath(r"C:\foo\bar"), False),
+        (custom_pure_path(sep="/", altsep="")("/foo/bar"), True),
+        (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), False),
+        (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), False),
+        ("/foo/bar", False),
+    ],
+)
+def test__is_posixlike_path(path_, is_posix):
+    assert _is_posixlike_path(path_) == is_posix
+
+
+@pytest.mark.parametrize(
+    "path_, is_windows",
+    [
+        (pathlib.PurePosixPath("/foo/bar"), False),
+        (pathlib.PureWindowsPath(r"C:\foo\bar"), True),
+        (custom_pure_path(sep="/", altsep="")("/foo/bar"), False),
+        (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), True),
+        (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), True),
+        ("/foo/bar", False),
+    ],
+)
+def test__is_windowslike_path(path_, is_windows):
+    assert _is_windowslike_path(path_) == is_windows
+
+
 def test_path():
     TestRecord = RecordDescriptor(
         "test/path",
@@ -578,6 +627,39 @@ def test_path():
     test_path = flow.record.fieldtypes.path._unpack((posix_path_str, 2))
     assert str(test_path) == posix_path_str
     assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+
+@pytest.mark.parametrize(
+    "path_parts, expected_instance",
+    [
+        (
+            ("/some/path", pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            ("/some/path", pathlib.PureWindowsPath("win/path"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+        (
+            (pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            (pathlib.PureWindowsPath("win/path"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+        (
+            (custom_pure_path(sep="/", altsep="")("pos/like"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            (custom_pure_path(sep="\\", altsep="/")("win/like"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+    ],
+)
+def test_path_multiple_parts(path_parts, expected_instance):
+    assert isinstance(flow.record.fieldtypes.path(*path_parts), expected_instance)
 
 
 @pytest.mark.parametrize(
