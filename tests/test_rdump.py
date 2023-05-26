@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import json
+import os
+import platform
 import subprocess
 
 import pytest
@@ -9,6 +11,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.tools import rdump
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Uses UNIX-specific commands. Needs to be fixed.")
 def test_rdump_pipe(tmp_path):
     TestRecord = RecordDescriptor(
         "test/record",
@@ -301,7 +304,7 @@ def test_rdump_list_adapters():
     assert process.returncode == 0
     assert stderr is None
     for adapter in ("stream", "line", "text", "jsonfile", "csvfile"):
-        assert f"{adapter}:\n".encode() in stdout
+        assert f"{adapter}:{os.linesep}".encode() in stdout
 
 
 @pytest.mark.parametrize(
