@@ -11,7 +11,6 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.tools import rdump
 
 
-@pytest.mark.skipif(platform.system() == "Windows", reason="Uses UNIX-specific commands. Needs to be fixed.")
 def test_rdump_pipe(tmp_path):
     TestRecord = RecordDescriptor(
         "test/record",
@@ -36,7 +35,11 @@ def test_rdump_pipe(tmp_path):
 
     # rdump test.records | wc -l
     p1 = subprocess.Popen(["rdump", str(path)], stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(["wc", "-l"], stdin=p1.stdout, stdout=subprocess.PIPE)
+
+    # counting lines on Windows: https://devblogs.microsoft.com/oldnewthing/20110825-00/?p=9803
+    p2_cmd = ["find", "/c", "/v", ""] if platform.system() == "Windows" else ["wc", "-l"]
+    p2 = subprocess.Popen(p2_cmd, stdin=p1.stdout, stdout=subprocess.PIPE)
+
     stdout, stderr = p2.communicate()
     assert stdout.strip() == b"10"
 
