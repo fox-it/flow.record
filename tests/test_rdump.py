@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import json
+import os
+import platform
 import subprocess
 
 import pytest
@@ -33,7 +35,11 @@ def test_rdump_pipe(tmp_path):
 
     # rdump test.records | wc -l
     p1 = subprocess.Popen(["rdump", str(path)], stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(["wc", "-l"], stdin=p1.stdout, stdout=subprocess.PIPE)
+
+    # counting lines on Windows: https://devblogs.microsoft.com/oldnewthing/20110825-00/?p=9803
+    p2_cmd = ["find", "/c", "/v", ""] if platform.system() == "Windows" else ["wc", "-l"]
+    p2 = subprocess.Popen(p2_cmd, stdin=p1.stdout, stdout=subprocess.PIPE)
+
     stdout, stderr = p2.communicate()
     assert stdout.strip() == b"10"
 
@@ -301,7 +307,7 @@ def test_rdump_list_adapters():
     assert process.returncode == 0
     assert stderr is None
     for adapter in ("stream", "line", "text", "jsonfile", "csvfile"):
-        assert f"{adapter}:\n".encode() in stdout
+        assert f"{adapter}:{os.linesep}".encode() in stdout
 
 
 @pytest.mark.parametrize(
