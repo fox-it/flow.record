@@ -12,10 +12,11 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import (
     PATH_POSIX,
     PATH_WINDOWS,
-    fieldtype_for_value,
-    net,
-    uri,
+    _is_posixlike_path,
+    _is_windowslike_path,
 )
+from flow.record.fieldtypes import datetime as dt
+from flow.record.fieldtypes import fieldtype_for_value, net, uri
 
 INT64_MAX = (1 << 63) - 1
 INT32_MAX = (1 << 31) - 1
@@ -433,6 +434,8 @@ def test_datetime():
         ("2019-09-26T07:58:30.996+0200", datetime.datetime(2019, 9, 26, 5, 58, 30, 996000)),
         ("2011-11-04T00:05:23+04:00", datetime.datetime(2011, 11, 3, 20, 5, 23)),
         ("2023-01-01T12:00:00+01:00", datetime.datetime(2023, 1, 1, 11, 0, 0, tzinfo=datetime.timezone.utc)),
+        ("2006-11-10T14:29:55.5851926", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
+        ("2006-11-10T14:29:55.585192699999999", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
         (datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc), datetime.datetime(2023, 1, 1)),
         (0, datetime.datetime(1970, 1, 1, 0, 0)),
     ],
@@ -515,6 +518,50 @@ def test_digest():
         excinfo.match(r".*Invalid MD5.*")
 
 
+def custom_pure_path(sep, altsep):
+    class CustomFlavour(pathlib._PosixFlavour):
+        def __new__(cls):
+            instance = pathlib._PosixFlavour.__new__(cls)
+            instance.sep = sep
+            instance.altsep = altsep
+            return instance
+
+    class PureCustomPath(pathlib.PurePath):
+        _flavour = CustomFlavour()
+
+    return PureCustomPath
+
+
+@pytest.mark.parametrize(
+    "path_, is_posix",
+    [
+        (pathlib.PurePosixPath("/foo/bar"), True),
+        (pathlib.PureWindowsPath(r"C:\foo\bar"), False),
+        (custom_pure_path(sep="/", altsep="")("/foo/bar"), True),
+        (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), False),
+        (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), False),
+        ("/foo/bar", False),
+    ],
+)
+def test__is_posixlike_path(path_, is_posix):
+    assert _is_posixlike_path(path_) == is_posix
+
+
+@pytest.mark.parametrize(
+    "path_, is_windows",
+    [
+        (pathlib.PurePosixPath("/foo/bar"), False),
+        (pathlib.PureWindowsPath(r"C:\foo\bar"), True),
+        (custom_pure_path(sep="/", altsep="")("/foo/bar"), False),
+        (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), True),
+        (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), True),
+        ("/foo/bar", False),
+    ],
+)
+def test__is_windowslike_path(path_, is_windows):
+    assert _is_windowslike_path(path_) == is_windows
+
+
 def test_path():
     TestRecord = RecordDescriptor(
         "test/path",
@@ -580,6 +627,39 @@ def test_path():
     test_path = flow.record.fieldtypes.path._unpack((posix_path_str, 2))
     assert str(test_path) == posix_path_str
     assert isinstance(test_path, flow.record.fieldtypes.posix_path)
+
+
+@pytest.mark.parametrize(
+    "path_parts, expected_instance",
+    [
+        (
+            ("/some/path", pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            ("/some/path", pathlib.PureWindowsPath("win/path"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+        (
+            (pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            (pathlib.PureWindowsPath("win/path"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+        (
+            (custom_pure_path(sep="/", altsep="")("pos/like"), pathlib.PureWindowsPath("win/path")),
+            flow.record.fieldtypes.posix_path,
+        ),
+        (
+            (custom_pure_path(sep="\\", altsep="/")("win/like"), pathlib.PurePosixPath("pos/path")),
+            flow.record.fieldtypes.windows_path,
+        ),
+    ],
+)
+def test_path_multiple_parts(path_parts, expected_instance):
+    assert isinstance(flow.record.fieldtypes.path(*path_parts), expected_instance)
 
 
 @pytest.mark.parametrize(
@@ -800,6 +880,25 @@ def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, exp
         record = next(iter(reader))
         assert str(record.str_value) == expected_str
         assert record.str_value == expected_str
+
+
+def test_datetime_strip_nanoseconds():
+    d1 = dt("1984-01-01T08:10:12.123456789Z")
+    d2 = dt("1984-01-01T08:10:12.123456Z")
+    assert isinstance(d1, dt)
+    assert isinstance(d2, dt)
+    assert d1 == d2
+
+
+def test_datetime_handle_nanoseconds_without_timezone():
+    d1 = dt("2006-11-10T14:29:55.5851926")
+    d2 = dt("2006-11-10T14:29:55")
+    assert isinstance(d1, dt)
+    assert isinstance(d2, dt)
+    assert d1 == datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)
+    assert d1.microsecond == 585192
+    assert d2 == datetime.datetime(2006, 11, 10, 14, 29, 55)
+    assert d2.microsecond == 0
 
 
 if __name__ == "__main__":
