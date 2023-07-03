@@ -15,7 +15,19 @@ import warnings
 from datetime import datetime
 from itertools import zip_longest
 from pathlib import Path
-from typing import IO, Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    IO,
+    Any,
+    BinaryIO,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
@@ -96,7 +108,7 @@ class {name}(Record):
 """
 
 
-class Peekable:
+class Peekable(BinaryIO):
     """Wrapper class for adding .peek() to a file object."""
 
     def __init__(self, fd):
@@ -679,7 +691,7 @@ def DynamicDescriptor(name, fields):
     return RecordDescriptor(name, [("dynamic", field) for field in fields])
 
 
-def open_stream(fp, mode) -> IO | Peekable:
+def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
     if not hasattr(fp, "peek"):
         fp = Peekable(fp)
 
@@ -701,20 +713,21 @@ def open_stream(fp, mode) -> IO | Peekable:
     return fp
 
 
-def find_adapter_for_stream(fp: Peekable) -> str:
-    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
-    if fp.peeked_data is not None:
-        peek_data = fp.peeked_data
+def find_adapter_for_stream(fp: BinaryIO) -> tuple[BinaryIO, str]:
+    new_stream = Peekable(fp)
+    peek_data = new_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
+    if new_stream.peeked_data is not None:
+        peek_data = new_stream.peeked_data
     else:
-        peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+        peek_data = new_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
     if peek_data[:3] == AVRO_MAGIC and HAS_AVRO:
-        return "avro"
+        return new_stream, "avro"
     elif RECORDSTREAM_MAGIC in peek_data:
-        return "stream"
-    return None
+        return new_stream, "stream"
+    return None, None
 
 
-def open_file(path: Any, mode: str, clobber=True) -> IO | Peekable:
+def open_file(path: Any, mode: str, clobber: bool = True) -> BinaryIO:
     if isinstance(path, Path):
         path = str(path)
     if isinstance(path, str):
@@ -727,7 +740,7 @@ def open_file(path: Any, mode: str, clobber=True) -> IO | Peekable:
         raise ValueError(f"Unsupported path type {path}")
 
 
-def open_path(path: str, mode: str, clobber=True) -> IO:
+def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     """
     Open `path` using `mode` and returns a file object.
 
@@ -793,7 +806,9 @@ def open_path(path: str, mode: str, clobber=True) -> IO:
     return fp
 
 
-def RecordAdapter(url, out: bool, selector=None, clobber=True, **kwargs) -> AbstractWriter | AbstractReader:
+def RecordAdapter(
+    url: str = None, out: bool = False, selector=None, clobber: bool = True, fileobj: BinaryIO = None, **kwargs
+) -> Union[AbstractWriter, AbstractReader]:
     # Guess adapter based on extension
     ext_to_adapter = {
         ".avro": "avro",
@@ -802,21 +817,13 @@ def RecordAdapter(url, out: bool, selector=None, clobber=True, **kwargs) -> Abst
         ".csv": "csvfile",
     }
     cls_stream = None
-    if not out and hasattr(url, "read") and hasattr(url, "seek"):
-        # This record adapter has received a file-like object.
-        # We just need to find the right adapter
-        # by peeking into the first few bytes.
+    cls_url = None
+    adapter = None
 
-        # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
-        cls_stream = Peekable(open_stream(url, "rb"))
-
-        # We will again peek into the bytes to find an adapter, so we wrap the cls_stream into a Peekable object.
-        adapter = find_adapter_for_stream(cls_stream)
-        if adapter is None:
-            raise RecordAdapterNotFound("Could not find adapter for file-like object")
-        arg_dict = kwargs.copy()
-
-    else:
+    # When a url is given, we interpret it to determine what kind of adapter we need. This piece of logic is always
+    # necessary for the RecordWriter (as it does not currently support filelike objects), and only needed for
+    # RecordReader if a url is provided.
+    if url is not None or out is True:
         # Either stdout / stdin is given, or a path-like string.
         url = str(url or "")
         _, ext = os.path.splitext(url)
@@ -834,6 +841,28 @@ def RecordAdapter(url, out: bool, selector=None, clobber=True, **kwargs) -> Abst
         if sub_adapter:
             cls_url = sub_adapter + "://" + cls_url
 
+    if fileobj is not None:
+        # This record adapter has received a file-like object.
+        # We just need to find the right adapter
+        # by peeking into the first few bytes.
+
+        # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
+        cls_stream = open_stream(fileobj, "rb")
+
+        # Now, we have a stream that will be transparently decompressed but we still do not know what adapter to use.
+        # This requires a new peek into the transparent stream. This peek will cause the stream pointer to be moved.
+        # Therefore, find_adapter_for_stream returns both a BinaryIO-supportive object that can correctly read the
+        # adjusted stream, and a string indicating the type of adapter to be used on said stream.
+        arg_dict = kwargs.copy()
+
+        # If a user did not provide a url, we have to peek into the stream to be able to determine the right adapter
+        # based on magic bytes encountered in the first few bytes of the stream.
+        if adapter is None:
+            cls_stream, adapter = find_adapter_for_stream(cls_stream)
+            if adapter is None:
+                raise RecordAdapterNotFound("Could not find adapter for file-like object")
+
+    # Now that we know which adapter is needed, we import it.
     mod = importlib.import_module("flow.record.adapter.{}".format(adapter))
     clsname = ("{}Writer" if out else "{}Reader").format(adapter.title())
 
@@ -843,20 +872,19 @@ def RecordAdapter(url, out: bool, selector=None, clobber=True, **kwargs) -> Abst
 
     if out:
         arg_dict["clobber"] = clobber
-
     log.debug("Creating {!r} for {!r} with args {!r}".format(cls, url, arg_dict))
 
-    if cls_stream:
+    if fileobj is not None:
         return cls(cls_stream, **arg_dict)
     return cls(cls_url, **arg_dict)
 
 
-def RecordReader(url=None, selector=None, **kwargs) -> AbstractReader:
-    return RecordAdapter(url, False, selector=selector, **kwargs)
+def RecordReader(url: str = None, selector: str = None, fileobj: BinaryIO = None, **kwargs) -> AbstractReader:
+    return RecordAdapter(url=url, out=False, selector=selector, fileobj=fileobj, **kwargs)
 
 
-def RecordWriter(url=None, clobber=True, **kwargs) -> AbstractWriter:
-    return RecordAdapter(url, True, clobber=clobber, **kwargs)
+def RecordWriter(url: str = None, clobber: bool = True, **kwargs) -> AbstractWriter:
+    return RecordAdapter(url=url, out=True, clobber=clobber, fileobj=None, **kwargs)
 
 
 def stream(src, dst):

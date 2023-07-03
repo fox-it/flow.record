@@ -54,7 +54,7 @@ def test_recordstream_filelike_object():
         out.write(rec)
 
     fp.seek(0)
-    reader = RecordReader(fp, selector="r.number in (6, 9)")
+    reader = RecordReader(fileobj=fp, selector="r.number in (6, 9)")
 
     #  The record reader should automatically have created a 'StreamReader' to handle the Record Stream.
     assert isinstance(reader, StreamReader)
@@ -124,6 +124,15 @@ def test_compressed_writer_reader(tmpdir, compression):
         numbers.append(rec.number)
 
     assert numbers == list(range(count))
+
+    # Using a file-handle instead of a path should also work
+    with open(path, "rb") as fh:
+        reader = RecordReader(fileobj=fh)
+        numbers = []
+        for rec in reader:
+            numbers.append(rec.number)
+
+        assert numbers == list(range(count))
 
 
 def test_path_template_writer(tmpdir):

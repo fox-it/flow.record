@@ -55,7 +55,7 @@ def test_avrostream_filelike_object(tmp_path):
 
     avro_io = StringIO(avro_buffer)
 
-    reader = RecordReader(avro_io)
+    reader = RecordReader(fileobj=avro_io)
 
     #  The record reader should automatically have created an 'AvroReader' to handle the Avro Record Stream
     assert isinstance(reader, AvroReader)
