@@ -71,9 +71,14 @@ class AvroWriter(AbstractWriter):
 
         self.writer.write(r._packdict())
 
-    def flush(self) -> None:
-        if self.writer:
-            self.writer.flush()
+    def flush(self):
+        if not self.writer:
+            self.writer = fastavro.write.Writer(
+                self.fp,
+                fastavro.parse_schema({"type": "record", "name": "empty"}),
+                codec=self.codec,
+            )
+        self.writer.flush()
 
     def close(self) -> None:
         if self.fp and not is_stdout(self.fp):
@@ -90,7 +95,7 @@ class AvroReader(AbstractReader):
         self.selector = make_selector(selector)
 
         self.reader = fastavro.reader(self.fp)
-        self.schema = self.reader.schema
+        self.schema = self.reader.writer_schema
         if not self.schema:
             raise Exception("Missing Avro schema")
 
@@ -186,7 +191,7 @@ def avro_type_to_flow_type(ftype: list) -> str:
                 return "{}[]".format(item_type)
             else:
                 logical_type = t.get("logicalType")
-                if logical_type and "time" in logical_type or "date" in logical_type:
+                if logical_type and ("time" in logical_type or "date" in logical_type):
                     return "datetime"
 
         if t == "null":

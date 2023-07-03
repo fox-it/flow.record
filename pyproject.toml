@@ -1,9 +1,61 @@
 [build-system]
-requires = ["setuptools>=43.0.0", "wheel", "setuptools_scm[toml]>=3.4.1"]
+requires = ["setuptools>=65.5.0", "setuptools_scm[toml]>=6.4.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-write_to = "flow/record/version.py"
+[project]
+name = "flow.record"
+description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
+readme = "README.md"
+requires-python = "~=3.7"
+license.text = "Affero General Public License v3"
+authors = [
+  {name = "Dissect Team", email = "dissect@fox-it.com"}
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Utilities",
+]
+dependencies = [
+    "msgpack>=0.5.2",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://dissect.tools"
+documentation = "https://docs.dissect.tools/en/latest/projects/flow.record"
+repository = "https://github.com/fox-it/flow.record"
+
+[project.optional-dependencies]
+# Note: these compression libraries do not work well with pypy
+compression = [
+    "lz4",
+    "zstandard",
+]
+elastic = [
+    "elasticsearch",
+]
+geoip = [
+    "maxminddb",
+]
+avro = [
+    "fastavro[snappy]",
+]
+test = [
+    "lz4",
+    "zstandard",
+    "fastavro",
+]
+
+[project.scripts]
+rdump = "flow.record.tools.rdump:main"
+rgeoip = "flow.record.tools.geoip:main"
 
 [tool.black]
 line-length = 120
@@ -11,3 +63,12 @@ line-length = 120
 [tool.isort]
 profile = "black"
 known_first_party = ["flow.record"]
+
+[tool.setuptools]
+license-files = ["LICENSE", "COPYRIGHT"]
+
+[tool.setuptools.packages.find]
+include = ["flow.*"]
+
+[tool.setuptools_scm]
+write_to = "flow/record/version.py"

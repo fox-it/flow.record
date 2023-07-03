@@ -7,7 +7,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Tuple
+from typing import Any, Tuple
 
 try:
     import urlparse
@@ -19,6 +19,7 @@ import warnings
 from flow.record.base import FieldType
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
+RE_STRIP_NANOSECS = re.compile(r"(\.\d{6})\d+")
 NATIVE_UNICODE = isinstance("", str)
 
 PATH_POSIX = 0
@@ -239,10 +240,18 @@ class datetime(_dt, FieldType):
                 # Until then, we need to manually detect timezone info and handle it.
                 if any(z in arg[19:] for z in ["Z", "+", "-"]):
                     if "." in arg[19:]:
-                        return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                        try:
+                            return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
+                        except ValueError:
+                            # Sometimes nanoseconds need to be stripped
+                            return cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), "%Y-%m-%dT%H:%M:%S.%f%z")
                     return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
                 else:
-                    return cls.fromisoformat(arg)
+                    try:
+                        return cls.fromisoformat(arg)
+                    except ValueError:
+                        # Sometimes nanoseconds need to be stripped
+                        return cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "\\1", arg))
             elif isinstance(arg, (int, float_type)):
                 return cls.utcfromtimestamp(arg)
             elif isinstance(arg, (_dt,)):
@@ -542,23 +551,63 @@ class record(FieldType):
         return data
 
 
+def _is_posixlike_path(path: Any):
+    return isinstance(path, pathlib.PurePath) and "\\" not in (path._flavour.sep, path._flavour.altsep)
+
+
+def _is_windowslike_path(path: Any):
+    return isinstance(path, pathlib.PurePath) and "\\" in (path._flavour.sep, path._flavour.altsep)
+
+
 class path(pathlib.PurePath, FieldType):
     def __new__(cls, *args):
+        # This is modelled after pathlib.PurePath's __new__(), which means you
+        # will never get an instance of path, only instances of either
+        # posix_path or windows_path.
         if cls is path:
+            # By default, path will behave differently on windows and posix
+            # systems, similarly as pathlib.PurePath does.
             cls = windows_path if os.name == "nt" else posix_path
-            if len(args) > 0:
-                path_ = args[0]
-                if isinstance(path_, pathlib.PureWindowsPath):
+
+            # Try to determine the path behaviour based on the first path part
+            # in args that has pathlib.PurePath traits.
+            for path_part in args:
+                if isinstance(path_part, pathlib.PureWindowsPath):
                     cls = windows_path
-                    args = [path_.as_posix()]
-                elif isinstance(path_, pathlib.PurePosixPath):
+                    # The (string) representation of a pathlib.PureWindowsPath is not round trip equivalent if a
+                    # path starts with a \ or / followed by a drive letter, e.g.: \C:\...
+                    # Meaning:
+                    #
+                    # str(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
+                    # str(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
+                    #
+                    # repr(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
+                    # repr(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
+                    #
+                    # This would be the case though when using PurePosixPath instead.
+                    #
+                    # This construction works around that by converting all path parts
+                    # to strings first.
+                    args = (str(arg) for arg in args)
+                elif isinstance(path_part, pathlib.PurePosixPath):
                     cls = posix_path
-                    args = [path_.as_posix()]
+                elif _is_windowslike_path(path_part):
+                    # This handles any custom PurePath based implementations that have a windows
+                    # like path separator (\).
+                    cls = windows_path
+                    args = (str(arg) for arg in args)
+                elif _is_posixlike_path(path_part):
+                    # This handles any custom PurePath based implementations that don't have a
+                    # windows like path separator (\).
+                    cls = posix_path
+                else:
+                    continue
+                break
 
         return cls._from_parts(args)
 
     def _pack(self):
-        path_type = PATH_WINDOWS if self._flavour.sep == "\\" else PATH_POSIX
+        path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
         return (str(self), path_type)
 
     @classmethod
@@ -579,7 +628,7 @@ class path(pathlib.PurePath, FieldType):
 
     @classmethod
     def from_windows(cls, path_: str):
-        """Initialize a path instance from a windows path string using \\ as a separator."""
+        """Initialize a path instance from a windows path string using \\ or / as a separator."""
         return windows_path(path_)
 
 
