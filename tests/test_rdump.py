@@ -63,7 +63,7 @@ def test_rdump_pipe(tmp_path):
     )
     stdout, stderr = p2.communicate()
     assert stdout.strip() == b""
-    assert b"Unknown file format, not a RecordStream" in stderr.strip()
+    assert b"Are you perhaps entering record text, rather than a recordstream?" in stderr.strip()
 
     # rdump test.records -w - | rdump -s 'r.count in (1, 3, 9)' -w filtered.records
     path2 = tmp_path / "filtered.records"
@@ -455,3 +455,43 @@ def test_rdump_headerless_csv(tmp_path, capsysbinary):
         b"<csv/reader count='2' text='world'>",
         b"<csv/reader count='3' text='bar'>",
     ]
+
+
+def test_rdump_stdin_peek(tmp_path):
+    if platform.system() == "Windows":
+        pytest.skip("No Gzip on Windows")
+
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    writer = RecordWriter(path)
+    # generate some test records
+    for i in range(10):
+        writer.write(TestRecord(count=i, foo="bar"))
+    writer.close()
+
+    # Compress
+    compress_cmd = ["gzip", "/k", str(path)]
+
+    res = subprocess.Popen(compress_cmd, stdout=subprocess.PIPE)
+    res.communicate()
+
+    compressed_path = str(path) + ".gz"
+
+    # Rdump should transparently decompress and select the correct adapter
+    p1 = subprocess.Popen(["cat", compressed_path], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(
+        ["rdump", "-s", "r.count == 5"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, _ = p2.communicate()
+
+    assert stdout.strip() in (b"<test/record count=5 foo='bar'>", b"<test/record count=5L foo=u'bar'>")

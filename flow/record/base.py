@@ -31,8 +31,7 @@ from typing import (
 from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
-
-from .exceptions import RecordAdapterNotFound, RecordDescriptorError
+from flow.record.exceptions import RecordAdapterNotFound, RecordDescriptorError
 
 try:
     import lz4.frame as lz4
@@ -111,12 +110,12 @@ class {name}(Record):
 class Peekable(BinaryIO):
     """Wrapper class for adding .peek() to a file object."""
 
-    def __init__(self, fd):
+    def __init__(self, fd: BinaryIO):
         self.fd = fd
         self.buffer = None
         self.peeked_data = None
 
-    def peek(self, size):
+    def peek(self, size: int) -> bytes:
         if self.buffer is not None:
             raise BufferError("Only 1 peek allowed")
         data = self.fd.read(size)
@@ -124,7 +123,7 @@ class Peekable(BinaryIO):
         self.peeked_data = data
         return data
 
-    def read(self, size=None):
+    def read(self, size: Optional[int] = None) -> bytes:
         if self.buffer is None:
             return self.fd.read(size)
         else:
@@ -724,10 +723,10 @@ def find_adapter_for_stream(fp: BinaryIO) -> tuple[BinaryIO, str]:
         return new_stream, "avro"
     elif RECORDSTREAM_MAGIC in peek_data:
         return new_stream, "stream"
-    return None, None
+    return new_stream, None
 
 
-def open_file(path: Any, mode: str, clobber: bool = True) -> BinaryIO:
+def open_file(path: Any, mode: str, clobber: bool = True) -> IO:
     if isinstance(path, Path):
         path = str(path)
     if isinstance(path, str):
@@ -807,7 +806,12 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
 
 
 def RecordAdapter(
-    url: str = None, out: bool = False, selector=None, clobber: bool = True, fileobj: BinaryIO = None, **kwargs
+    url: str = None,
+    out: bool = False,
+    selector: Optional[str] = None,
+    clobber: bool = True,
+    fileobj: Optional[BinaryIO] = None,
+    **kwargs,
 ) -> Union[AbstractWriter, AbstractReader]:
     # Guess adapter based on extension
     ext_to_adapter = {
@@ -821,9 +825,9 @@ def RecordAdapter(
     adapter = None
 
     # When a url is given, we interpret it to determine what kind of adapter we need. This piece of logic is always
-    # necessary for the RecordWriter (as it does not currently support filelike objects), and only needed for
+    # necessary for the RecordWriter (as it does not currently support file-like objects), and only needed for
     # RecordReader if a url is provided.
-    if url is not None or out is True:
+    if out is True or url not in ("-", "", None):
         # Either stdout / stdin is given, or a path-like string.
         url = str(url or "")
         _, ext = os.path.splitext(url)
@@ -840,11 +844,13 @@ def RecordAdapter(
         cls_url = p.netloc + p.path
         if sub_adapter:
             cls_url = sub_adapter + "://" + cls_url
-
+    elif url in ("-", ""):
+        # For stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will treat
+        # it as a 'fileobj', where we can peek into the stream and try to select the appropriate adapter.
+        fileobj = getattr(sys.stdin, "buffer", sys.stdin)
     if fileobj is not None:
         # This record adapter has received a file-like object.
-        # We just need to find the right adapter
-        # by peeking into the first few bytes.
+        # We just need to find the right adapter by peeking into the first few bytes.
 
         # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
         cls_stream = open_stream(fileobj, "rb")
@@ -860,6 +866,14 @@ def RecordAdapter(
         if adapter is None:
             cls_stream, adapter = find_adapter_for_stream(cls_stream)
             if adapter is None:
+                if hasattr(cls_stream, "peeked_data") and cls_stream.peeked_data.startswith(b"<"):
+                    raise RecordAdapterNotFound(
+                        (
+                            "Could not find a reader for this input. Are you perhaps entering record text,"
+                            " rather than a recordstream? This can be fixed by using 'rdump -w -' to write a"
+                            " recordstream to stdout."
+                        )
+                    )
                 raise RecordAdapterNotFound("Could not find adapter for file-like object")
 
     # Now that we know which adapter is needed, we import it.
@@ -879,12 +893,17 @@ def RecordAdapter(
     return cls(cls_url, **arg_dict)
 
 
-def RecordReader(url: str = None, selector: str = None, fileobj: BinaryIO = None, **kwargs) -> AbstractReader:
+def RecordReader(
+    url: Optional[str] = None,
+    selector: Optional[str] = None,
+    fileobj: Optional[BinaryIO] = None,
+    **kwargs,
+) -> AbstractReader:
     return RecordAdapter(url=url, out=False, selector=selector, fileobj=fileobj, **kwargs)
 
 
-def RecordWriter(url: str = None, clobber: bool = True, **kwargs) -> AbstractWriter:
-    return RecordAdapter(url=url, out=True, clobber=clobber, fileobj=None, **kwargs)
+def RecordWriter(url: Optional[str] = None, clobber: bool = True, **kwargs) -> AbstractWriter:
+    return RecordAdapter(url=url, out=True, clobber=clobber, **kwargs)
 
 
 def stream(src, dst):

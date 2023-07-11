@@ -1,7 +1,8 @@
-from typing import Iterator
+from typing import Iterator, Union
 
-from flow import record
+from flow.record import Record, RecordOutput, RecordStreamReader, open_file, open_path
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.selector import Selector
 from flow.record.utils import is_stdout
 
 __usage__ = """
@@ -17,12 +18,12 @@ class StreamWriter(AbstractWriter):
     fp = None
     stream = None
 
-    def __init__(self, path, clobber=True, **kwargs):
-        self.fp = record.open_path(path, "wb", clobber=clobber)
-        self.stream = record.RecordOutput(self.fp)
+    def __init__(self, path: str, clobber=True, **kwargs):
+        self.fp = open_path(path, "wb", clobber=clobber)
+        self.stream = RecordOutput(self.fp)
 
-    def write(self, r) -> None:
-        self.stream.write(r)
+    def write(self, record: Record) -> None:
+        self.stream.write(record)
 
     def flush(self) -> None:
         if self.stream and hasattr(self.stream, "flush"):
@@ -44,11 +45,11 @@ class StreamReader(AbstractReader):
     fp = None
     stream = None
 
-    def __init__(self, path, selector=None, **kwargs):
-        self.fp = record.open_file(path, "rb")
-        self.stream = record.RecordStreamReader(self.fp, selector=selector)
+    def __init__(self, path: str, selector: Union[str, Selector] = None, **kwargs):
+        self.fp = open_file(path, "rb")
+        self.stream = RecordStreamReader(self.fp, selector=selector)
 
-    def __iter__(self) -> Iterator[record.Record]:
+    def __iter__(self) -> Iterator[Record]:
         return iter(self.stream)
 
     def close(self) -> None:
