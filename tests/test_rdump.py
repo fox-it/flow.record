@@ -455,3 +455,79 @@ def test_rdump_headerless_csv(tmp_path, capsysbinary):
         b"<csv/reader count='2' text='world'>",
         b"<csv/reader count='3' text='bar'>",
     ]
+
+
+@pytest.mark.parametrize(["count", "skip"], [(None, 2), (3, None), (2, 3)])
+def test_rdump_count_and_skip(tmp_path, capsysbinary, count, skip):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "number"),
+            ("string", "foo"),
+        ],
+    )
+
+    # Generate some test records and write them to a file
+    NUMBER_OF_TEST_RECORDS = 10
+    full_set_path = tmp_path / "test_full_set.records"
+    writer = RecordWriter(full_set_path)
+
+    test_records = []
+    for i in range(NUMBER_OF_TEST_RECORDS):
+        record = TestRecord(number=i, foo="bar" + "baz" * i)
+        test_records.append(record)
+        writer.write(record)
+    writer.close()
+
+    rdump_parameters = []
+
+    # Work out where in the test_records list the first and last record will be once we have skipped and counted
+    expected_first_record_index = 0
+    expected_last_record_index = NUMBER_OF_TEST_RECORDS - 1
+    expected_number_of_records = min(count if count else NUMBER_OF_TEST_RECORDS, NUMBER_OF_TEST_RECORDS)
+    if skip and not count:
+        # Decrease the expected number of records, because we skipped some while not supplying a max count
+        expected_number_of_records -= skip
+    if count:
+        rdump_parameters.append(f"--count={count}")
+        expected_last_record_index = count - 1
+    if skip:
+        rdump_parameters.append(f"--skip={skip}")
+        expected_first_record_index += skip
+        expected_last_record_index += skip
+
+    # We expect of rdump that if the count and skip parameters go further than the amount of records that are actually
+    # available, rdump will just stop reading/writing.
+    expected_last_record_index = min(NUMBER_OF_TEST_RECORDS - 1, expected_last_record_index)
+
+    # Read from the full records file using rdump with the skip and count parameters. We do this to test if rdump
+    # filters accordingly.
+    rdump_read_parameters = [str(full_set_path)] + rdump_parameters + ["--csv", "-F", "foo"]
+    rdump.main(rdump_read_parameters)
+
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+
+    record_lines = captured.out.splitlines()[1:]
+
+    # Verify we have the amount of records that we expect, and that the first and last record have the correct value.
+    assert len(record_lines) == expected_number_of_records
+    assert test_records[expected_first_record_index].foo == record_lines[0].decode()
+    assert test_records[expected_last_record_index].foo == record_lines[-1].decode()
+
+    # We also want to test if skip and count work correctly when writing records. Rdump should read the full recordfile,
+    # and then correctly write a subset (using count and skip) to the subset file
+    subset_path = tmp_path / "test_subset.records"
+    rdump.main([str(full_set_path), "-w"] + [str(subset_path)] + rdump_parameters)
+
+    # Now we read the subsetted recordfile in its entirety, and check if the skip and count parameters were interpreted
+    # correctly.
+    rdump.main([str(subset_path), "--csv", "-F", "foo"])
+
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+
+    record_lines = captured.out.splitlines()[1:]
+    assert len(record_lines) == expected_number_of_records
+    assert test_records[expected_first_record_index].foo == record_lines[0].decode()
+    assert test_records[expected_last_record_index].foo == record_lines[-1].decode()
