@@ -4,6 +4,7 @@ from __future__ import print_function
 import logging
 import sys
 from importlib import import_module
+from itertools import islice
 from pathlib import Path
 from textwrap import indent
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -95,7 +96,7 @@ def main(argv=None):
     output = parser.add_argument_group("output control")
     output.add_argument("-f", "--format", metavar="FORMAT", help="Format string")
     output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
-    output.add_argument("--skip", metavar="COUNT", default=None, type=int, help="Skip the first COUNT records")
+    output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument("-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line"), help="Output mode")
     output.add_argument(
@@ -202,12 +203,10 @@ def main(argv=None):
 
     selector = make_selector(args.selector, not args.no_compile)
     seen_desc = set()
-    count = 0
-    skip = args.skip if args.skip else 0
+    islice_stop = (args.count + args.skip) if args.count else None
+    record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
     with RecordWriter(uri) as record_writer:
-        for count, rec in enumerate(record_stream(args.src, selector), start=1):
-            if count <= skip:
-                continue
+        for count, rec in enumerate(record_iterator, start=1):
             if args.record_source is not None:
                 rec._source = args.record_source
             if args.record_classification is not None:
@@ -230,9 +229,6 @@ def main(argv=None):
                         record_writer.write(record)
                 else:
                     record_writer.write(rec)
-
-            if args.count and count >= (args.count + skip):
-                break
 
     if args.list:
         print("Processed {} records".format(count))
