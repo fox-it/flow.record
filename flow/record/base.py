@@ -113,14 +113,12 @@ class Peekable(BinaryIO):
     def __init__(self, fd: BinaryIO):
         self.fd = fd
         self.buffer = None
-        self.peeked_data = None
 
     def peek(self, size: int) -> bytes:
         if self.buffer is not None:
             raise BufferError("Only 1 peek allowed")
         data = self.fd.read(size)
         self.buffer = io.BytesIO(data)
-        self.peeked_data = data
         return data
 
     def read(self, size: Optional[int] = None) -> bytes:
@@ -712,18 +710,18 @@ def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
     return fp
 
 
-def find_adapter_for_stream(fp: BinaryIO) -> tuple[BinaryIO, str]:
-    new_stream = Peekable(fp)
-    peek_data = new_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
-    if new_stream.peeked_data is not None:
-        peek_data = new_stream.peeked_data
-    else:
-        peek_data = new_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
+def find_adapter_for_stream(fp: BinaryIO) -> tuple[Peekable, str]:
+    # We need to peek into the stream to be able to determine which adapter is needed. The fp given to this function
+    # might already be an instance of the 'Peekable' class, but might also be a different file pointer, for example
+    # a transparent decompressor. As calling peek() twice on the same peekable is not allowed, we wrap the fp into
+    # a Peekable again, so that we are able to determine the correct adapter.
+    fp = Peekable(fp)
+    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
     if peek_data[:3] == AVRO_MAGIC and HAS_AVRO:
-        return new_stream, "avro"
+        return fp, "avro"
     elif RECORDSTREAM_MAGIC in peek_data:
-        return new_stream, "stream"
-    return new_stream, None
+        return fp, "stream"
+    return fp, None
 
 
 def open_file(path: Any, mode: str, clobber: bool = True) -> IO:
@@ -845,11 +843,11 @@ def RecordAdapter(
         if sub_adapter:
             cls_url = sub_adapter + "://" + cls_url
     elif url in ("-", ""):
-        # For stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will treat
+        # For reading stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will treat
         # it as a 'fileobj', where we can peek into the stream and try to select the appropriate adapter.
         fileobj = getattr(sys.stdin, "buffer", sys.stdin)
     if fileobj is not None:
-        # This record adapter has received a file-like object.
+        # This record adapter has received a file-like object for record reading
         # We just need to find the right adapter by peeking into the first few bytes.
 
         # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
@@ -866,7 +864,7 @@ def RecordAdapter(
         if adapter is None:
             cls_stream, adapter = find_adapter_for_stream(cls_stream)
             if adapter is None:
-                if hasattr(cls_stream, "peeked_data") and cls_stream.peeked_data.startswith(b"<"):
+                if hasattr(cls_stream, "buffer") and cls_stream.buffer.getvalue().startswith(b"<"):
                     raise RecordAdapterNotFound(
                         (
                             "Could not find a reader for this input. Are you perhaps entering record text,"
