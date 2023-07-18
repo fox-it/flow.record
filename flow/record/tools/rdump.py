@@ -205,6 +205,7 @@ def main(argv=None):
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
+    count = 0
     with RecordWriter(uri) as record_writer:
         for count, rec in enumerate(record_iterator, start=1):
             if args.record_source is not None:
