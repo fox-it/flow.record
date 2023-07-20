@@ -422,6 +422,10 @@ def test_datetime():
     r = TestRecord(1521731723.123456)
     assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
 
+    r = TestRecord("2018-03-22T15:15:23.123456")
+    test = {r.ts: "Success"}
+    assert test[r.ts] == "Success"
+
 
 @pytest.mark.parametrize(
     "value,expected_dt",
