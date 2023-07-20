@@ -283,6 +283,9 @@ class datetime(_dt, FieldType):
         result = str(self)
         return result
 
+    def __hash__(self):
+        return super.__hash__(self)
+
 
 class varint(varint_type, FieldType):
     def _pack(self):
