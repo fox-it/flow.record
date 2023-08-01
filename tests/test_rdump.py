@@ -455,3 +455,57 @@ def test_rdump_headerless_csv(tmp_path, capsysbinary):
         b"<csv/reader count='2' text='world'>",
         b"<csv/reader count='3' text='bar'>",
     ]
+
+
+@pytest.mark.parametrize(
+    ("total_records", "count", "skip", "expected_numbers"),
+    [
+        (10, None, 2, [2, 3, 4, 5, 6, 7, 8, 9]),
+        (10, 3, None, [0, 1, 2]),
+        (10, 2, 3, [3, 4]),
+        (10, None, 9, [9]),
+        (10, None, 10, []),
+    ],
+)
+def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip, expected_numbers):
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "number"),
+            ("string", "foo"),
+        ],
+    )
+
+    # Write test records to a file
+    full_set_path = tmp_path / "test_full_set.records"
+    with RecordWriter(full_set_path) as writer:
+        for i in range(total_records):
+            record = TestRecord(number=i, foo="bar" + "baz" * i)
+            writer.write(record)
+
+    rdump_parameters = []
+    if count is not None:
+        rdump_parameters.append(f"--count={count}")
+    if skip is not None:
+        rdump_parameters.append(f"--skip={skip}")
+
+    rdump.main([str(full_set_path), "--csv", "-F", "number"] + rdump_parameters)
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+
+    # Skip csv header
+    record_lines = captured.out.splitlines()[1:]
+
+    # Convert numbers to integers and validate
+    numbers = list(map(int, record_lines))
+    assert numbers == expected_numbers
+
+    # Write records using --skip and --count to a new file
+    subset_path = tmp_path / "test_subset.records"
+    rdump.main([str(full_set_path), "-w", str(subset_path)] + rdump_parameters)
+
+    # Read records from new file and validate
+    numbers = None
+    with RecordReader(subset_path) as reader:
+        numbers = [rec.number for rec in reader]
+    assert numbers == expected_numbers
