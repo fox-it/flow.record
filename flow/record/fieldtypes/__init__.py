@@ -3,11 +3,13 @@ import math
 import os
 import pathlib
 import re
+import sys
 from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 try:
     import urlparse
@@ -22,6 +24,12 @@ RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 RE_STRIP_NANOSECS = re.compile(r"(\.\d{6})\d+")
 NATIVE_UNICODE = isinstance("", str)
 
+UTC = timezone.utc
+ISO_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
+ISO_FORMAT_WITH_MS = "%Y-%m-%dT%H:%M:%S.%f%z"
+
+PY_311 = sys.version_info >= (3, 11, 0)
+
 PATH_POSIX = 0
 PATH_WINDOWS = 1
 
@@ -30,6 +38,27 @@ varint_type = int
 bytes_type = bytes
 float_type = float
 path_type = pathlib.PurePath
+
+
+def flow_record_tz(default_tz: str = "UTC") -> Optional[ZoneInfo]:
+    """Return a ZoneInfo object based on the ``FLOW_RECORD_TZ`` environment variable.
+
+    Args:
+        default_tz: default timezone if ``FLOW_RECORD_TZ`` is not set (default: UTC)
+
+    Returns:
+        None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)``
+    """
+    tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
+    if tz.upper() == "NONE":
+        return None
+    return ZoneInfo(tz)
+
+
+# The environment variable ``FLOW_RECORD_TZ`` affects the display of datetime fields.
+#
+# The timezone to use when displaying datetime fields. By default this is UTC.
+DISPLAY_TZINFO = flow_record_tz("UTC")
 
 
 def defang(value: str) -> str:
@@ -238,24 +267,24 @@ class datetime(_dt, FieldType):
                 # String constructor is used for example in JsonRecordAdapter
                 # Note: ISO 8601 is fully implemented in fromisoformat() from Python 3.11 and onwards.
                 # Until then, we need to manually detect timezone info and handle it.
-                if any(z in arg[19:] for z in ["Z", "+", "-"]):
-                    if "." in arg[19:]:
-                        try:
-                            return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S.%f%z")
-                        except ValueError:
-                            # Sometimes nanoseconds need to be stripped
-                            return cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), "%Y-%m-%dT%H:%M:%S.%f%z")
-                    return cls.strptime(arg, "%Y-%m-%dT%H:%M:%S%z")
-                else:
+                if not PY_311 and any(z in arg[19:] for z in ["Z", "+", "-"]):
+                    spec = ISO_FORMAT_WITH_MS if "." in arg[19:] else ISO_FORMAT
                     try:
-                        return cls.fromisoformat(arg)
+                        obj = cls.strptime(arg, spec)
                     except ValueError:
                         # Sometimes nanoseconds need to be stripped
-                        return cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "\\1", arg))
+                        obj = cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), spec)
+                else:
+                    try:
+                        obj = cls.fromisoformat(arg)
+                    except ValueError:
+                        # Sometimes nanoseconds need to be stripped
+                        obj = cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "\\1", arg))
             elif isinstance(arg, (int, float_type)):
-                return cls.utcfromtimestamp(arg)
+                obj = cls.fromtimestamp(arg, UTC)
             elif isinstance(arg, (_dt,)):
-                return _dt.__new__(
+                tzinfo = UTC if arg.tzinfo is None else arg.tzinfo
+                obj = _dt.__new__(
                     cls,
                     arg.year,
                     arg.month,
@@ -264,24 +293,24 @@ class datetime(_dt, FieldType):
                     arg.minute,
                     arg.second,
                     arg.microsecond,
-                    arg.tzinfo,
+                    tzinfo,
                 )
+        else:
+            obj = _dt.__new__(cls, *args, **kwargs)
 
-        return _dt.__new__(cls, *args, **kwargs)
-
-    def __eq__(self, other):
-        # Avoid TypeError: can't compare offset-naive and offset-aware datetimes
-        # naive datetimes are treated as UTC in flow.record instead of local time
-        ts1 = self.timestamp() if self.tzinfo else self.replace(tzinfo=timezone.utc).timestamp()
-        ts2 = other.timestamp() if other.tzinfo else other.replace(tzinfo=timezone.utc).timestamp()
-        return ts1 == ts2
+        # Ensure we always return a timezone aware datetime. Treat naive datetimes as UTC
+        if obj.tzinfo is None:
+            obj = obj.replace(tzinfo=UTC)
+        return obj
 
     def _pack(self):
         return self
 
+    def __str__(self):
+        return self.astimezone(DISPLAY_TZINFO).isoformat(" ") if DISPLAY_TZINFO else self.isoformat(" ")
+
     def __repr__(self):
-        result = str(self)
-        return result
+        return str(self)
 
     def __hash__(self):
         return _dt.__hash__(self)

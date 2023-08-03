@@ -24,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "msgpack>=0.5.2",
+    "backports.zoneinfo[tzdata]; python_version<'3.9'",
 ]
 dynamic = ["version"]
 

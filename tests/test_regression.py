@@ -1,10 +1,10 @@
 import codecs
-import datetime
 import json
 import os
 import pathlib
 import subprocess
 import sys
+from datetime import datetime, timezone
 from unittest.mock import mock_open, patch
 
 import msgpack
@@ -32,7 +32,7 @@ from flow.record.utils import is_stdout
 def test_datetime_serialization():
     packer = RecordPacker()
 
-    now = datetime.datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     for tz in ["UTC", "Europe/Amsterdam"]:
         os.environ["TZ"] = tz

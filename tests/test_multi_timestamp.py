@@ -1,7 +1,9 @@
-import datetime
+from datetime import datetime, timedelta, timezone
 
 from flow.record import RecordDescriptor, iter_timestamped_records
 from flow.record.base import merge_record_descriptors
+
+UTC = timezone.utc
 
 
 def test_multi_timestamp():
@@ -15,22 +17,22 @@ def test_multi_timestamp():
     )
 
     test_record = TestRecord(
-        ctime=datetime.datetime(2020, 1, 1, 1, 1, 1),
-        atime=datetime.datetime(2022, 11, 22, 13, 37, 37),
+        ctime=datetime(2020, 1, 1, 1, 1, 1),
+        atime=datetime(2022, 11, 22, 13, 37, 37),
         data="test",
     )
 
     ts_records = list(iter_timestamped_records(test_record))
 
     for rec in ts_records:
-        assert rec.ctime == datetime.datetime(2020, 1, 1, 1, 1, 1)
-        assert rec.atime == datetime.datetime(2022, 11, 22, 13, 37, 37)
+        assert rec.ctime == datetime(2020, 1, 1, 1, 1, 1, tzinfo=UTC)
+        assert rec.atime == datetime(2022, 11, 22, 13, 37, 37, tzinfo=UTC)
         assert rec.data == "test"
 
-    assert ts_records[0].ts == datetime.datetime(2020, 1, 1, 1, 1, 1)
+    assert ts_records[0].ts == datetime(2020, 1, 1, 1, 1, 1, tzinfo=UTC)
     assert ts_records[0].ts_description == "ctime"
 
-    assert ts_records[1].ts == datetime.datetime(2022, 11, 22, 13, 37, 37)
+    assert ts_records[1].ts == datetime(2022, 11, 22, 13, 37, 37, tzinfo=UTC)
     assert ts_records[1].ts_description == "atime"
 
 
@@ -58,7 +60,7 @@ def test_multi_timestamp_single_datetime():
     )
 
     test_record = TestRecord(
-        ctime=datetime.datetime(2020, 1, 1, 1, 1, 1),
+        ctime=datetime(2020, 1, 1, 1, 1, 1),
         data="test",
     )
     ts_records = list(iter_timestamped_records(test_record))
@@ -77,7 +79,7 @@ def test_multi_timestamp_ts_fieldname():
     )
 
     test_record = TestRecord(
-        ts=datetime.datetime(2020, 1, 1, 1, 1, 1),
+        ts=datetime(2020, 1, 1, 1, 1, 1),
         data="test",
     )
     ts_records = list(iter_timestamped_records(test_record))
@@ -95,7 +97,7 @@ def test_multi_timestamp_timezone():
         ],
     )
 
-    correct_ts = datetime.datetime(2023, 12, 31, 13, 37, 1, 123456, tzinfo=datetime.timezone.utc)
+    correct_ts = datetime(2023, 12, 31, 13, 37, 1, 123456, tzinfo=UTC)
 
     ts_notations = [
         correct_ts,
@@ -127,8 +129,8 @@ def test_multi_timestamp_descriptor_cache():
     merge_record_descriptors.cache_clear()
     for i in range(10):
         test_record = TestRecord(
-            ctime=datetime.datetime.utcnow() + datetime.timedelta(hours=69),
-            atime=datetime.datetime.utcnow() + datetime.timedelta(hours=420),
+            ctime=datetime.now(UTC) + timedelta(hours=69),
+            atime=datetime.now(UTC) + timedelta(hours=420),
             count=i,
             data=f"test {i}",
         )

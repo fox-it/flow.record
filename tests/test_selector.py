@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -449,7 +449,7 @@ def test_record_in_records():
     )
 
     test_str = "this is a test"
-    dt = datetime.utcnow()
+    dt = datetime.now(timezone.utc)
     record_a = RecordA(some_dt=dt, field=test_str)
     record_b = RecordB(record=record_a, some_dt=dt)
 

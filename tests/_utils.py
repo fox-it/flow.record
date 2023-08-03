@@ -19,7 +19,7 @@ def generate_records(count=100):
     )
 
     for i in range(count):
-        embedded = TestRecordEmbedded(datetime.datetime.utcnow())
+        embedded = TestRecordEmbedded(datetime.datetime.now(datetime.timezone.utc))
         yield TestRecord(number=i, record=embedded)
 
 
@@ -33,4 +33,4 @@ def generate_plain_records(count=100):
     )
 
     for i in range(count):
-        yield TestRecord(number=i, dt=datetime.datetime.utcnow())
+        yield TestRecord(number=i, dt=datetime.datetime.now(datetime.timezone.utc))
