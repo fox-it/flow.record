@@ -941,10 +941,10 @@ def test_datetime_timezone_aware(tmp_path, record_filename):
 
 
 def test_datetime_comparisions():
-    with pytest.raises(TypeError, match="can't compare offset-naive and offset-aware datetimes"):
+    with pytest.raises(TypeError, match=".* compare .*naive"):
         assert dt("2023-01-01") > datetime(2022, 1, 1)
 
-    with pytest.raises(TypeError, match="can't compare offset-naive and offset-aware datetimes"):
+    with pytest.raises(TypeError, match=".* compare .*naive"):
         assert datetime(2022, 1, 1) < dt("2023-01-01")
 
     assert dt("2023-01-01") > datetime(2022, 1, 1, tzinfo=UTC)
