@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import subprocess
+from datetime import timezone
 from unittest import mock
 
 import pytest
@@ -548,7 +549,7 @@ def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str
 
     with mock.patch.dict(os.environ, env_dict, clear=True):
         # Reconfigure DISPLAY_TZINFO
-        flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz("UTC")
+        flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
         rdump.main([str(tmp_path / "test.records")] + rdump_params)
         captured = capsys.readouterr()
@@ -556,4 +557,33 @@ def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str
         assert expected_date_str in captured.out
 
     # restore DISPLAY_TZINFO just in case
-    flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz("UTC")
+    flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
+
+
+def test_flow_record_invalid_tz(tmp_path, capsys):
+    TestRecord = RecordDescriptor(
+        "test/flow_record_tz",
+        [
+            ("datetime", "stamp"),
+        ],
+    )
+    with RecordWriter(tmp_path / "test.records") as writer:
+        writer.write(TestRecord(stamp="2023-08-16T17:46:55.390691+02:00"))
+
+    env_dict = {
+        "FLOW_RECORD_TZ": "invalid",
+    }
+
+    with mock.patch.dict(os.environ, env_dict, clear=True):
+        # Reconfigure DISPLAY_TZINFO
+        with pytest.warns(UserWarning, match=".* falling back to timezone.utc"):
+            flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz()
+
+        rdump.main([str(tmp_path / "test.records")])
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        assert "2023-08-16 15:46:55.390691+00:00" in captured.out
+        assert flow.record.fieldtypes.DISPLAY_TZINFO == timezone.utc
+
+    # restore DISPLAY_TZINFO just in case
+    flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")

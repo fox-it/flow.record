@@ -1,22 +1,19 @@
+from __future__ import annotations
+
 import binascii
 import math
 import os
 import pathlib
 import re
 import sys
+import warnings
 from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
 from typing import Any, Optional, Tuple
-from zoneinfo import ZoneInfo
-
-try:
-    import urlparse
-except ImportError:
-    import urllib.parse as urlparse
-
-import warnings
+from urllib.parse import urlparse
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flow.record.base import FieldType
 
@@ -40,25 +37,29 @@ float_type = float
 path_type = pathlib.PurePath
 
 
-def flow_record_tz(default_tz: str = "UTC") -> Optional[ZoneInfo]:
+def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
     """Return a ``ZoneInfo`` object based on the ``FLOW_RECORD_TZ`` environment variable.
 
     Args:
         default_tz: Default timezone if ``FLOW_RECORD_TZ`` is not set (default: UTC).
 
     Returns:
-        None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)``
+        None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)`` or ``UTC`` if ZoneInfo is not found.
     """
     tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
     if tz.upper() == "NONE":
         return None
-    return ZoneInfo(tz)
+    try:
+        return ZoneInfo(tz)
+    except ZoneInfoNotFoundError as exc:
+        warnings.warn(f"{exc!r}, falling back to timezone.utc")
+        return UTC
 
 
 # The environment variable ``FLOW_RECORD_TZ`` affects the display of datetime fields.
 #
 # The timezone to use when displaying datetime fields. By default this is UTC.
-DISPLAY_TZINFO = flow_record_tz("UTC")
+DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
 
 def defang(value: str) -> str:
@@ -491,7 +492,7 @@ class digest(FieldType):
 
 class uri(string, FieldType):
     def __init__(self, value):
-        self._parsed = urlparse.urlparse(value)
+        self._parsed = urlparse(value)
 
     @staticmethod
     def normalize(path):
