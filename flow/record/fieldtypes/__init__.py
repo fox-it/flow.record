@@ -41,10 +41,10 @@ path_type = pathlib.PurePath
 
 
 def flow_record_tz(default_tz: str = "UTC") -> Optional[ZoneInfo]:
-    """Return a ZoneInfo object based on the ``FLOW_RECORD_TZ`` environment variable.
+    """Return a ``ZoneInfo`` object based on the ``FLOW_RECORD_TZ`` environment variable.
 
     Args:
-        default_tz: default timezone if ``FLOW_RECORD_TZ`` is not set (default: UTC)
+        default_tz: Default timezone if ``FLOW_RECORD_TZ`` is not set (default: UTC).
 
     Returns:
         None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)``
@@ -283,7 +283,7 @@ class datetime(_dt, FieldType):
             elif isinstance(arg, (int, float_type)):
                 obj = cls.fromtimestamp(arg, UTC)
             elif isinstance(arg, (_dt,)):
-                tzinfo = UTC if arg.tzinfo is None else arg.tzinfo
+                tzinfo = arg.tzinfo or UTC
                 obj = _dt.__new__(
                     cls,
                     arg.year,
