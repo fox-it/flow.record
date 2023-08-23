@@ -611,11 +611,11 @@ class path(pathlib.PurePath, FieldType):
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, str):
-            return str(self) == other
+            return str(self) == other or self == self.__class__(other)
         return super().__eq__(other)
 
     def __repr__(self) -> str:
-        return repr(self.as_posix())
+        return repr(str(self))
 
     def _pack(self):
         path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
@@ -648,4 +648,13 @@ class posix_path(pathlib.PurePosixPath, path):
 
 
 class windows_path(pathlib.PureWindowsPath, path):
-    pass
+    def __repr__(self) -> str:
+        s = str(self)
+        quote = "'"
+        if "'" in s:
+            if '"' in s:
+                s = s.replace("'", "\\'")
+            else:
+                quote = '"'
+
+        return f"{quote}{s}{quote}"

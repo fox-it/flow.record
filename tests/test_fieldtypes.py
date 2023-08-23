@@ -16,7 +16,7 @@ from flow.record.fieldtypes import (
     _is_windowslike_path,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri
+from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
 
 INT64_MAX = (1 << 63) - 1
 INT32_MAX = (1 << 31) - 1
@@ -730,8 +730,16 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
         ],
     )
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path='{expected_repr}'>"
+    assert repr(record) == f"<test/path path='{expected_str}'>"
     assert str(record.path) == expected_str
+
+
+def test_windows_path_eq():
+    path = windows_path("c:\\windows\\test.exe")
+    assert path == "c:\\windows\\test.exe"
+    assert path == "c:/windows/test.exe"
+    assert path == "c:/windows\\test.exe"
+    assert path != "c:/windows\\test2.exe"
 
 
 def test_fieldtype_for_value():
