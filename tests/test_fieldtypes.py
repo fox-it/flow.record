@@ -720,6 +720,12 @@ def test_path_posix(path_initializer, path, expected_repr):
             r"\c:\Windows\System32\drivers\null.sys",
         ),
         ("Users\\Public", r"'Users\Public'", r"Users\Public"),
+        (r"i:\don't.exe", '"i:\\don\'t.exe"', r"i:\don't.exe"),
+        (
+            'y:\\shakespeare\\"to be or not to be".txt',
+            "'y:\\shakespeare\\\"to be or not to be\".txt'",
+            'y:\\shakespeare\\"to be or not to be".txt',
+        ),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
