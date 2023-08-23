@@ -706,20 +706,20 @@ def test_path_posix(path_initializer, path, expected_repr):
 @pytest.mark.parametrize(
     "path,expected_repr,expected_str",
     [
-        ("c:\\windows\\temp\\foo\\bar", "c:/windows/temp/foo/bar", r"c:\windows\temp\foo\bar"),
-        (r"C:\Windows\Temp\foo\bar", "C:/Windows/Temp/foo/bar", r"C:\Windows\Temp\foo\bar"),
-        (r"d:/Users/Public", "d:/Users/Public", r"d:\Users\Public"),
+        ("c:\\windows\\temp\\foo\\bar", r"'c:\windows\temp\foo\bar'", r"c:\windows\temp\foo\bar"),
+        (r"C:\Windows\Temp\foo\bar", r"'C:\Windows\Temp\foo\bar'", r"C:\Windows\Temp\foo\bar"),
+        (r"d:/Users/Public", r"'d:\Users\Public'", r"d:\Users\Public"),
         (
             "/sysvol/Windows/System32/drivers/null.sys",
-            "/sysvol/Windows/System32/drivers/null.sys",
+            r"'\sysvol\Windows\System32\drivers\null.sys'",
             r"\sysvol\Windows\System32\drivers\null.sys",
         ),
         (
             "/c:/Windows/System32/drivers/null.sys",
-            "/c:/Windows/System32/drivers/null.sys",
+            r"'\c:\Windows\System32\drivers\null.sys'",
             r"\c:\Windows\System32\drivers\null.sys",
         ),
-        ("Users\\Public", "Users/Public", r"Users\Public"),
+        ("Users\\Public", r"'Users\Public'", r"Users\Public"),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
@@ -730,7 +730,8 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
         ],
     )
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path='{expected_str}'>"
+    assert repr(record) == f"<test/path path={expected_repr}>"
+    assert repr(record.path) == expected_repr
     assert str(record.path) == expected_str
 
 
@@ -739,6 +740,7 @@ def test_windows_path_eq():
     assert path == "c:\\windows\\test.exe"
     assert path == "c:/windows/test.exe"
     assert path == "c:/windows\\test.exe"
+    assert path == "c:\\WINDOWS\\tEsT.ExE"
     assert path != "c:/windows\\test2.exe"
 
 
