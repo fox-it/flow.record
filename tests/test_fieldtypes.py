@@ -586,6 +586,7 @@ def test_path():
 
     r = TestRecord("")
     assert str(r.value) == "."
+    assert r.value == "."
 
     if os.name == "nt":
         native_path_str = windows_path_str
@@ -691,7 +692,7 @@ def test_path_posix(path_initializer, path, expected_repr):
     )
 
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=posix_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path='{expected_repr}'>"
 
 
 @pytest.mark.parametrize(
@@ -729,7 +730,7 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
         ],
     )
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=windows_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path='{expected_repr}'>"
     assert str(record.path) == expected_str
 
 

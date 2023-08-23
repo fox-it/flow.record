@@ -609,6 +609,14 @@ class path(pathlib.PurePath, FieldType):
 
         return cls._from_parts(args)
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str):
+            return str(self) == other
+        return super().__eq__(other)
+
+    def __repr__(self) -> str:
+        return repr(self.as_posix())
+
     def _pack(self):
         path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
         return (str(self), path_type)
