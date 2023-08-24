@@ -1,4 +1,4 @@
-name: Extra Python Compatibility tests
+name: Python Compatibility
 on: [push, pull_request, workflow_dispatch]
 
 jobs: 
