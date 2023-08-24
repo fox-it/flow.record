@@ -1,0 +1,78 @@
+name: Python Compatibility
+on: [push, pull_request, workflow_dispatch]
+
+jobs: 
+  test-py37-py38:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.7"
+            python-include: "python3.7"
+            tox-env: "py37"
+            allow_failure: false
+          - python-version: "3.8"
+            python-include: "python3.8"
+            tox-env: "py38"
+            allow_failure: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+      - run: pip install "tox==4.2.4"
+      - if: ${{ github.ref_name == 'main' }}
+        run: sed -i 's/\[tool.setuptools_scm\]/\[tool.setuptools_scm\]\nlocal_scheme = "no-local-version"/' pyproject.toml
+      - env:
+          C_INCLUDE_PATH: ${{ env.pythonLocation }}/include/${{ matrix.python-include }}
+        run: tox run -e ${{ matrix.tox-env }}
+      - uses: codecov/codecov-action@v3
+        with:
+          env_vars: PYTHON
+          files: coverage.xml
+          flags: unittests
+          verbose: true
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: coverage.xml
+  test-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.9"
+            python-include: "python3.9"
+            tox-env: "py39"
+            allow_failure: false
+          - python-version: "3.10"
+            python-include: "python3.10"
+            tox-env: "py310"
+            allow_failure: false
+          - python-version: "3.11"
+            python-include: "python3.11"
+            tox-env: "py311"
+            allow_failure: false
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+      - run: pip install "tox==4.2.4"
+      - if: ${{ github.ref_name == 'main' }}
+        run: sed -i 's/\[tool.setuptools_scm\]/\[tool.setuptools_scm\]\nlocal_scheme = "no-local-version"/' pyproject.toml
+      - env:
+          C_INCLUDE_PATH: ${{ env.pythonLocation }}/include/${{ matrix.python-include }}
+        run: tox run -e ${{ matrix.tox-env }}
