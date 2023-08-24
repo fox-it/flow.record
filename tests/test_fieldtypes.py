@@ -726,6 +726,7 @@ def test_path_posix(path_initializer, path, expected_repr):
             "'y:\\shakespeare\\\"to be or not to be\".txt'",
             'y:\\shakespeare\\"to be or not to be".txt',
         ),
+        ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
