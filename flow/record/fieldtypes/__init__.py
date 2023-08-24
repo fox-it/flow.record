@@ -13,7 +13,11 @@ from datetime import timezone
 from posixpath import basename, dirname
 from typing import Any, Optional, Tuple
 from urllib.parse import urlparse
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+try:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+except ImportError:
+    from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flow.record.base import FieldType
 
