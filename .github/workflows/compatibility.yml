@@ -58,7 +58,7 @@ jobs:
             allow_failure: false
           - python-version: "3.11"
             python-include: "python3.11"
-            tox-env: "py11"
+            tox-env: "py311"
             allow_failure: false
     steps:
       - uses: actions/checkout@v3
