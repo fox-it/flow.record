@@ -4,10 +4,14 @@ import json
 import os
 import platform
 import subprocess
+from datetime import timezone
+from unittest import mock
 
 import pytest
 
+import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
 
 
@@ -509,3 +513,77 @@ def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip
     with RecordReader(subset_path) as reader:
         numbers = [rec.number for rec in reader]
     assert numbers == expected_numbers
+
+
+@pytest.mark.parametrize(
+    "date_str,tz,expected_date_str",
+    [
+        ("2023-08-02T22:28:06.12345+01:00", None, "2023-08-02 21:28:06.123450+00:00"),
+        ("2023-08-02T22:28:06.12345+01:00", "NONE", "2023-08-02 22:28:06.123450+01:00"),
+        ("2023-08-02T22:28:06.12345-08:00", "NONE", "2023-08-02 22:28:06.123450-08:00"),
+        ("2023-08-02T20:51:32.123456+00:00", "Europe/Amsterdam", "2023-08-02 22:51:32.123456+02:00"),
+        ("2023-08-02T20:51:32.123456+00:00", "America/New_York", "2023-08-02 16:51:32.123456-04:00"),
+    ],
+)
+@pytest.mark.parametrize(
+    "rdump_params",
+    [
+        [],
+        ["--mode=csv"],
+        ["--mode=line"],
+    ],
+)
+def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str, rdump_params):
+    TestRecord = RecordDescriptor(
+        "test/flow_record_tz",
+        [
+            ("datetime", "stamp"),
+        ],
+    )
+    with RecordWriter(tmp_path / "test.records") as writer:
+        writer.write(TestRecord(stamp=date_str))
+
+    env_dict = {}
+    if tz is not None:
+        env_dict["FLOW_RECORD_TZ"] = tz
+
+    with mock.patch.dict(os.environ, env_dict, clear=True):
+        # Reconfigure DISPLAY_TZINFO
+        flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
+
+        rdump.main([str(tmp_path / "test.records")] + rdump_params)
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        assert expected_date_str in captured.out
+
+    # restore DISPLAY_TZINFO just in case
+    flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
+
+
+def test_flow_record_invalid_tz(tmp_path, capsys):
+    TestRecord = RecordDescriptor(
+        "test/flow_record_tz",
+        [
+            ("datetime", "stamp"),
+        ],
+    )
+    with RecordWriter(tmp_path / "test.records") as writer:
+        writer.write(TestRecord(stamp="2023-08-16T17:46:55.390691+02:00"))
+
+    env_dict = {
+        "FLOW_RECORD_TZ": "invalid",
+    }
+
+    with mock.patch.dict(os.environ, env_dict, clear=True):
+        # Reconfigure DISPLAY_TZINFO
+        with pytest.warns(UserWarning, match=".* falling back to timezone.utc"):
+            flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz()
+
+        rdump.main([str(tmp_path / "test.records")])
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        assert "2023-08-16 15:46:55.390691+00:00" in captured.out
+        assert flow.record.fieldtypes.DISPLAY_TZINFO == timezone.utc
+
+    # restore DISPLAY_TZINFO just in case
+    flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")

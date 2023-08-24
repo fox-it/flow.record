@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -9,7 +9,7 @@ from flow.record.exceptions import RecordDescriptorNotFound
 
 def test_record_in_record():
     packer = JsonRecordPacker()
-    dt = datetime.utcnow()
+    dt = datetime.now(timezone.utc)
 
     RecordA = RecordDescriptor(
         "test/record_a",

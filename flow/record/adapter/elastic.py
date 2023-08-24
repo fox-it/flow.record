@@ -99,7 +99,7 @@ class ElasticReader(AbstractReader):
         index: str = "records",
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         self.index = index
         self.uri = uri

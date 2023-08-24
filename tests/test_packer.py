@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -6,6 +6,8 @@ from flow.record import RecordDescriptor, RecordPacker, fieldtypes
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.fieldtypes import uri
 from flow.record.packer import RECORD_PACK_EXT_TYPE
+
+UTC = timezone.utc
 
 
 def test_uri_packing():
@@ -151,7 +153,7 @@ def test_dynamic_packer():
     assert r.value == [1, True, b"b", "u"]
     assert isinstance(r.value, fieldtypes.stringlist)
 
-    now = datetime.datetime.utcnow()
+    now = datetime.now(UTC)
     t = TestRecord(now)
     data = packer.pack(t)
     r = packer.unpack(data)
@@ -195,7 +197,7 @@ def test_pack_digest():
 
 def test_record_in_record():
     packer = RecordPacker()
-    dt = datetime.datetime.utcnow()
+    dt = datetime.now(UTC)
 
     RecordA = RecordDescriptor(
         "test/record_a",

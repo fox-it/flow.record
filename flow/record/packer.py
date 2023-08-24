@@ -1,6 +1,6 @@
-import datetime
 import functools
 import warnings
+from datetime import datetime, timezone
 
 import msgpack
 
@@ -28,6 +28,8 @@ RECORD_PACK_TYPE_FIELDTYPE = 0x3
 RECORD_PACK_TYPE_DATETIME = 0x10
 RECORD_PACK_TYPE_VARINT = 0x11
 RECORD_PACK_TYPE_GROUPEDRECORD = 0x12
+
+UTC = timezone.utc
 
 
 def identifier_to_str(identifier):
@@ -61,9 +63,11 @@ class RecordPacker:
     def pack_obj(self, obj, unversioned=False):
         packed = None
 
-        if isinstance(obj, datetime.datetime):
-            t = obj.utctimetuple()[:6] + (obj.microsecond,)
-            packed = (RECORD_PACK_TYPE_DATETIME, t)
+        if isinstance(obj, datetime):
+            if obj.tzinfo is None or obj.tzinfo == UTC:
+                packed = (RECORD_PACK_TYPE_DATETIME, (*obj.timetuple()[:6], obj.microsecond))
+            else:
+                packed = (RECORD_PACK_TYPE_DATETIME, (obj.isoformat(),))
 
         elif isinstance(obj, int):
             neg = obj < 0
@@ -102,8 +106,7 @@ class RecordPacker:
         subtype, value = self.unpack(data)
 
         if subtype == RECORD_PACK_TYPE_DATETIME:
-            dt = fieldtypes.datetime(*value)
-            return dt
+            return fieldtypes.datetime(*value)
 
         if subtype == RECORD_PACK_TYPE_VARINT:
             neg, h = value
