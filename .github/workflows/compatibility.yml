@@ -7,7 +7,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8"]
+        include:
+          - python-version: "3.7"
+            python-include: "python3.7"
+            tox-env: "py37"
+            allow_failure: false
+          - python-version: "3.8"
+            python-include: "python3.8"
+            tox-env: "py38"
+            allow_failure: false
     steps:
       - uses: actions/checkout@v3
         with:
