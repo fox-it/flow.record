@@ -16,7 +16,7 @@ from flow.record.fieldtypes import (
     _is_windowslike_path,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri
+from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
 
 UTC = timezone.utc
 
@@ -588,6 +588,7 @@ def test_path():
 
     r = TestRecord("")
     assert str(r.value) == "."
+    assert r.value == "."
 
     if os.name == "nt":
         native_path_str = windows_path_str
@@ -693,7 +694,7 @@ def test_path_posix(path_initializer, path, expected_repr):
     )
 
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=posix_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path='{expected_repr}'>"
 
 
 @pytest.mark.parametrize(
@@ -707,20 +708,27 @@ def test_path_posix(path_initializer, path, expected_repr):
 @pytest.mark.parametrize(
     "path,expected_repr,expected_str",
     [
-        ("c:\\windows\\temp\\foo\\bar", "c:/windows/temp/foo/bar", r"c:\windows\temp\foo\bar"),
-        (r"C:\Windows\Temp\foo\bar", "C:/Windows/Temp/foo/bar", r"C:\Windows\Temp\foo\bar"),
-        (r"d:/Users/Public", "d:/Users/Public", r"d:\Users\Public"),
+        ("c:\\windows\\temp\\foo\\bar", r"'c:\windows\temp\foo\bar'", r"c:\windows\temp\foo\bar"),
+        (r"C:\Windows\Temp\foo\bar", r"'C:\Windows\Temp\foo\bar'", r"C:\Windows\Temp\foo\bar"),
+        (r"d:/Users/Public", r"'d:\Users\Public'", r"d:\Users\Public"),
         (
             "/sysvol/Windows/System32/drivers/null.sys",
-            "/sysvol/Windows/System32/drivers/null.sys",
+            r"'\sysvol\Windows\System32\drivers\null.sys'",
             r"\sysvol\Windows\System32\drivers\null.sys",
         ),
         (
             "/c:/Windows/System32/drivers/null.sys",
-            "/c:/Windows/System32/drivers/null.sys",
+            r"'\c:\Windows\System32\drivers\null.sys'",
             r"\c:\Windows\System32\drivers\null.sys",
         ),
-        ("Users\\Public", "Users/Public", r"Users\Public"),
+        ("Users\\Public", r"'Users\Public'", r"Users\Public"),
+        (r"i:\don't.exe", '"i:\\don\'t.exe"', r"i:\don't.exe"),
+        (
+            'y:\\shakespeare\\"to be or not to be".txt',
+            "'y:\\shakespeare\\\"to be or not to be\".txt'",
+            'y:\\shakespeare\\"to be or not to be".txt',
+        ),
+        ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
@@ -731,8 +739,18 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
         ],
     )
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=windows_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path={expected_repr}>"
+    assert repr(record.path) == expected_repr
     assert str(record.path) == expected_str
+
+
+def test_windows_path_eq():
+    path = windows_path("c:\\windows\\test.exe")
+    assert path == "c:\\windows\\test.exe"
+    assert path == "c:/windows/test.exe"
+    assert path == "c:/windows\\test.exe"
+    assert path == "c:\\WINDOWS\\tEsT.ExE"
+    assert path != "c:/windows\\test2.exe"
 
 
 def test_fieldtype_for_value():
