@@ -58,7 +58,7 @@ class JsonRecordPacker:
             }
             return serial
         if isinstance(obj, datetime):
-            serial = obj.strftime("%Y-%m-%dT%H:%M:%S.%f")
+            serial = obj.isoformat()
             return serial
         if isinstance(obj, fieldtypes.digest):
             return {
