@@ -71,8 +71,6 @@ jobs:
           cache: "pip"
           cache-dependency-path: "pyproject.toml"
       - run: pip install "tox==4.2.4"
-      - if: ${{ github.ref_name == 'main' }}
-        run: sed -i 's/\[tool.setuptools_scm\]/\[tool.setuptools_scm\]\nlocal_scheme = "no-local-version"/' pyproject.toml
       - env:
           C_INCLUDE_PATH: ${{ env.pythonLocation }}/include/${{ matrix.python-include }}
         run: tox run -e ${{ matrix.tox-env }}
