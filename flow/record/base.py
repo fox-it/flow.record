@@ -124,9 +124,8 @@ class Peekable(BinaryIO):
 
     def read(self, size: Optional[int] = None) -> bytes:
         if self.buffer is None:
-            return self.fd.read(size)
+            data = self.fd.read(size)
         else:
-            data = b""
             data = self.buffer.read(size)
             if size is None:
                 data += self.fd.read()
@@ -718,7 +717,7 @@ def find_adapter_for_stream(fp: BinaryIO) -> tuple[Peekable, str]:
     # a Peekable again, so that we are able to determine the correct adapter.
     fp = Peekable(fp)
     peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
-    if peek_data[:3] == AVRO_MAGIC and HAS_AVRO:
+    if HAS_AVRO and peek_data[:3] == AVRO_MAGIC:
         return fp, "avro"
     elif RECORDSTREAM_MAGIC in peek_data:
         return fp, "stream"
@@ -868,9 +867,9 @@ def RecordAdapter(
                 if hasattr(cls_stream, "buffer") and cls_stream.buffer.getvalue().startswith(b"<"):
                     raise RecordAdapterNotFound(
                         (
-                            "Could not find a reader for this input. Are you perhaps entering record text,"
-                            " rather than a recordstream? This can be fixed by using 'rdump -w -' to write a"
-                            " recordstream to stdout."
+                            f"Could not find a reader for input {cls_stream.buffer.getvalue()!r}. Are you perhaps "
+                            "entering record text, rather than a recordstream? This can be fixed by using 'rdump -w -' "
+                            "to write a recordstream to stdout."
                         )
                     )
                 raise RecordAdapterNotFound("Could not find adapter for file-like object")
