@@ -1,9 +1,9 @@
 # coding: utf-8
 
-import datetime
 import hashlib
 import os
 import pathlib
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -16,7 +16,9 @@ from flow.record.fieldtypes import (
     _is_windowslike_path,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri
+from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
+
+UTC = timezone.utc
 
 INT64_MAX = (1 << 63) - 1
 INT32_MAX = (1 << 31) - 1
@@ -398,46 +400,50 @@ def test_datetime():
         ],
     )
 
-    now = datetime.datetime.utcnow()
+    now = datetime.now(UTC)
     r = TestRecord(now)
     assert r.ts == now
 
     r = TestRecord("2018-03-22T15:15:23")
-    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
+    assert r.ts == datetime(2018, 3, 22, 15, 15, 23, tzinfo=UTC)
 
     r = TestRecord("2018-03-22T15:15:23.000000")
-    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
+    assert r.ts == datetime(2018, 3, 22, 15, 15, 23, tzinfo=UTC)
 
     r = TestRecord("2018-03-22T15:15:23.123456")
-    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
+    assert r.ts == datetime(2018, 3, 22, 15, 15, 23, 123456, tzinfo=UTC)
 
-    dt = datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
+    dt = datetime(2018, 3, 22, 15, 15, 23, 123456, tzinfo=UTC)
     dt_str = dt.isoformat()
     r = TestRecord(dt_str)
     assert r.ts == dt
 
     r = TestRecord(1521731723)
-    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23)
+    assert r.ts == datetime(2018, 3, 22, 15, 15, 23, tzinfo=UTC)
 
     r = TestRecord(1521731723.123456)
-    assert r.ts == datetime.datetime(2018, 3, 22, 15, 15, 23, 123456)
+    assert r.ts == datetime(2018, 3, 22, 15, 15, 23, 123456, tzinfo=UTC)
+
+    r = TestRecord("2018-03-22T15:15:23.123456")
+    test = {r.ts: "Success"}
+    assert test[r.ts] == "Success"
 
 
 @pytest.mark.parametrize(
     "value,expected_dt",
     [
-        ("2023-12-31T13:37:01.123456Z", datetime.datetime(2023, 12, 31, 13, 37, 1, 123456)),
-        ("2023-01-10T16:12:01+00:00", datetime.datetime(2023, 1, 10, 16, 12, 1)),
-        ("2023-01-10T16:12:01", datetime.datetime(2023, 1, 10, 16, 12, 1)),
-        ("2023-01-10T16:12:01Z", datetime.datetime(2023, 1, 10, 16, 12, 1)),
-        ("2022-12-01T13:00:23.499460Z", datetime.datetime(2022, 12, 1, 13, 0, 23, 499460)),
-        ("2019-09-26T07:58:30.996+0200", datetime.datetime(2019, 9, 26, 5, 58, 30, 996000)),
-        ("2011-11-04T00:05:23+04:00", datetime.datetime(2011, 11, 3, 20, 5, 23)),
-        ("2023-01-01T12:00:00+01:00", datetime.datetime(2023, 1, 1, 11, 0, 0, tzinfo=datetime.timezone.utc)),
-        ("2006-11-10T14:29:55.5851926", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
-        ("2006-11-10T14:29:55.585192699999999", datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)),
-        (datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc), datetime.datetime(2023, 1, 1)),
-        (0, datetime.datetime(1970, 1, 1, 0, 0)),
+        ("2023-12-31T13:37:01.123456Z", datetime(2023, 12, 31, 13, 37, 1, 123456, tzinfo=UTC)),
+        ("2023-01-10T16:12:01+00:00", datetime(2023, 1, 10, 16, 12, 1, tzinfo=UTC)),
+        ("2023-01-10T16:12:01", datetime(2023, 1, 10, 16, 12, 1, tzinfo=UTC)),
+        ("2023-01-10T16:12:01Z", datetime(2023, 1, 10, 16, 12, 1, tzinfo=UTC)),
+        ("2022-12-01T13:00:23.499460Z", datetime(2022, 12, 1, 13, 0, 23, 499460, tzinfo=UTC)),
+        ("2019-09-26T07:58:30.996+0200", datetime(2019, 9, 26, 5, 58, 30, 996000, tzinfo=UTC)),
+        ("2011-11-04T00:05:23+04:00", datetime(2011, 11, 3, 20, 5, 23, tzinfo=UTC)),
+        ("2023-01-01T12:00:00+01:00", datetime(2023, 1, 1, 11, 0, 0, tzinfo=UTC)),
+        ("2006-11-10T14:29:55.5851926", datetime(2006, 11, 10, 14, 29, 55, 585192, tzinfo=UTC)),
+        ("2006-11-10T14:29:55.585192699999999", datetime(2006, 11, 10, 14, 29, 55, 585192, tzinfo=UTC)),
+        (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, tzinfo=UTC)),
+        (0, datetime(1970, 1, 1, 0, 0, tzinfo=UTC)),
     ],
 )
 def test_datetime_formats(tmp_path, value, expected_dt):
@@ -582,6 +588,7 @@ def test_path():
 
     r = TestRecord("")
     assert str(r.value) == "."
+    assert r.value == "."
 
     if os.name == "nt":
         native_path_str = windows_path_str
@@ -687,7 +694,7 @@ def test_path_posix(path_initializer, path, expected_repr):
     )
 
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=posix_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path='{expected_repr}'>"
 
 
 @pytest.mark.parametrize(
@@ -701,20 +708,27 @@ def test_path_posix(path_initializer, path, expected_repr):
 @pytest.mark.parametrize(
     "path,expected_repr,expected_str",
     [
-        ("c:\\windows\\temp\\foo\\bar", "c:/windows/temp/foo/bar", r"c:\windows\temp\foo\bar"),
-        (r"C:\Windows\Temp\foo\bar", "C:/Windows/Temp/foo/bar", r"C:\Windows\Temp\foo\bar"),
-        (r"d:/Users/Public", "d:/Users/Public", r"d:\Users\Public"),
+        ("c:\\windows\\temp\\foo\\bar", r"'c:\windows\temp\foo\bar'", r"c:\windows\temp\foo\bar"),
+        (r"C:\Windows\Temp\foo\bar", r"'C:\Windows\Temp\foo\bar'", r"C:\Windows\Temp\foo\bar"),
+        (r"d:/Users/Public", r"'d:\Users\Public'", r"d:\Users\Public"),
         (
             "/sysvol/Windows/System32/drivers/null.sys",
-            "/sysvol/Windows/System32/drivers/null.sys",
+            r"'\sysvol\Windows\System32\drivers\null.sys'",
             r"\sysvol\Windows\System32\drivers\null.sys",
         ),
         (
             "/c:/Windows/System32/drivers/null.sys",
-            "/c:/Windows/System32/drivers/null.sys",
+            r"'\c:\Windows\System32\drivers\null.sys'",
             r"\c:\Windows\System32\drivers\null.sys",
         ),
-        ("Users\\Public", "Users/Public", r"Users\Public"),
+        ("Users\\Public", r"'Users\Public'", r"Users\Public"),
+        (r"i:\don't.exe", '"i:\\don\'t.exe"', r"i:\don't.exe"),
+        (
+            'y:\\shakespeare\\"to be or not to be".txt',
+            "'y:\\shakespeare\\\"to be or not to be\".txt'",
+            'y:\\shakespeare\\"to be or not to be".txt',
+        ),
+        ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
@@ -725,8 +739,18 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
         ],
     )
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path=windows_path('{expected_repr}')>"
+    assert repr(record) == f"<test/path path={expected_repr}>"
+    assert repr(record.path) == expected_repr
     assert str(record.path) == expected_str
+
+
+def test_windows_path_eq():
+    path = windows_path("c:\\windows\\test.exe")
+    assert path == "c:\\windows\\test.exe"
+    assert path == "c:/windows/test.exe"
+    assert path == "c:/windows\\test.exe"
+    assert path == "c:\\WINDOWS\\tEsT.ExE"
+    assert path != "c:/windows\\test2.exe"
 
 
 def test_fieldtype_for_value():
@@ -736,7 +760,7 @@ def test_fieldtype_for_value():
     assert fieldtype_for_value(1.337) == "float"
     assert fieldtype_for_value(b"\r\n") == "bytes"
     assert fieldtype_for_value("hello world") == "string"
-    assert fieldtype_for_value(datetime.datetime.now()) == "datetime"
+    assert fieldtype_for_value(datetime.now()) == "datetime"
     assert fieldtype_for_value([1, 2, 3, 4, 5]) == "string"
     assert fieldtype_for_value([1, 2, 3, 4, 5], None) is None
     assert fieldtype_for_value(object(), None) is None
@@ -771,7 +795,7 @@ def test_dynamic():
     assert r.value == [1, 2, 3]
     assert isinstance(r.value, flow.record.fieldtypes.stringlist)
 
-    now = datetime.datetime.utcnow()
+    now = datetime.now(UTC)
     r = TestRecord(now)
     assert r.value == now
     assert isinstance(r.value, flow.record.fieldtypes.datetime)
@@ -895,10 +919,62 @@ def test_datetime_handle_nanoseconds_without_timezone():
     d2 = dt("2006-11-10T14:29:55")
     assert isinstance(d1, dt)
     assert isinstance(d2, dt)
-    assert d1 == datetime.datetime(2006, 11, 10, 14, 29, 55, 585192)
+    assert d1 == datetime(2006, 11, 10, 14, 29, 55, 585192, tzinfo=UTC)
     assert d1.microsecond == 585192
-    assert d2 == datetime.datetime(2006, 11, 10, 14, 29, 55)
+    assert d2 == datetime(2006, 11, 10, 14, 29, 55, tzinfo=UTC)
     assert d2.microsecond == 0
+
+
+@pytest.mark.parametrize(
+    "record_filename",
+    [
+        "out.records.gz",
+        "out.records",
+        "out.json",
+        "out.jsonl",
+    ],
+)
+def test_datetime_timezone_aware(tmp_path, record_filename):
+    TestRecord = RecordDescriptor(
+        "test/tz",
+        [
+            ("datetime", "ts"),
+        ],
+    )
+    tz = timezone(timedelta(hours=1))
+    stamp = datetime.now(tz)
+
+    with RecordWriter(tmp_path / record_filename) as writer:
+        record = TestRecord(stamp)
+        writer.write(record)
+        assert record.ts == stamp
+        assert record.ts.utcoffset() == timedelta(hours=1)
+        assert record._generated.tzinfo == UTC
+
+    with RecordReader(tmp_path / record_filename) as reader:
+        for record in reader:
+            assert record.ts == stamp
+            assert record.ts.utcoffset() == timedelta(hours=1)
+            assert record._generated.tzinfo == UTC
+
+
+def test_datetime_comparisions():
+    with pytest.raises(TypeError, match=".* compare .*naive"):
+        assert dt("2023-01-01") > datetime(2022, 1, 1)
+
+    with pytest.raises(TypeError, match=".* compare .*naive"):
+        assert datetime(2022, 1, 1) < dt("2023-01-01")
+
+    assert dt("2023-01-01") > datetime(2022, 1, 1, tzinfo=UTC)
+    assert dt("2023-01-01") == datetime(2023, 1, 1, tzinfo=UTC)
+    assert dt("2023-01-01") == datetime(2023, 1, 1, tzinfo=UTC)
+    assert dt("2023-01-01T13:36") <= datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
+    assert dt("2023-01-01T13:37") <= datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
+    assert dt("2023-01-01T13:37") >= datetime(2023, 1, 1, 13, 36, tzinfo=UTC)
+    assert dt("2023-01-01T13:37") >= datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
+    assert dt("2023-01-01T13:36") < datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
+    assert dt("2023-01-01T13:37") > datetime(2023, 1, 1, 13, 36, tzinfo=UTC)
+    assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
 
 
 if __name__ == "__main__":

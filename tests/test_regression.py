@@ -1,10 +1,10 @@
 import codecs
-import datetime
 import json
 import os
 import pathlib
 import subprocess
 import sys
+from datetime import datetime, timezone
 from unittest.mock import mock_open, patch
 
 import msgpack
@@ -32,7 +32,7 @@ from flow.record.utils import is_stdout
 def test_datetime_serialization():
     packer = RecordPacker()
 
-    now = datetime.datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     for tz in ["UTC", "Europe/Amsterdam"]:
         os.environ["TZ"] = tz
@@ -536,7 +536,7 @@ def test_windows_path_regression(path_initializer):
     )
     r = TestRecord(path=path_initializer("/c:/Windows/System32/drivers/null.sys"))
     assert str(r.path) == "\\c:\\Windows\\System32\\drivers\\null.sys"
-    assert repr(r.path) == "windows_path('/c:/Windows/System32/drivers/null.sys')"
+    assert repr(r.path) == "'\\c:\\Windows\\System32\\drivers\\null.sys'"
 
 
 @pytest.mark.parametrize(

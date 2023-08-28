@@ -189,7 +189,7 @@ class PathTemplateWriter:
 
     def rotate_existing_file(self, path):
         if os.path.exists(path):
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(datetime.timezone.utc)
             src = os.path.realpath(path)
 
             src_dir = os.path.dirname(src)
@@ -224,7 +224,7 @@ class PathTemplateWriter:
         return self.writer
 
     def write(self, record):
-        ts = record._generated or datetime.datetime.utcnow()
+        ts = record._generated or datetime.datetime.now(datetime.timezone.utc)
         path = self.path_template.format(name=self.name, record=record, ts=ts)
         rs = self.record_stream_for_path(path)
         rs.write(record)

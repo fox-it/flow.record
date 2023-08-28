@@ -233,7 +233,7 @@ def test_record_writer_stdout():
 def test_record_adapter_archive(tmpdir):
     # archive some records, using "testing" as name
     writer = RecordWriter("archive://{}?name=testing".format(tmpdir))
-    dt = datetime.datetime.utcnow()
+    dt = datetime.datetime.now(datetime.timezone.utc)
     count = 0
     for rec in generate_records():
         writer.write(rec)

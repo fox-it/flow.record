@@ -12,7 +12,7 @@ import os
 import re
 import sys
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
 from typing import (
@@ -65,6 +65,7 @@ from .utils import to_native_str, to_str
 from .whitelist import WHITELIST, WHITELIST_TREE
 
 log = logging.getLogger(__package__)
+_utcnow = functools.partial(datetime.now, timezone.utc)
 
 RECORD_VERSION = 1
 RESERVED_FIELDS = OrderedDict(
@@ -449,7 +450,7 @@ def _generate_record_class(name: str, fields: Tuple[Tuple[str, str]]) -> type:
     _globals = {
         "Record": Record,
         "RECORD_VERSION": RECORD_VERSION,
-        "_utcnow": datetime.utcnow,
+        "_utcnow": _utcnow,
         "_zip_longest": zip_longest,
     }
     for field in all_fields.values():
