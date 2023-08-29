@@ -486,6 +486,9 @@ def test_rdump_stdin_peek(tmp_path):
     res = subprocess.Popen(compress_cmd, stdout=subprocess.PIPE)
     res.communicate()
 
+    # Gzip compress records file
+    compress_cmd = ["gzip", "--keep", str(path)]
+    subprocess.check_output(compress_cmd)
     compressed_path = str(path) + ".gz"
 
     # Rdump should transparently decompress and select the correct adapter
