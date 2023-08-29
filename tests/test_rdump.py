@@ -480,12 +480,6 @@ def test_rdump_stdin_peek(tmp_path):
         writer.write(TestRecord(count=i, foo="bar"))
     writer.close()
 
-    # Compress
-    compress_cmd = ["gzip", "/k", str(path)]
-
-    res = subprocess.Popen(compress_cmd, stdout=subprocess.PIPE)
-    res.communicate()
-
     # Gzip compress records file
     compress_cmd = ["gzip", "--keep", str(path)]
     subprocess.check_output(compress_cmd)
