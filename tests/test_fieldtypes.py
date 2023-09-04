@@ -444,6 +444,8 @@ def test_datetime():
         ("2006-11-10T14:29:55.585192699999999", datetime(2006, 11, 10, 14, 29, 55, 585192, tzinfo=UTC)),
         (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, tzinfo=UTC)),
         (0, datetime(1970, 1, 1, 0, 0, tzinfo=UTC)),
+        ("2023-09-01 13:37:12.345678+09:00", datetime(2023, 9, 1, 4, 37, 12, 345678, tzinfo=UTC)),
+        ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
 def test_datetime_formats(tmp_path, value, expected_dt):

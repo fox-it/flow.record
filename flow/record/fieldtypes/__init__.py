@@ -27,12 +27,9 @@ except ImportError:
 from flow.record.base import FieldType
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
-RE_STRIP_NANOSECS = re.compile(r"(\.\d{6})\d+")
 NATIVE_UNICODE = isinstance("", str)
 
 UTC = timezone.utc
-ISO_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
-ISO_FORMAT_WITH_MS = "%Y-%m-%dT%H:%M:%S.%f%z"
 
 PY_311 = sys.version_info >= (3, 11, 0)
 
@@ -280,23 +277,47 @@ class datetime(_dt, FieldType):
             if isinstance(arg, bytes_type):
                 arg = arg.decode("utf-8")
             if isinstance(arg, string_type):
-                # I expect ISO 8601 format e.g. datetime.isoformat()
-                # String constructor is used for example in JsonRecordAdapter
-                # Note: ISO 8601 is fully implemented in fromisoformat() from Python 3.11 and onwards.
-                # Until then, we need to manually detect timezone info and handle it.
-                if not PY_311 and any(z in arg[19:] for z in ["Z", "+", "-"]):
-                    spec = ISO_FORMAT_WITH_MS if "." in arg[19:] else ISO_FORMAT
-                    try:
-                        obj = cls.strptime(arg, spec)
-                    except ValueError:
-                        # Sometimes nanoseconds need to be stripped
-                        obj = cls.strptime(re.sub(RE_STRIP_NANOSECS, "\\1", arg), spec)
-                else:
-                    try:
-                        obj = cls.fromisoformat(arg)
-                    except ValueError:
-                        # Sometimes nanoseconds need to be stripped
-                        obj = cls.fromisoformat(re.sub(RE_STRIP_NANOSECS, "\\1", arg))
+                # If we are on Python 3.11 or newer, we can use fromisoformat() to parse the string (fast path)
+                #
+                # Else we need to do some manual parsing to fix some issues with the string format:
+                # - Python 3.10 and older do not support nanoseconds in fromisoformat()
+                # - Python 3.10 and older do not support Z as timezone info in fromisoformat()
+                # - Python 3.10 and older do not support +0200 as timezone info in fromisoformat()
+                # - Python 3.10 and older requires "T" between date and time in fromisoformat()
+                #
+                # There are other incompatibilities, but we don't care about those for now.
+                if not PY_311:
+                    # Convert Z to +00:00 so that fromisoformat() works correctly on Python 3.10 and older
+                    if arg.endswith("Z"):
+                        arg = arg[:-1] + "+00:00"
+
+                    # Find timezone info after the date part. Possible formats, so we use the longest one:
+                    #
+                    # YYYYmmdd      length: 8
+                    # YYYY-mm-dd    length: 10
+                    tstr = arg
+                    tzstr = ""
+                    if tzpos := arg[10:].find("+") + 1 or arg[10:].find("-") + 1:
+                        tzstr = arg[10 + tzpos-1 :]
+                        tstr = arg[:10 + tzpos-1]
+
+                    # Convert +0200 to +02:00 so that fromisoformat() works correctly on Python 3.10 and older
+                    if len(tzstr) == 5 and tzstr[3] != ":":
+                        tzstr = tzstr[:3] + ":" + tzstr[3:]
+
+                    # Python 3.10 and older do not support nanoseconds in fromisoformat()
+                    if microsecond_pos := arg.rfind(".") + 1:
+                        microseconds = arg[microsecond_pos:]
+                        tstr = arg[:microsecond_pos - 1]
+                        if tzpos := (microseconds.find("+") + 1 or microseconds.find("-") + 1):
+                            microseconds = microseconds[: tzpos - 1]
+                        # Pad microseconds to 6 digits, truncate if longer
+                        microseconds = microseconds.ljust(6, "0")[:6]
+                        arg = tstr + "." + microseconds + tzstr
+                    else:
+                        arg = tstr + tzstr
+
+                obj = cls.fromisoformat(arg)
             elif isinstance(arg, (int, float_type)):
                 obj = cls.fromtimestamp(arg, UTC)
             elif isinstance(arg, (_dt,)):
