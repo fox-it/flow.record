@@ -298,8 +298,8 @@ class datetime(_dt, FieldType):
                     tstr = arg
                     tzstr = ""
                     if tzpos := arg[10:].find("+") + 1 or arg[10:].find("-") + 1:
-                        tzstr = arg[10 + tzpos-1 :]
-                        tstr = arg[:10 + tzpos-1]
+                        tzstr = arg[10 + tzpos - 1 :]
+                        tstr = arg[: 10 + tzpos - 1]
 
                     # Convert +0200 to +02:00 so that fromisoformat() works correctly on Python 3.10 and older
                     if len(tzstr) == 5 and tzstr[3] != ":":
@@ -308,7 +308,7 @@ class datetime(_dt, FieldType):
                     # Python 3.10 and older do not support nanoseconds in fromisoformat()
                     if microsecond_pos := arg.rfind(".") + 1:
                         microseconds = arg[microsecond_pos:]
-                        tstr = arg[:microsecond_pos - 1]
+                        tstr = arg[: microsecond_pos - 1]
                         if tzpos := (microseconds.find("+") + 1 or microseconds.find("-") + 1):
                             microseconds = microseconds[: tzpos - 1]
                         # Pad microseconds to 6 digits, truncate if longer
