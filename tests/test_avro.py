@@ -1,9 +1,6 @@
-import pytest
+from io import BytesIO
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import BytesIO as StringIO
+import pytest
 
 from flow.record import RecordDescriptor, RecordReader
 from flow.record.adapter.avro import AvroReader, AvroWriter
@@ -53,7 +50,7 @@ def test_avrostream_filelike_object(tmp_path):
     with open(avro_path, "rb") as avro_file:
         avro_buffer = avro_file.read()
 
-    avro_io = StringIO(avro_buffer)
+    avro_io = BytesIO(avro_buffer)
 
     reader = RecordReader(fileobj=avro_io)
 

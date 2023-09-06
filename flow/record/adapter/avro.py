@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime, timedelta, timezone
 from importlib.util import find_spec
-from typing import Any, Dict, Iterator
+from typing import Any, Iterator
 
 import fastavro
 
@@ -124,7 +126,7 @@ class AvroReader(AbstractReader):
         self.fp = None
 
 
-def descriptor_to_schema(desc: record.RecordDescriptor) -> Dict[str, Any]:
+def descriptor_to_schema(desc: record.RecordDescriptor) -> dict[str, Any]:
     namespace, _, name = desc.name.rpartition("/")
     schema = {
         "type": "record",
