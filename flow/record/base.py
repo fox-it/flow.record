@@ -108,38 +108,6 @@ class {name}(Record):
 """
 
 
-class Peekable(BinaryIO):
-    """Wrapper class for adding .peek() to a file object."""
-
-    def __init__(self, fd: BinaryIO):
-        self.fd = fd
-        self.buffer = None
-
-    def peek(self, size: int) -> bytes:
-        if self.buffer is not None:
-            raise BufferError("Only 1 peek allowed")
-        data = self.fd.read(size)
-        self.buffer = io.BytesIO(data)
-        return data
-
-    def read(self, size: Optional[int] = None) -> bytes:
-        if self.buffer is None:
-            data = self.fd.read(size)
-        else:
-            data = self.buffer.read(size)
-            if size is None:
-                data += self.fd.read()
-            elif len(data) < size:
-                data += self.fd.read(size - len(data))
-                self.buffer = None
-        return data
-
-    def close(self):
-        self.buffer = None
-        self.fd.close()
-        self.fd = None
-
-
 class FieldType:
     def _typename(self):
         t = type(self)
@@ -690,7 +658,7 @@ def DynamicDescriptor(name, fields):
 
 def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
     if not hasattr(fp, "peek"):
-        fp = Peekable(fp)
+        fp = io.BufferedReader(fp)
 
     # We peek into the file at the maximum possible length we might need, which is the amount of bytes needed to
     # determine whether a stream is a RECORDSTREAM or not.
@@ -710,27 +678,27 @@ def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
     return fp
 
 
-def find_adapter_for_stream(fp: BinaryIO) -> tuple[Peekable, str]:
+def find_adapter_for_stream(fp: BinaryIO) -> tuple[BinaryIO, Optional[str]]:
     # We need to peek into the stream to be able to determine which adapter is needed. The fp given to this function
     # might already be an instance of the 'Peekable' class, but might also be a different file pointer, for example
     # a transparent decompressor. As calling peek() twice on the same peekable is not allowed, we wrap the fp into
     # a Peekable again, so that we are able to determine the correct adapter.
-    fp = Peekable(fp)
+    if not hasattr(fp, "peek"):
+        fp = io.BufferedReader(fp)
+
     peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
     if HAS_AVRO and peek_data[:3] == AVRO_MAGIC:
         return fp, "avro"
-    elif RECORDSTREAM_MAGIC in peek_data:
+    elif RECORDSTREAM_MAGIC in peek_data[:RECORDSTREAM_MAGIC_DEPTH]:
         return fp, "stream"
     return fp, None
 
 
-def open_file(path: Any, mode: str, clobber: bool = True) -> IO:
+def open_file(path: Union[str, Path, BinaryIO], mode: str, clobber: bool = True) -> IO:
     if isinstance(path, Path):
         path = str(path)
     if isinstance(path, str):
         return open_path(path, mode, clobber)
-    elif isinstance(path, Peekable):
-        return path
     elif isinstance(path, io.IOBase):
         return open_stream(path, "rb")
     else:
@@ -739,15 +707,15 @@ def open_file(path: Any, mode: str, clobber: bool = True) -> IO:
 
 def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     """
-    Open `path` using `mode` and returns a file object.
+    Open ``path`` using ``mode`` and returns a file object.
 
     It handles special cases if path is meant to be stdin or stdout.
     And also supports compression based on extension or file header of stream.
 
     Args:
-        path (str): Filename or path to filename to open
-        mode (str): Could be "r", "rb" to open file for reading, "w", "wb" for writing
-        clobber (bool): Overwrite file if it already exists if `clobber=True`, else raises IOError.
+        path: Filename or path to filename to open
+        mode: Could be "r", "rb" to open file for reading, "w", "wb" for writing
+        clobber: Overwrite file if it already exists if `clobber=True`, else raises IOError.
 
     """
     binary = "b" in mode
@@ -804,7 +772,7 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
 
 
 def RecordAdapter(
-    url: str = None,
+    url: Optional[str] = None,
     out: bool = False,
     selector: Optional[str] = None,
     clobber: bool = True,
@@ -864,12 +832,16 @@ def RecordAdapter(
         if adapter is None:
             cls_stream, adapter = find_adapter_for_stream(cls_stream)
             if adapter is None:
-                if hasattr(cls_stream, "buffer") and cls_stream.buffer.getvalue().startswith(b"<"):
+                peek_data = cls_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
+                if peek_data and peek_data.startswith(b"<"):
+                    # As peek() can result in a larger buffer than requested, we make sure the peek_data variable isn't
+                    # unnecessarily long in the error message.
+                    peek_data = peek_data[:RECORDSTREAM_MAGIC_DEPTH]
                     raise RecordAdapterNotFound(
                         (
-                            f"Could not find a reader for input {cls_stream.buffer.getvalue()!r}. Are you perhaps "
-                            "entering record text, rather than a recordstream? This can be fixed by using 'rdump -w -' "
-                            "to write a recordstream to stdout."
+                            f"Could not find a reader for input {peek_data!r}. Are you perhaps "
+                            "entering record text, rather than a record stream? This can be fixed by using "
+                            "'rdump -w -' to write a record stream to stdout."
                         )
                     )
                 raise RecordAdapterNotFound("Could not find adapter for file-like object")
