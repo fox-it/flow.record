@@ -15,19 +15,7 @@ import warnings
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import (
-    IO,
-    Any,
-    BinaryIO,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import IO, Any, BinaryIO, Iterator, Mapping, Optional, Sequence, Union
 from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
@@ -333,7 +321,7 @@ class RecordFieldSet(list):
 
 
 @functools.lru_cache(maxsize=4096)
-def _generate_record_class(name: str, fields: Tuple[Tuple[str, str]]) -> type:
+def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     """Generate a record class
 
     Args:
@@ -436,9 +424,9 @@ class RecordDescriptor:
     _desc_hash: int = None
     _fields: Mapping[str, RecordField] = None
     _all_fields: Mapping[str, RecordField] = None
-    _field_tuples: Sequence[Tuple[str, str]] = None
+    _field_tuples: Sequence[tuple[str, str]] = None
 
-    def __init__(self, name: str, fields: Optional[Sequence[Tuple[str, str]]] = None):
+    def __init__(self, name: str, fields: Optional[Sequence[tuple[str, str]]] = None):
         if not name:
             raise RecordDescriptorError("Record name is required")
 
@@ -542,7 +530,7 @@ class RecordDescriptor:
         """Create a new Record initialized with `args` and `kwargs`."""
         return self.recordType(*args, **kwargs)
 
-    def init_from_dict(self, rdict: Dict[str, Any], raise_unknown=False) -> Record:
+    def init_from_dict(self, rdict: dict[str, Any], raise_unknown=False) -> Record:
         """Create a new Record initialized with key, value pairs from `rdict`.
 
         If `raise_unknown=True` then fields on `rdict` that are unknown to this
@@ -569,7 +557,7 @@ class RecordDescriptor:
         """
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
-    def extend(self, fields: Sequence[Tuple[str, str]]) -> RecordDescriptor:
+    def extend(self, fields: Sequence[tuple[str, str]]) -> RecordDescriptor:
         """Returns a new RecordDescriptor with the extended fields
 
         Returns:
@@ -578,19 +566,19 @@ class RecordDescriptor:
         new_fields = list(self.get_field_tuples()) + fields
         return RecordDescriptor(self.name, new_fields)
 
-    def get_field_tuples(self) -> Tuple[Tuple[str, str]]:
+    def get_field_tuples(self) -> tuple[tuple[str, str]]:
         """Returns a tuple containing the (typename, name) tuples, eg:
 
         (('boolean', 'foo'), ('string', 'bar'))
 
         Returns:
-            Tuple of (typename, name) tuples
+            tuple of (typename, name) tuples
         """
         return self._field_tuples
 
     @staticmethod
     @functools.lru_cache(maxsize=256)
-    def calc_descriptor_hash(name, fields: Sequence[Tuple[str, str]]) -> int:
+    def calc_descriptor_hash(name, fields: Sequence[tuple[str, str]]) -> int:
         """Calculate and return the (cached) descriptor hash as a 32 bit integer.
 
         The descriptor hash is the first 4 bytes of the sha256sum of the descriptor name and field names and types.
@@ -606,7 +594,7 @@ class RecordDescriptor:
         return self._desc_hash
 
     @property
-    def identifier(self) -> Tuple[str, int]:
+    def identifier(self) -> tuple[str, int]:
         """Returns a tuple containing the descriptor name and hash"""
         return (self.name, self.descriptor_hash)
 
@@ -644,11 +632,11 @@ class RecordDescriptor:
 
         return wrapper
 
-    def _pack(self) -> Tuple[str, Tuple[Tuple[str, str]]]:
+    def _pack(self) -> tuple[str, tuple[tuple[str, str]]]:
         return (self.name, self._field_tuples)
 
     @staticmethod
-    def _unpack(name, fields: Tuple[Tuple[str, str]]) -> RecordDescriptor:
+    def _unpack(name, fields: tuple[tuple[str, str]]) -> RecordDescriptor:
         return RecordDescriptor(name, fields)
 
 
@@ -923,7 +911,7 @@ def fieldtype(clspath: str) -> FieldType:
 
 @functools.lru_cache(maxsize=4069)
 def merge_record_descriptors(
-    descriptors: Tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
+    descriptors: tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
 ) -> RecordDescriptor:
     """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
     This function uses a cache to avoid creating the same descriptor multiple times.
@@ -931,7 +919,7 @@ def merge_record_descriptors(
     Duplicate fields are ignored in ``descriptors`` unless ``replace=True``.
 
     Args:
-        descriptors: Tuple of RecordDescriptors to merge.
+        descriptors: tuple of RecordDescriptors to merge.
         replace: if ``True``, it will replace existing field names. Last descriptor always wins.
         name: rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
 
@@ -950,7 +938,7 @@ def merge_record_descriptors(
 
 
 def extend_record(
-    record: Record, other_records: List[Record], replace: bool = False, name: Optional[str] = None
+    record: Record, other_records: list[Record], replace: bool = False, name: Optional[str] = None
 ) -> Record:
     """Extend ``record`` with fields and values from ``other_records``.
 
@@ -958,7 +946,7 @@ def extend_record(
 
     Args:
         record: Initial Record to extend.
-        other_records: List of Records to use for extending/replacing.
+        other_records: list of Records to use for extending/replacing.
         replace: if ``True``, it will replace existing fields and values
             in ``record`` from fields and values from ``other_records``. Last record always wins.
         name: rename the RecordDescriptor name to ``name``. Otherwise, use name from
