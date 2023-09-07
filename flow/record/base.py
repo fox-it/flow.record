@@ -572,7 +572,7 @@ class RecordDescriptor:
         (('boolean', 'foo'), ('string', 'bar'))
 
         Returns:
-            tuple of (typename, name) tuples
+            Tuple of (typename, name) tuples
         """
         return self._field_tuples
 
@@ -919,7 +919,7 @@ def merge_record_descriptors(
     Duplicate fields are ignored in ``descriptors`` unless ``replace=True``.
 
     Args:
-        descriptors: tuple of RecordDescriptors to merge.
+        descriptors: Tuple of RecordDescriptors to merge.
         replace: if ``True``, it will replace existing field names. Last descriptor always wins.
         name: rename the RecordDescriptor name to ``name``. Otherwise, use name from first descriptor.
 
@@ -946,7 +946,7 @@ def extend_record(
 
     Args:
         record: Initial Record to extend.
-        other_records: list of Records to use for extending/replacing.
+        other_records: List of Records to use for extending/replacing.
         replace: if ``True``, it will replace existing fields and values
             in ``record`` from fields and values from ``other_records``. Last record always wins.
         name: rename the RecordDescriptor name to ``name``. Otherwise, use name from
