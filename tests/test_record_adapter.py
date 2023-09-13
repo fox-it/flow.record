@@ -18,6 +18,7 @@ from flow.record import (
     RecordStreamReader,
     RecordWriter,
 )
+from flow.record.adapter.stream import StreamReader
 from flow.record.base import (
     BZ2_MAGIC,
     GZIP_MAGIC,
@@ -44,6 +45,26 @@ def test_stream_writer_reader():
         records.append(rec)
 
     assert set([2, 7]) == set([r.number for r in records])
+
+
+def test_recordstream_filelike_object():
+    fp = StringIO()
+    out = RecordOutput(fp)
+    for rec in generate_records():
+        out.write(rec)
+
+    fp.seek(0)
+    reader = RecordReader(fileobj=fp, selector="r.number in (6, 9)")
+
+    #  The record reader should automatically have created a 'StreamReader' to handle the Record Stream.
+    assert isinstance(reader, StreamReader)
+
+    # Verify if selector worked and records are the same
+    records = []
+    for rec in reader:
+        records.append(rec)
+
+    assert set([6, 9]) == set([r.number for r in records])
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
@@ -103,6 +124,15 @@ def test_compressed_writer_reader(tmpdir, compression):
         numbers.append(rec.number)
 
     assert numbers == list(range(count))
+
+    # Using a file-handle instead of a path should also work
+    with open(path, "rb") as fh:
+        reader = RecordReader(fileobj=fh)
+        numbers = []
+        for rec in reader:
+            numbers.append(rec.number)
+
+        assert numbers == list(range(count))
 
 
 def test_path_template_writer(tmpdir):

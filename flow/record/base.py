@@ -14,10 +14,12 @@ import sys
 import warnings
 from datetime import datetime, timezone
 from itertools import zip_longest
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import IO, Any, BinaryIO, Iterator, Mapping, Optional, Sequence, Union
 from urllib.parse import parse_qsl, urlparse
 
-from .exceptions import RecordDescriptorError
+from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.exceptions import RecordAdapterNotFound, RecordDescriptorError
 
 try:
     import lz4.frame as lz4
@@ -37,6 +39,13 @@ try:
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
+
+try:
+    import fastavro as avro  # noqa
+
+    HAS_AVRO = True
+except ImportError:
+    HAS_AVRO = False
 
 from collections import OrderedDict
 
@@ -63,6 +72,10 @@ GZIP_MAGIC = b"\x1f\x8b"
 BZ2_MAGIC = b"BZh"
 LZ4_MAGIC = b"\x04\x22\x4d\x18"
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+AVRO_MAGIC = b"Obj"
+
+RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
+RECORDSTREAM_MAGIC_DEPTH = 4 + 2 + len(RECORDSTREAM_MAGIC)
 
 RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*(?:\[\])?$")
 RE_VALID_RECORD_TYPE_NAME = re.compile("^[a-zA-Z][a-zA-Z0-9_]*(/[a-zA-Z][a-zA-Z0-9_]*)*$")
@@ -81,37 +94,6 @@ class {name}(Record):
     def _unpack(__cls, {args}):
 {unpack_code}
 """
-
-
-class Peekable:
-    """Wrapper class for adding .peek() to a file object."""
-
-    def __init__(self, fd):
-        self.fd = fd
-        self.buffer = None
-
-    def peek(self, size):
-        if self.buffer is not None:
-            raise BufferError("Only 1 peek allowed")
-        data = self.fd.read(size)
-        self.buffer = io.BytesIO(data)
-        return data
-
-    def read(self, size=None):
-        data = b""
-        if self.buffer is None:
-            data = self.fd.read(size)
-        else:
-            data = self.buffer.read(size)
-            if len(data) < size:
-                data += self.fd.read(size - len(data))
-                self.buffer = None
-        return data
-
-    def close(self):
-        self.buffer = None
-        self.fd.close()
-        self.fd = None
 
 
 class FieldType:
@@ -339,7 +321,7 @@ class RecordFieldSet(list):
 
 
 @functools.lru_cache(maxsize=4096)
-def _generate_record_class(name: str, fields: Tuple[Tuple[str, str]]) -> type:
+def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     """Generate a record class
 
     Args:
@@ -442,9 +424,9 @@ class RecordDescriptor:
     _desc_hash: int = None
     _fields: Mapping[str, RecordField] = None
     _all_fields: Mapping[str, RecordField] = None
-    _field_tuples: Sequence[Tuple[str, str]] = None
+    _field_tuples: Sequence[tuple[str, str]] = None
 
-    def __init__(self, name: str, fields: Optional[Sequence[Tuple[str, str]]] = None):
+    def __init__(self, name: str, fields: Optional[Sequence[tuple[str, str]]] = None):
         if not name:
             raise RecordDescriptorError("Record name is required")
 
@@ -548,7 +530,7 @@ class RecordDescriptor:
         """Create a new Record initialized with `args` and `kwargs`."""
         return self.recordType(*args, **kwargs)
 
-    def init_from_dict(self, rdict: Dict[str, Any], raise_unknown=False) -> Record:
+    def init_from_dict(self, rdict: dict[str, Any], raise_unknown=False) -> Record:
         """Create a new Record initialized with key, value pairs from `rdict`.
 
         If `raise_unknown=True` then fields on `rdict` that are unknown to this
@@ -575,7 +557,7 @@ class RecordDescriptor:
         """
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
-    def extend(self, fields: Sequence[Tuple[str, str]]) -> RecordDescriptor:
+    def extend(self, fields: Sequence[tuple[str, str]]) -> RecordDescriptor:
         """Returns a new RecordDescriptor with the extended fields
 
         Returns:
@@ -584,7 +566,7 @@ class RecordDescriptor:
         new_fields = list(self.get_field_tuples()) + fields
         return RecordDescriptor(self.name, new_fields)
 
-    def get_field_tuples(self) -> Tuple[Tuple[str, str]]:
+    def get_field_tuples(self) -> tuple[tuple[str, str]]:
         """Returns a tuple containing the (typename, name) tuples, eg:
 
         (('boolean', 'foo'), ('string', 'bar'))
@@ -596,7 +578,7 @@ class RecordDescriptor:
 
     @staticmethod
     @functools.lru_cache(maxsize=256)
-    def calc_descriptor_hash(name, fields: Sequence[Tuple[str, str]]) -> int:
+    def calc_descriptor_hash(name, fields: Sequence[tuple[str, str]]) -> int:
         """Calculate and return the (cached) descriptor hash as a 32 bit integer.
 
         The descriptor hash is the first 4 bytes of the sha256sum of the descriptor name and field names and types.
@@ -612,7 +594,7 @@ class RecordDescriptor:
         return self._desc_hash
 
     @property
-    def identifier(self) -> Tuple[str, int]:
+    def identifier(self) -> tuple[str, int]:
         """Returns a tuple containing the descriptor name and hash"""
         return (self.name, self.descriptor_hash)
 
@@ -650,11 +632,11 @@ class RecordDescriptor:
 
         return wrapper
 
-    def _pack(self) -> Tuple[str, Tuple[Tuple[str, str]]]:
+    def _pack(self) -> tuple[str, tuple[tuple[str, str]]]:
         return (self.name, self._field_tuples)
 
     @staticmethod
-    def _unpack(name, fields: Tuple[Tuple[str, str]]) -> RecordDescriptor:
+    def _unpack(name, fields: tuple[tuple[str, str]]) -> RecordDescriptor:
         return RecordDescriptor(name, fields)
 
 
@@ -662,17 +644,66 @@ def DynamicDescriptor(name, fields):
     return RecordDescriptor(name, [("dynamic", field) for field in fields])
 
 
-def open_path(path, mode, clobber=True):
+def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
+    if not hasattr(fp, "peek"):
+        fp = io.BufferedReader(fp)
+
+    # We peek into the file at the maximum possible length we might need, which is the amount of bytes needed to
+    # determine whether a stream is a RECORDSTREAM or not.
+    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+
+    # If the data stream is compressed, we wrap the file pointer in a reader that can decompress accordingly.
+    if peek_data[:2] == GZIP_MAGIC:
+        fp = gzip.GzipFile(fileobj=fp, mode=mode)
+    elif HAS_BZ2 and peek_data[:3] == BZ2_MAGIC:
+        fp = bz2.BZ2File(fp, mode=mode)
+    elif HAS_LZ4 and peek_data[:4] == LZ4_MAGIC:
+        fp = lz4.open(fp, mode=mode)
+    elif HAS_ZSTD and peek_data[:4] == ZSTD_MAGIC:
+        dctx = zstd.ZstdDecompressor()
+        fp = dctx.stream_reader(fp)
+
+    return fp
+
+
+def find_adapter_for_stream(fp: BinaryIO) -> tuple[BinaryIO, Optional[str]]:
+    # We need to peek into the stream to be able to determine which adapter is needed. The fp given to this function
+    # might already be an instance of the 'Peekable' class, but might also be a different file pointer, for example
+    # a transparent decompressor. As calling peek() twice on the same peekable is not allowed, we wrap the fp into
+    # a Peekable again, so that we are able to determine the correct adapter.
+    if not hasattr(fp, "peek"):
+        fp = io.BufferedReader(fp)
+
+    peek_data = fp.peek(RECORDSTREAM_MAGIC_DEPTH)
+    if HAS_AVRO and peek_data[:3] == AVRO_MAGIC:
+        return fp, "avro"
+    elif RECORDSTREAM_MAGIC in peek_data[:RECORDSTREAM_MAGIC_DEPTH]:
+        return fp, "stream"
+    return fp, None
+
+
+def open_file(path: Union[str, Path, BinaryIO], mode: str, clobber: bool = True) -> IO:
+    if isinstance(path, Path):
+        path = str(path)
+    if isinstance(path, str):
+        return open_path(path, mode, clobber)
+    elif isinstance(path, io.IOBase):
+        return open_stream(path, "rb")
+    else:
+        raise ValueError(f"Unsupported path type {path}")
+
+
+def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     """
-    Open `path` using `mode` and returns a file object.
+    Open ``path`` using ``mode`` and returns a file object.
 
     It handles special cases if path is meant to be stdin or stdout.
     And also supports compression based on extension or file header of stream.
 
     Args:
-        path (str): Filename or path to filename to open
-        mode (str): Could be "r", "rb" to open file for reading, "w", "wb" for writing
-        clobber (bool): Overwrite file if it already exists if `clobber=True`, else raises IOError.
+        path: Filename or path to filename to open
+        mode: Could be "r", "rb" to open file for reading, "w", "wb" for writing
+        clobber: Overwrite file if it already exists if `clobber=True`, else raises IOError.
 
     """
     binary = "b" in mode
@@ -724,24 +755,18 @@ def open_path(path, mode, clobber=True):
             fp = io.open(path, mode)
         # check if we are reading a compressed stream
         if not out and binary:
-            if not hasattr(fp, "peek"):
-                fp = Peekable(fp)
-            peek_data = fp.peek(4)
-            if peek_data[:2] == GZIP_MAGIC:
-                fp = gzip.GzipFile(fileobj=fp, mode=mode)
-            elif HAS_BZ2 and peek_data[:3] == BZ2_MAGIC:
-                fp = bz2.BZ2File(fp, mode=mode)
-            elif HAS_LZ4 and peek_data[:4] == LZ4_MAGIC:
-                fp = lz4.open(fp, mode=mode)
-            elif HAS_ZSTD and peek_data[:4] == ZSTD_MAGIC:
-                dctx = zstd.ZstdDecompressor()
-                fp = dctx.stream_reader(fp)
+            fp = open_stream(fp, mode)
     return fp
 
 
-def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
-    url = str(url or "")
-
+def RecordAdapter(
+    url: Optional[str] = None,
+    out: bool = False,
+    selector: Optional[str] = None,
+    clobber: bool = True,
+    fileobj: Optional[BinaryIO] = None,
+    **kwargs,
+) -> Union[AbstractWriter, AbstractReader]:
     # Guess adapter based on extension
     ext_to_adapter = {
         ".avro": "avro",
@@ -749,42 +774,94 @@ def RecordAdapter(url, out, selector=None, clobber=True, **kwargs):
         ".jsonl": "jsonfile",
         ".csv": "csvfile",
     }
-    _, ext = os.path.splitext(url)
+    cls_stream = None
+    cls_url = None
+    adapter = None
 
-    adapter_scheme = ext_to_adapter.get(ext, "stream")
-    if "://" not in url:
-        url = f"{adapter_scheme}://{url}"
+    # When a url is given, we interpret it to determine what kind of adapter we need. This piece of logic is always
+    # necessary for the RecordWriter (as it does not currently support file-like objects), and only needed for
+    # RecordReader if a url is provided.
+    if out is True or url not in ("-", "", None):
+        # Either stdout / stdin is given, or a path-like string.
+        url = str(url or "")
+        _, ext = os.path.splitext(url)
 
-    p = urlparse(url, scheme=adapter_scheme)
-    adapter, _, sub_adapter = p.scheme.partition("+")
+        adapter_scheme = ext_to_adapter.get(ext, "stream")
+        if "://" not in url:
+            url = f"{adapter_scheme}://{url}"
+        p = urlparse(url, scheme=adapter_scheme)
+        adapter, _, sub_adapter = p.scheme.partition("+")
 
+        arg_dict = dict(parse_qsl(p.query))
+        arg_dict.update(kwargs)
+
+        cls_url = p.netloc + p.path
+        if sub_adapter:
+            cls_url = sub_adapter + "://" + cls_url
+    elif url in ("-", ""):
+        # For reading stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will treat
+        # it as a 'fileobj', where we can peek into the stream and try to select the appropriate adapter.
+        fileobj = getattr(sys.stdin, "buffer", sys.stdin)
+    if fileobj is not None:
+        # This record adapter has received a file-like object for record reading
+        # We just need to find the right adapter by peeking into the first few bytes.
+
+        # First, we open the stream. If the stream is compressed, open_stream will wrap it for us into a decompressor.
+        cls_stream = open_stream(fileobj, "rb")
+
+        # Now, we have a stream that will be transparently decompressed but we still do not know what adapter to use.
+        # This requires a new peek into the transparent stream. This peek will cause the stream pointer to be moved.
+        # Therefore, find_adapter_for_stream returns both a BinaryIO-supportive object that can correctly read the
+        # adjusted stream, and a string indicating the type of adapter to be used on said stream.
+        arg_dict = kwargs.copy()
+
+        # If a user did not provide a url, we have to peek into the stream to be able to determine the right adapter
+        # based on magic bytes encountered in the first few bytes of the stream.
+        if adapter is None:
+            cls_stream, adapter = find_adapter_for_stream(cls_stream)
+            if adapter is None:
+                peek_data = cls_stream.peek(RECORDSTREAM_MAGIC_DEPTH)
+                if peek_data and peek_data.startswith(b"<"):
+                    # As peek() can result in a larger buffer than requested, we make sure the peek_data variable isn't
+                    # unnecessarily long in the error message.
+                    peek_data = peek_data[:RECORDSTREAM_MAGIC_DEPTH]
+                    raise RecordAdapterNotFound(
+                        (
+                            f"Could not find a reader for input {peek_data!r}. Are you perhaps "
+                            "entering record text, rather than a record stream? This can be fixed by using "
+                            "'rdump -w -' to write a record stream to stdout."
+                        )
+                    )
+                raise RecordAdapterNotFound("Could not find adapter for file-like object")
+
+    # Now that we know which adapter is needed, we import it.
     mod = importlib.import_module("flow.record.adapter.{}".format(adapter))
-
     clsname = ("{}Writer" if out else "{}Reader").format(adapter.title())
 
     cls = getattr(mod, clsname)
-    arg_dict = dict(parse_qsl(p.query))
-    arg_dict.update(kwargs)
-    cls_url = p.netloc + p.path
-    if sub_adapter:
-        cls_url = sub_adapter + "://" + cls_url
-
     if not out and selector:
         arg_dict["selector"] = selector
 
     if out:
         arg_dict["clobber"] = clobber
-
     log.debug("Creating {!r} for {!r} with args {!r}".format(cls, url, arg_dict))
+
+    if fileobj is not None:
+        return cls(cls_stream, **arg_dict)
     return cls(cls_url, **arg_dict)
 
 
-def RecordReader(url=None, selector=None, **kwargs):
-    return RecordAdapter(url, False, selector=selector, **kwargs)
+def RecordReader(
+    url: Optional[str] = None,
+    selector: Optional[str] = None,
+    fileobj: Optional[BinaryIO] = None,
+    **kwargs,
+) -> AbstractReader:
+    return RecordAdapter(url=url, out=False, selector=selector, fileobj=fileobj, **kwargs)
 
 
-def RecordWriter(url=None, clobber=True, **kwargs):
-    return RecordAdapter(url, True, clobber=clobber, **kwargs)
+def RecordWriter(url: Optional[str] = None, clobber: bool = True, **kwargs) -> AbstractWriter:
+    return RecordAdapter(url=url, out=True, clobber=clobber, **kwargs)
 
 
 def stream(src, dst):
@@ -834,7 +911,7 @@ def fieldtype(clspath: str) -> FieldType:
 
 @functools.lru_cache(maxsize=4069)
 def merge_record_descriptors(
-    descriptors: Tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
+    descriptors: tuple[RecordDescriptor], replace: bool = False, name: Optional[str] = None
 ) -> RecordDescriptor:
     """Create a newly merged RecordDescriptor from a list of RecordDescriptors.
     This function uses a cache to avoid creating the same descriptor multiple times.
@@ -861,7 +938,7 @@ def merge_record_descriptors(
 
 
 def extend_record(
-    record: Record, other_records: List[Record], replace: bool = False, name: Optional[str] = None
+    record: Record, other_records: list[Record], replace: bool = False, name: Optional[str] = None
 ) -> Record:
     """Extend ``record`` with fields and values from ``other_records``.
 

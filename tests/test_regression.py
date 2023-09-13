@@ -5,7 +5,8 @@ import pathlib
 import subprocess
 import sys
 from datetime import datetime, timezone
-from unittest.mock import mock_open, patch
+from io import BytesIO
+from unittest.mock import MagicMock, mock_open, patch
 
 import msgpack
 import pytest
@@ -589,7 +590,11 @@ def test_record_adapter_windows_path(tmp_path):
         writer.write(TestRecord("foo"))
         writer.write(TestRecord("bar"))
 
-    with patch("io.open", mock_open(read_data=path_records.read_bytes())) as m:
+    test_read_buf = BytesIO(path_records.read_bytes())
+    mock_reader = MagicMock(wraps=test_read_buf, spec=BytesIO)
+
+    with patch("io.open", MagicMock(return_value=mock_reader)) as m:
+        m.return_value.closed = False
         adapter = RecordReader(r"c:\users\user\test.records")
         assert type(adapter).__name__ == "StreamReader"
         m.assert_called_once_with(r"c:\users\user\test.records", "rb")
