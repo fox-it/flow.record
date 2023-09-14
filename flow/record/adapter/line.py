@@ -1,4 +1,4 @@
-from flow.record import open_path
+from flow.record import open_file
 from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
 
@@ -16,7 +16,7 @@ class LineWriter(AbstractWriter):
     fp = None
 
     def __init__(self, path, fields=None, exclude=None, **kwargs):
-        self.fp = open_path(path, "wb")
+        self.fp = open_file(path, "wb")
         self.count = 0
         self.fields = fields
         self.exclude = exclude

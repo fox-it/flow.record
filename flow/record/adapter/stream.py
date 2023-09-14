@@ -1,6 +1,6 @@
 from typing import Iterator, Union
 
-from flow.record import Record, RecordOutput, RecordStreamReader, open_file, open_path
+from flow.record import Record, RecordOutput, RecordStreamReader, open_file
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import Selector
 from flow.record.utils import is_stdout
@@ -19,7 +19,7 @@ class StreamWriter(AbstractWriter):
     stream = None
 
     def __init__(self, path: str, clobber=True, **kwargs):
-        self.fp = open_path(path, "wb", clobber=clobber)
+        self.fp = open_file(path, "wb", clobber=clobber)
         self.stream = RecordOutput(self.fp)
 
     def write(self, record: Record) -> None:

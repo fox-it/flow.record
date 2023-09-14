@@ -1,4 +1,4 @@
-from flow.record import open_path
+from flow.record import open_file
 from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
 
@@ -27,7 +27,7 @@ class TextWriter(AbstractWriter):
     fp = None
 
     def __init__(self, path, flush=True, format_spec=None, **kwargs):
-        self.fp = open_path(path, "wb")
+        self.fp = open_file(path, "wb")
         self.auto_flush = flush
         self.format_spec = format_spec
 
