@@ -17,8 +17,8 @@ from flow.record.base import (
     dynamic_fieldtype,
     extend_record,
     iter_timestamped_records,
-    open_file,
     open_path,
+    open_path_or_stream,
     open_stream,
     stream,
 )
@@ -51,7 +51,7 @@ __all__ = [
     "JsonRecordPacker",
     "RecordStreamWriter",
     "RecordStreamReader",
-    "open_file",
+    "open_path_or_stream",
     "open_path",
     "open_stream",
     "stream",

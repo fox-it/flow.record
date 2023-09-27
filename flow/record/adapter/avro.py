@@ -53,7 +53,7 @@ class AvroWriter(AbstractWriter):
     writer = None
 
     def __init__(self, path, key=None, **kwargs):
-        self.fp = record.open_file(path, "wb")
+        self.fp = record.open_path_or_stream(path, "wb")
 
         self.desc = None
         self.schema = None
@@ -93,7 +93,7 @@ class AvroReader(AbstractReader):
     fp = None
 
     def __init__(self, path, selector=None, **kwargs):
-        self.fp = record.open_file(path, "rb")
+        self.fp = record.open_path_or_stream(path, "rb")
         self.selector = make_selector(selector)
 
         self.reader = fastavro.reader(self.fp)
