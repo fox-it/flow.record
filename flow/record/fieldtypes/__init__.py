@@ -21,7 +21,6 @@ try:
         from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
     HAS_ZONE_INFO = True
 except ImportError:
-    warnings.waring("Could not use zoneinfo, using the default timezone 'UTC'.")
     HAS_ZONE_INFO = False
 
 
@@ -56,12 +55,14 @@ def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
     Returns:
         None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)`` or ``UTC`` if ZoneInfo is not found.
     """
-    if not HAS_ZONE_INFO:
-        return UTC
 
     tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
     if tz.upper() == "NONE":
         return None
+
+    if not HAS_ZONE_INFO:
+        warnings.warn("Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.")
+        return UTC
 
     try:
         return ZoneInfo(tz)
