@@ -61,7 +61,8 @@ def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
         return None
 
     if not HAS_ZONE_INFO:
-        warnings.warn("Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.")
+        if tz != "UTC":
+            warnings.warn("Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.")
         return UTC
 
     try:
