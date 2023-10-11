@@ -2,16 +2,12 @@ name: Python Compatibility
 on: [push, pull_request, workflow_dispatch]
 
 jobs: 
-  test-py37-py38:
+  test-py38:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - python-version: "3.7"
-            python-include: "python3.7"
-            tox-env: "py37"
-            allow_failure: false
           - python-version: "3.8"
             python-include: "python3.8"
             tox-env: "py38"
