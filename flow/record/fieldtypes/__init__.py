@@ -15,9 +15,14 @@ from typing import Any, Optional, Tuple
 from urllib.parse import urlparse
 
 try:
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    try:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    except ImportError:
+        from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    HAS_ZONE_INFO = True
 except ImportError:
-    from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+    HAS_ZONE_INFO = False
+
 
 from flow.record.base import FieldType
 
@@ -50,9 +55,16 @@ def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
     Returns:
         None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)`` or ``UTC`` if ZoneInfo is not found.
     """
+
     tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
     if tz.upper() == "NONE":
         return None
+
+    if not HAS_ZONE_INFO:
+        if tz != "UTC":
+            warnings.warn("Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.")
+        return UTC
+
     try:
         return ZoneInfo(tz)
     except ZoneInfoNotFoundError as exc:
