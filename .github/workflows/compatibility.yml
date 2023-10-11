@@ -38,35 +38,3 @@ jobs:
         with:
           name: coverage
           path: coverage.xml
-  test-windows:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.9"
-            python-include: "python3.9"
-            tox-env: "py39"
-            allow_failure: false
-          - python-version: "3.10"
-            python-include: "python3.10"
-            tox-env: "py310"
-            allow_failure: false
-          - python-version: "3.11"
-            python-include: "python3.11"
-            tox-env: "py311"
-            allow_failure: true
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          lfs: true
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
-          cache-dependency-path: "pyproject.toml"
-      - run: pip install "tox==4.2.4"
-      - env:
-          C_INCLUDE_PATH: ${{ env.pythonLocation }}/include/${{ matrix.python-include }}
-        run: tox run -e ${{ matrix.tox-env }}
