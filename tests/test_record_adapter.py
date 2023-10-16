@@ -1,16 +1,13 @@
 import datetime
 import platform
 import sys
+from io import BytesIO
 
 import pytest
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import BytesIO as StringIO
-
 from flow.record import (
     PathTemplateWriter,
+    RecordAdapter,
     RecordArchiver,
     RecordDescriptor,
     RecordOutput,
@@ -18,7 +15,7 @@ from flow.record import (
     RecordStreamReader,
     RecordWriter,
 )
-from flow.record.adapter.stream import StreamReader
+from flow.record.adapter.stream import StreamReader, StreamWriter
 from flow.record.base import (
     BZ2_MAGIC,
     GZIP_MAGIC,
@@ -33,7 +30,7 @@ from ._utils import generate_records
 
 
 def test_stream_writer_reader():
-    fp = StringIO()
+    fp = BytesIO()
     out = RecordOutput(fp)
     for rec in generate_records():
         out.write(rec)
@@ -48,7 +45,7 @@ def test_stream_writer_reader():
 
 
 def test_recordstream_filelike_object():
-    fp = StringIO()
+    fp = BytesIO()
     out = RecordOutput(fp)
     for rec in generate_records():
         out.write(rec)
@@ -477,3 +474,31 @@ def test_csvfilereader(tmp_path):
     with RecordReader(f"csvfile://{path}", selector="r.count == '2'") as reader:
         for i, rec in enumerate(reader):
             assert rec.count == "2"
+
+
+def test_file_like_writer_reader() -> None:
+    test_buf = BytesIO()
+
+    adapter = RecordAdapter(fileobj=test_buf, out=True)
+
+    assert isinstance(adapter, StreamWriter)
+
+    # Add mock records
+    test_records = list(generate_records(10))
+    for record in test_records:
+        adapter.write(record)
+
+    adapter.flush()
+
+    # Grab the bytes before closing the BytesIO object.
+    read_buf = BytesIO(test_buf.getvalue())
+
+    # Close the writer and assure the object has been closed
+    adapter.close()
+
+    # Verify if the written record stream is something we can read
+    reader = RecordAdapter(fileobj=read_buf)
+    read_records = list(reader)
+    assert len(read_records) == 10
+    for idx, record in enumerate(read_records):
+        assert record == test_records[idx]

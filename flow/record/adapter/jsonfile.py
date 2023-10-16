@@ -23,7 +23,7 @@ class JsonfileWriter(AbstractWriter):
 
     def __init__(self, path, indent=None, descriptors=True, **kwargs):
         self.descriptors = str(descriptors).lower() in ("true", "1")
-        self.fp = record.open_path(path, "w")
+        self.fp = record.open_path_or_stream(path, "w")
         if isinstance(indent, str):
             indent = int(indent)
         self.packer = JsonRecordPacker(indent=indent, pack_descriptors=self.descriptors)
@@ -55,7 +55,7 @@ class JsonfileReader(AbstractReader):
 
     def __init__(self, path, selector=None, **kwargs):
         self.selector = make_selector(selector)
-        self.fp = record.open_path(path, "r")
+        self.fp = record.open_path_or_stream(path, "r")
         self.packer = JsonRecordPacker()
 
     def close(self):
