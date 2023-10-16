@@ -297,7 +297,8 @@ class datetime(_dt, FieldType):
                     # YYYY-mm-dd    length: 10
                     tstr = arg
                     tzstr = ""
-                    if tzpos := arg[10:].find("+") + 1 or arg[10:].find("-") + 1:
+                    tzsearch = arg[10:]
+                    if tzpos := tzsearch.find("+") + 1 or tzsearch.find("-") + 1:
                         tzstr = arg[10 + tzpos - 1 :]
                         tstr = arg[: 10 + tzpos - 1]
 
