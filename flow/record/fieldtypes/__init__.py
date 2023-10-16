@@ -288,7 +288,7 @@ class datetime(_dt, FieldType):
                 # There are other incompatibilities, but we don't care about those for now.
                 if not PY_311:
                     # Convert Z to +00:00 so that fromisoformat() works correctly on Python 3.10 and older
-                    if arg.endswith("Z"):
+                    if arg[-1] == "Z":
                         arg = arg[:-1] + "+00:00"
 
                     # Find timezone info after the date part. Possible formats, so we use the longest one:
