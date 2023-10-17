@@ -92,7 +92,7 @@ def test_write_to_sqlite(tmp_path):
     """Tests writing records to a SQLite database."""
     db = tmp_path / "records.db"
     with RecordWriter(f"sqlite://{db}") as writer:
-        for record in generate_records(10):
+        for record in generate_records(2000):
             writer.write(record)
 
     record_count = 0
@@ -109,7 +109,7 @@ def test_write_to_sqlite(tmp_path):
         cursor = con.execute("SELECT * FROM 'test/record' WHERE name = 'record5'")
         row = cursor.fetchone()
         assert row[0] == "record5"
-    assert record_count == 10
+    assert record_count == 2000
 
 
 def test_read_from_sqlite(tmp_path):
@@ -212,3 +212,29 @@ def test_write_zero_records(tmp_path):
     # test if it's a valid database
     with sqlite3.connect(db) as con:
         assert con.execute("SELECT * FROM sqlite_master").fetchall() == []
+
+
+@pytest.mark.parametrize(
+    "sqlite_coltype, sqlite_value, expected_value",
+    [
+        ("INTEGER", 1, 1),
+        ("INTEGER", "3", 3),
+        ("INTEGER", "", None),
+        ("BLOB", None, None),
+        ("BLOB", 0, None),
+        ("BLOB", b"blob", b"blob"),
+        ("BLOB", "text", b"text"),
+        ("BLOB", "", b""),
+        ("BLOB", b"", b""),
+    ],
+)
+def test_non_strict_sqlite_fields(tmp_path, sqlite_coltype, sqlite_value, expected_value):
+    """SQLite by default is non strict, meaning that the value could be of different type than the column type."""
+    db = tmp_path / "records.db"
+    with sqlite3.connect(db) as con:
+        con.execute(f"CREATE TABLE 'strict-test' (field {sqlite_coltype})")
+        con.execute("INSERT INTO 'strict-test' VALUES(?)", (sqlite_value,))
+
+    with RecordReader(f"sqlite://{db}") as reader:
+        record = next(iter(reader))
+        assert record.field == expected_value

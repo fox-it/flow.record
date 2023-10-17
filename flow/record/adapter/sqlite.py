@@ -205,7 +205,7 @@ class SqliteWriter(AbstractWriter):
         self.descriptors_seen = set()
         self.con = sqlite3.connect(path)
         self.count = 0
-        self.batch_size = 5000
+        self.batch_size = 1000
         self.con.execute("PRAGMA journal_mode='wal';")
 
     def write(self, record: Record) -> None:
