@@ -88,11 +88,20 @@ def test_field_name_sanitization(tmp_path, field_name):
     (platform.python_implementation() == "PyPy" and sys.version_info[:2] == (3, 9)),
     reason="PyPy 3.9 seems to have issues with SQLite transactions",
 )
-def test_write_to_sqlite(tmp_path):
+@pytest.mark.parametrize(
+    "count",
+    [
+        1337,
+        1999,
+        1000,
+        2000,
+    ],
+)
+def test_write_to_sqlite(tmp_path, count):
     """Tests writing records to a SQLite database."""
     db = tmp_path / "records.db"
     with RecordWriter(f"sqlite://{db}") as writer:
-        for record in generate_records(2000):
+        for record in generate_records(count):
             writer.write(record)
 
     record_count = 0
@@ -109,7 +118,7 @@ def test_write_to_sqlite(tmp_path):
         cursor = con.execute("SELECT * FROM 'test/record' WHERE name = 'record5'")
         row = cursor.fetchone()
         assert row[0] == "record5"
-    assert record_count == 2000
+    assert record_count == count
 
 
 def test_read_from_sqlite(tmp_path):

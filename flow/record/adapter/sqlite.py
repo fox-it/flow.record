@@ -204,6 +204,7 @@ class SqliteWriter(AbstractWriter):
     def __init__(self, path, **kwargs):
         self.descriptors_seen = set()
         self.con = sqlite3.connect(path)
+        self.con.isolation_level = None
         self.count = 0
         self.batch_size = 1000
         self.con.execute("PRAGMA journal_mode='wal';")
@@ -222,8 +223,17 @@ class SqliteWriter(AbstractWriter):
         if self.count % self.batch_size == 0:
             self.tx_cycle()
 
+    def tx_begin(self):
+        if not self.con.in_transaction:
+            self.con.execute("BEGIN;")
+
+    def tx_commit(self):
+        if self.con.in_transaction:
+            self.con.execute("COMMIT;")
+
     def tx_cycle(self):
-        self.con.executescript("COMMIT; BEGIN;")
+        self.tx_commit()
+        self.tx_begin()
 
     def flush(self):
         if self.con:
