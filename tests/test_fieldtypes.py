@@ -12,6 +12,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import (
     PATH_POSIX,
     PATH_WINDOWS,
+    PY_312,
     _is_posixlike_path,
     _is_windowslike_path,
 )
@@ -526,10 +527,18 @@ def test_digest():
         excinfo.match(r".*Invalid MD5.*")
 
 
+if PY_312:
+    # Starting from Python 3.12, pathlib._Flavours are removed as you can now properly subclass pathlib.Path
+    # See also: https://github.com/python/cpython/issues/88302
+    PosixFlavour = pathlib.PurePosixPath
+else:
+    PosixFlavour = pathlib._PosixFlavour
+
+
 def custom_pure_path(sep, altsep):
-    class CustomFlavour(pathlib._PosixFlavour):
+    class CustomFlavour(PosixFlavour):
         def __new__(cls):
-            instance = pathlib._PosixFlavour.__new__(cls)
+            instance = super().__new__(cls)
             instance.sep = sep
             instance.altsep = altsep
             return instance

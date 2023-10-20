@@ -32,6 +32,7 @@ NATIVE_UNICODE = isinstance("", str)
 UTC = timezone.utc
 
 PY_311 = sys.version_info >= (3, 11, 0)
+PY_312 = sys.version_info >= (3, 12, 0)
 
 PATH_POSIX = 0
 PATH_WINDOWS = 1
@@ -675,7 +676,11 @@ class path(pathlib.PurePath, FieldType):
                     continue
                 break
 
-        return cls._from_parts(args)
+        if PY_312:
+            obj = super().__new__(cls)
+        else:
+            obj = cls._from_parts(args)
+        return obj
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, str):
