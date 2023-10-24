@@ -20,22 +20,39 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [IP]:[PORT]: ip and port to elastic host
 [INDEX]: index to write to or read from
 [PROTOCOL]: http or https. Defaults to https when "+[PROTOCOL]" is omitted
+
+Optional arguments:
+  [INDEX]: name of the index to use
+  [VERIFY_CERTS]: verify certs of Elasticsearch instance
 """
 
 log = logging.getLogger(__name__)
 
 
 class ElasticWriter(AbstractWriter):
-    def __init__(self, uri: str, index: str = "records", http_compress: Union[str, bool] = True, **kwargs) -> None:
+    def __init__(
+        self,
+        uri: str,
+        index: str = "records",
+        verify_certs: Union[str, bool] = True,
+        http_compress: Union[str, bool] = True,
+        **kwargs,
+    ) -> None:
         self.index = index
         self.uri = uri
+        verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
-        self.es = elasticsearch.Elasticsearch(uri, http_compress=http_compress)
+        self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
         self.json_packer = JsonRecordPacker()
         self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
         self.event = threading.Event()
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
+
+        if not verify_certs:
+            # disable InsecureRequestWarning of urllib3, caused by the verify_certs flag
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
@@ -87,9 +104,10 @@ class ElasticWriter(AbstractWriter):
         pass
 
     def close(self) -> None:
-        self.queue.put(StopIteration)
-        self.event.wait()
-        self.es.close()
+        if hasattr(self, "es"):
+            self.queue.put(StopIteration)
+            self.event.wait()
+            self.es.close()
 
 
 class ElasticReader(AbstractReader):
@@ -97,6 +115,7 @@ class ElasticReader(AbstractReader):
         self,
         uri: str,
         index: str = "records",
+        verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
         **kwargs,
@@ -104,8 +123,14 @@ class ElasticReader(AbstractReader):
         self.index = index
         self.uri = uri
         self.selector = selector
+        verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
-        self.es = elasticsearch.Elasticsearch(uri, http_compress=http_compress)
+        self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
+
+        if not verify_certs:
+            # disable InsecureRequestWarning of urllib3, caused by the verify_certs flag
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:
         res = self.es.search(index=self.index)
@@ -121,4 +146,5 @@ class ElasticReader(AbstractReader):
                 yield obj
 
     def close(self) -> None:
-        self.es.close()
+        if hasattr(self, "es"):
+            self.es.close()
