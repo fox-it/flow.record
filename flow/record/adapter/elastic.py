@@ -1,7 +1,7 @@
+import hashlib
 import logging
 import queue
 import threading
-import hashlib
 from typing import Iterator, Union
 
 import elasticsearch
@@ -55,6 +55,7 @@ class ElasticWriter(AbstractWriter):
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
             import urllib3
+
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def record_to_document(self, record: Record, index: str) -> dict:
@@ -79,10 +80,6 @@ class ElasticWriter(AbstractWriter):
             "_source": self.json_packer.pack(rdict),
         }
 
-        # Check if hash_record is set and hash record to md5 if flag is set.
-        # Note: the _record_metadata contains timestamp field of target-query output.
-        # An option to change this is to call the `self.json_packer.pack` again on the
-        # `record._asdict()` row.
         if self.hash_record:
             document["_id"] = hashlib.md5(document["_source"].encode()).hexdigest()
 
@@ -141,6 +138,7 @@ class ElasticReader(AbstractReader):
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
             import urllib3
+
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:
