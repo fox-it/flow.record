@@ -1,6 +1,7 @@
 import logging
 import queue
 import threading
+import hashlib
 from typing import Iterator, Union
 
 import elasticsearch
@@ -18,12 +19,12 @@ ElasticSearch adapter
 Write usage: rdump -w elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [IP]:[PORT]: ip and port to elastic host
-[INDEX]: index to write to or read from
 [PROTOCOL]: http or https. Defaults to https when "+[PROTOCOL]" is omitted
 
 Optional arguments:
-  [INDEX]: name of the index to use
-  [VERIFY_CERTS]: verify certs of Elasticsearch instance
+  [INDEX]: name of the index to use (default: records)
+  [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
+  [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
 """
 
 log = logging.getLogger(__name__)
@@ -36,12 +37,14 @@ class ElasticWriter(AbstractWriter):
         index: str = "records",
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
+        hash_record: Union[str, bool] = False,
         **kwargs,
     ) -> None:
         self.index = index
         self.uri = uri
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
+        self.hash_record = str(hash_record).lower() in ("1", "true")
         self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
         self.json_packer = JsonRecordPacker()
         self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
@@ -50,7 +53,7 @@ class ElasticWriter(AbstractWriter):
         self.thread.start()
 
         if not verify_certs:
-            # disable InsecureRequestWarning of urllib3, caused by the verify_certs flag
+            # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -75,6 +78,14 @@ class ElasticWriter(AbstractWriter):
             "_index": index,
             "_source": self.json_packer.pack(rdict),
         }
+
+        # Check if hash_record is set and hash record to md5 if flag is set.
+        # Note: the _record_metadata contains timestamp field of target-query output.
+        # An option to change this is to call the `self.json_packer.pack` again on the
+        # `record._asdict()` row.
+        if self.hash_record:
+            document["_id"] = hashlib.md5(document["_source"].encode()).hexdigest()
+
         return document
 
     def document_stream(self) -> Iterator[dict]:
@@ -128,7 +139,7 @@ class ElasticReader(AbstractReader):
         self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
 
         if not verify_certs:
-            # disable InsecureRequestWarning of urllib3, caused by the verify_certs flag
+            # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
