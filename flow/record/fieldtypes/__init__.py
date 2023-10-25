@@ -660,14 +660,16 @@ class path(pathlib.PurePath, FieldType):
                     #
                     # This construction works around that by converting all path parts
                     # to strings first.
-                    args = (str(arg) for arg in args)
+                    if not PY_312:
+                        args = (str(arg) for arg in args)
                 elif isinstance(path_part, pathlib.PurePosixPath):
                     cls = posix_path
                 elif _is_windowslike_path(path_part):
                     # This handles any custom PurePath based implementations that have a windows
                     # like path separator (\).
                     cls = windows_path
-                    args = (str(arg) for arg in args)
+                    if not PY_312:
+                        args = (str(arg) for arg in args)
                 elif _is_posixlike_path(path_part):
                     # This handles any custom PurePath based implementations that don't have a
                     # windows like path separator (\).
