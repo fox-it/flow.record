@@ -355,6 +355,12 @@ class WrappedRecord:
     def __getattr__(self, k):
         return getattr(self.record, k, NONE_OBJECT)
 
+    def __str__(self) -> str:
+        return str(self.record)
+
+    def __repr__(self) -> str:
+        return repr(self.record)
+
 
 class CompiledSelector:
     """CompiledSelector is faster than Selector but unsafe if you don't trust the query."""
