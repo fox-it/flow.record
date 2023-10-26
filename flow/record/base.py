@@ -801,7 +801,7 @@ def RecordAdapter(
         if sub_adapter:
             cls_url = sub_adapter + "://" + cls_url
     if out is False:
-        if url in ("-", "", None):
+        if url in ("-", "", None) and fileobj is None:
             # For reading stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will
             # treat it as a 'fileobj', where we can peek into the stream and try to select the appropriate adapter.
             fileobj = getattr(sys.stdin, "buffer", sys.stdin)
