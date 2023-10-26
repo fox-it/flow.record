@@ -86,10 +86,6 @@ def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
     assert data == data_records
 
 
-@pytest.mark.skipif(
-    (platform.python_implementation() == "PyPy" and sys.version_info[:2] == (3, 9)),
-    reason="PyPy 3.9 seems to have issues with SQLite transactions",
-)
 @pytest.mark.parametrize(
     "count",
     [
@@ -160,10 +156,6 @@ def test_read_from_sqlite(tmp_path: Path) -> None:
             assert record.score == 3.14 + i
 
 
-@pytest.mark.skipif(
-    (platform.python_implementation() == "PyPy" and sys.version_info[:2] == (3, 9)),
-    reason="PyPy 3.9 seems to have issues with SQLite transactions",
-)
 def test_write_dynamic_descriptor(tmp_path: Path) -> None:
     """Test the ability to write records with different descriptors to the same table."""
     db = tmp_path / "records.db"

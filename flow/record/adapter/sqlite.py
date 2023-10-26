@@ -206,7 +206,7 @@ class SqliteWriter(AbstractWriter):
         self.con = None
         self.con = sqlite3.connect(path)
         self.count = 0
-        self.con.execute("PRAGMA journal_mode='wal';")
+        self.batch_size = 1000
 
     def write(self, record: Record) -> None:
         """Write a record to the database"""
@@ -218,6 +218,10 @@ class SqliteWriter(AbstractWriter):
 
         db_insert_record(self.con, record)
         self.count += 1
+
+        # Commit every batch_size records
+        if self.count % self.batch_size == 0:
+            self.con.commit()
 
     def flush(self):
         if self.con:
