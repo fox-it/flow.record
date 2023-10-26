@@ -16,7 +16,7 @@ SQLite adapter
 ---
 Write usage: rdump -w sqlite://[PATH]
 Read usage: rdump sqlite://[PATH]
-[PATH]: path to sqlite database file.
+[PATH]: path to sqlite database file
 """
 
 # flow.record field mappings to SQLite types
@@ -51,12 +51,12 @@ def sanitized_name(name: str) -> str:
     Some (field) names are not allowed in flow.record, while they can be allowed in SQLite.
     This sanitizes the name so it can still be used in flow.record.
 
-    >>> sanitized_name("my-variable-name-with-dashes")
-    'my_variable_name_with_dashes'
-    >>> sanitized_name("_my_name_starting_with_underscore")
-    'n__my_name_starting_with_underscore'
-    >>> sanitized_name("1337")
-    'n_1337'
+        >>> sanitized_name("my-variable-name-with-dashes")
+        'my_variable_name_with_dashes'
+        >>> sanitized_name("_my_name_starting_with_underscore")
+        'n__my_name_starting_with_underscore'
+        >>> sanitized_name("1337")
+        'n_1337'
     """
 
     if name not in RESERVED_FIELDS:
@@ -67,7 +67,7 @@ def sanitized_name(name: str) -> str:
 
 
 def create_descriptor_table(con: sqlite3.Connection, descriptor: RecordDescriptor) -> None:
-    """Create table for a RecordDescriptor if it doesn't exists yet"""
+    """Create table for a RecordDescriptor if it doesn't exists yet."""
     table_name = descriptor.name
 
     # Create column definitions (uses TEXT for unsupported types)
@@ -84,7 +84,7 @@ def create_descriptor_table(con: sqlite3.Connection, descriptor: RecordDescripto
 
 
 def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescriptor) -> None:
-    """Update columns for descriptor table if new fields are added"""
+    """Update columns for descriptor table if new fields are added."""
     table_name = descriptor.name
 
     # Get existing columns
@@ -109,7 +109,7 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
 
 
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
-    """Insert a record into the database"""
+    """Insert a record into the database."""
     table_name = record._desc.name
     rdict = record._asdict()
 
@@ -118,7 +118,7 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     value_placeholder = ", ".join(["?"] * len(rdict))
     sql = f"""INSERT INTO "{table_name}" ({column_names}) VALUES ({value_placeholder})"""
 
-    # convert values to str() for types we don't support
+    # Convert values to str() for types we don't support
     values = []
     for value in rdict.values():
         if isinstance(value, datetime):
@@ -142,12 +142,12 @@ class SqliteReader(AbstractReader):
         self.rewrite = {}
 
     def table_names(self) -> list[str]:
-        """Return a list of table names in the database"""
+        """Return a list of table names in the database."""
         records = self.con.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         return [record[0] for record in records]
 
     def read_table(self, table_name: str) -> Iterator[Record]:
-        """Read a table from the database and yield records"""
+        """Read a table from the database and yield records."""
 
         # flow.record is quite strict with what is allowed in fieldnames or decriptor name.
         # While SQLite is less strict, we need to sanitize the names to make them compatible.
@@ -194,7 +194,7 @@ class SqliteReader(AbstractReader):
                 yield descriptor_cls.init_from_dict(dict(zip(fnames, row)))
 
     def __iter__(self):
-        """Iterate over all tables in the database and yield records"""
+        """Iterate over all tables in the database and yield records."""
         for table_name in self.table_names():
             logging.debug("Reading table: %s", table_name)
             yield from self.read_table(table_name)
@@ -203,6 +203,7 @@ class SqliteReader(AbstractReader):
 class SqliteWriter(AbstractWriter):
     def __init__(self, path, **kwargs):
         self.descriptors_seen = set()
+        self.con = None
         self.con = sqlite3.connect(path)
         self.con.isolation_level = None
         self.count = 0
