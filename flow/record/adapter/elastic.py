@@ -73,6 +73,9 @@ class ElasticWriter(AbstractWriter):
         dunder_keys = [key for key in rdict if key.startswith("_")]
         for key in dunder_keys:
             rdict_meta[key.lstrip("_")] = rdict.pop(key)
+        # remove _generated field from metadata to ensure determinstic documents
+        if self.hash_record:
+            rdict_meta.pop("generated", None)
         rdict["_record_metadata"] = rdict_meta
 
         document = {
