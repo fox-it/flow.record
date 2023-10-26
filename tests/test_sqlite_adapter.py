@@ -2,6 +2,8 @@ import platform
 import sqlite3
 import sys
 from datetime import datetime, timezone
+from typing import Any
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +11,7 @@ from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import sanitized_name
 
 
-def generate_records(amount) -> Record:
+def generate_records(amount: int) -> Record:
     """Generates some test records"""
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
@@ -32,7 +34,7 @@ def generate_records(amount) -> Record:
         "_my_movies",
     ],
 )
-def test_table_name_sanitization(tmp_path, table_name):
+def test_table_name_sanitization(tmp_path: Path, table_name: str) -> None:
     """Ensure that we can read table names that are technically invalid in flow.record."""
     db = tmp_path / "records.db"
     con = sqlite3.connect(db)
@@ -61,7 +63,7 @@ def test_table_name_sanitization(tmp_path, table_name):
         "1337_starting_with_number",
     ],
 )
-def test_field_name_sanitization(tmp_path, field_name):
+def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
     """Ensure that we can read field names that are technically invalid in flow.record."""
     db = tmp_path / "records.db"
     con = sqlite3.connect(db)
@@ -97,7 +99,7 @@ def test_field_name_sanitization(tmp_path, field_name):
         2000,
     ],
 )
-def test_write_to_sqlite(tmp_path, count):
+def test_write_to_sqlite(tmp_path: Path, count: int) -> None:
     """Tests writing records to a SQLite database."""
     db = tmp_path / "records.db"
     with RecordWriter(f"sqlite://{db}") as writer:
@@ -121,7 +123,7 @@ def test_write_to_sqlite(tmp_path, count):
     assert record_count == count
 
 
-def test_read_from_sqlite(tmp_path):
+def test_read_from_sqlite(tmp_path: Path) -> None:
     """Tests basic reading from a SQLite database."""
     # Generate a SQLite database
     db = tmp_path / "records.db"
@@ -162,7 +164,7 @@ def test_read_from_sqlite(tmp_path):
     (platform.python_implementation() == "PyPy" and sys.version_info[:2] == (3, 9)),
     reason="PyPy 3.9 seems to have issues with SQLite transactions",
 )
-def test_write_dynamic_descriptor(tmp_path):
+def test_write_dynamic_descriptor(tmp_path: Path) -> None:
     """Test the ability to write records with different descriptors to the same table."""
     db = tmp_path / "records.db"
     TestRecord = RecordDescriptor(
@@ -212,7 +214,7 @@ def test_write_dynamic_descriptor(tmp_path):
     assert record_count == 2
 
 
-def test_write_zero_records(tmp_path):
+def test_write_zero_records(tmp_path: Path):
     """Test writing zero records."""
     db = tmp_path / "records.db"
     with RecordWriter(f"sqlite://{db}") as writer:
@@ -237,7 +239,7 @@ def test_write_zero_records(tmp_path):
         ("BLOB", b"", b""),
     ],
 )
-def test_non_strict_sqlite_fields(tmp_path, sqlite_coltype, sqlite_value, expected_value):
+def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_value: Any, expected_value: Any) -> None:
     """SQLite by default is non strict, meaning that the value could be of different type than the column type."""
     db = tmp_path / "records.db"
     with sqlite3.connect(db) as con:
