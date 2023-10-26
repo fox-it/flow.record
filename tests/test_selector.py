@@ -53,6 +53,30 @@ def test_selector():
         assert TestRecord() in Selector("invalid_func(r.invalid_field, 1337) or r.id == 4")
 
 
+def test_selector_str_repr():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "query"),
+            ("string", "url"),
+        ],
+    )
+
+    assert TestRecord("foo", "bar") in Selector("'foo' in str(r)")
+    assert TestRecord("foo", "bar") in Selector("'test/record' in str(r)")
+    assert TestRecord("foo", "bar") in Selector("'foo' in repr(r)")
+    assert TestRecord("foo", "bar") in Selector("'test/record' in repr(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'foo' in str(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'test/record' in str(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'foo' in repr(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'test/record' in repr(r)")
+
+    assert TestRecord("foo", "bar") not in Selector("'nope' in str(r)")
+    assert TestRecord("foo", "bar") not in Selector("'nope' in repr(r)")
+    assert TestRecord("foo", "bar") not in CompiledSelector("'nope' in str(r)")
+    assert TestRecord("foo", "bar") not in CompiledSelector("'nope' in repr(r)")
+
+
 def test_selector_meta_query_true():
     source = "internal/flow.record.test"
 
