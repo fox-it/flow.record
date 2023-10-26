@@ -2,8 +2,8 @@ import platform
 import sqlite3
 import sys
 from datetime import datetime, timezone
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import pytest
 
