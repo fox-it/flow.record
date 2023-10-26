@@ -64,8 +64,17 @@ def test_selector_str_repr():
 
     assert TestRecord("foo", "bar") in Selector("'foo' in str(r)")
     assert TestRecord("foo", "bar") in Selector("'test/record' in str(r)")
+    assert TestRecord("foo", "bar") in Selector("'foo' in repr(r)")
+    assert TestRecord("foo", "bar") in Selector("'test/record' in repr(r)")
     assert TestRecord("foo", "bar") in CompiledSelector("'foo' in str(r)")
     assert TestRecord("foo", "bar") in CompiledSelector("'test/record' in str(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'foo' in repr(r)")
+    assert TestRecord("foo", "bar") in CompiledSelector("'test/record' in repr(r)")
+
+    assert TestRecord("foo", "bar") not in Selector("'nope' in str(r)")
+    assert TestRecord("foo", "bar") not in Selector("'nope' in repr(r)")
+    assert TestRecord("foo", "bar") not in CompiledSelector("'nope' in str(r)")
+    assert TestRecord("foo", "bar") not in CompiledSelector("'nope' in repr(r)")
 
 
 def test_selector_meta_query_true():

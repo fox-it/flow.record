@@ -358,6 +358,9 @@ class WrappedRecord:
     def __str__(self) -> str:
         return str(self.record)
 
+    def __repr__(self) -> str:
+        return repr(self.record)
+
 
 class CompiledSelector:
     """CompiledSelector is faster than Selector but unsafe if you don't trust the query."""
@@ -549,6 +552,7 @@ class RecordContextMatcher:
             "True": True,
             "False": False,
             "str": str,
+            "repr": repr,
             "fields": rec._desc.getfields,
             "any": any,
             "all": all,
