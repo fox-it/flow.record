@@ -134,7 +134,7 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
 
 
 class SqliteReader(AbstractReader):
-    def __init__(self, path, **kwargs):
+    def __init__(self, path: str, **kwargs):
         self.descriptors_seen = set()
         self.con = sqlite3.connect(path)
         self.count = 0
@@ -193,7 +193,7 @@ class SqliteReader(AbstractReader):
                             row[idx] = value.encode("utf-8")
                 yield descriptor_cls.init_from_dict(dict(zip(fnames, row)))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         """Iterate over all tables in the database and yield records."""
         for table_name in self.table_names():
             logging.debug("Reading table: %s", table_name)
@@ -201,7 +201,7 @@ class SqliteReader(AbstractReader):
 
 
 class SqliteWriter(AbstractWriter):
-    def __init__(self, path, **kwargs):
+    def __init__(self, path: str, **kwargs):
         self.descriptors_seen = set()
         self.con = None
         self.con = sqlite3.connect(path)
@@ -223,11 +223,11 @@ class SqliteWriter(AbstractWriter):
         if self.count % self.batch_size == 0:
             self.con.commit()
 
-    def flush(self):
+    def flush(self) -> None:
         if self.con:
             self.con.commit()
 
-    def close(self):
+    def close(self) -> None:
         if self.con:
             self.flush()
             self.con.close()

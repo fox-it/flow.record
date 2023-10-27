@@ -204,7 +204,7 @@ def test_write_dynamic_descriptor(tmp_path: Path) -> None:
     assert record_count == 2
 
 
-def test_write_zero_records(tmp_path: Path):
+def test_write_zero_records(tmp_path: Path) -> None:
     """Test writing zero records."""
     db = tmp_path / "records.db"
     with RecordWriter(f"sqlite://{db}") as writer:
