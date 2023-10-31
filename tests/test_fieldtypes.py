@@ -3,6 +3,7 @@
 import hashlib
 import os
 import pathlib
+import posixpath
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -527,21 +528,29 @@ def test_digest():
         excinfo.match(r".*Invalid MD5.*")
 
 
-if PY_312:
-    # Starting from Python 3.12, pathlib._Flavours are removed as you can now properly subclass pathlib.Path
-    # See also: https://github.com/python/cpython/issues/88302
-    PosixFlavour = pathlib.PurePosixPath
-else:
-    PosixFlavour = pathlib._PosixFlavour
-
-
 def custom_pure_path(sep, altsep):
-    class CustomFlavour(PosixFlavour):
-        def __new__(cls):
-            instance = super().__new__(cls)
-            instance.sep = sep
-            instance.altsep = altsep
-            return instance
+    # Starting from Python 3.12, pathlib._Flavours are removed as you can
+    # now properly subclass pathlib.Path
+    # The flavour property of Path's is replaced by a link to e.g.
+    # posixpath or ntpath.
+    # See also: https://github.com/python/cpython/issues/88302
+    if PY_312:
+
+        class CustomFlavour:
+            def __new__(cls, *args, **kwargs):
+                flavour = posixpath
+                flavour.sep = sep
+                flavour.altsep = altsep
+                return flavour
+
+    else:
+
+        class CustomFlavour(pathlib._PosixFlavour):
+            def __new__(cls):
+                instance = super().__new__(cls)
+                instance.sep = sep
+                instance.altsep = altsep
+                return instance
 
     class PureCustomPath(pathlib.PurePath):
         _flavour = CustomFlavour()

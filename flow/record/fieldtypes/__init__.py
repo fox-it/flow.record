@@ -646,21 +646,22 @@ class path(pathlib.PurePath, FieldType):
             for path_part in args:
                 if isinstance(path_part, pathlib.PureWindowsPath):
                     cls = windows_path
-                    # The (string) representation of a pathlib.PureWindowsPath is not round trip equivalent if a
-                    # path starts with a \ or / followed by a drive letter, e.g.: \C:\...
-                    # Meaning:
-                    #
-                    # str(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
-                    # str(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
-                    #
-                    # repr(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
-                    # repr(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
-                    #
-                    # This would be the case though when using PurePosixPath instead.
-                    #
-                    # This construction works around that by converting all path parts
-                    # to strings first.
                     if not PY_312:
+                        # For Python < 3.12, the (string) representation of a
+                        # pathlib.PureWindowsPath is not round trip equivalent if a path
+                        # starts with a \ or / followed by a drive letter, e.g.: \C:\...
+                        # Meaning:
+                        #
+                        # str(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
+                        # str(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
+                        #
+                        # repr(PureWindowsPath(r"\C:\WINDOWS/Temp")) !=
+                        # repr(PureWindowsPath(PureWindowsPath(r"\C:\WINDOWS/Temp"))),
+                        #
+                        # This would be the case though when using PurePosixPath instead.
+                        #
+                        # This construction works around that by converting all path parts
+                        # to strings first.
                         args = (str(arg) for arg in args)
                 elif isinstance(path_part, pathlib.PurePosixPath):
                     cls = posix_path
