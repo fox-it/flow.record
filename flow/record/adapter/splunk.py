@@ -2,7 +2,7 @@ import json
 import logging
 import socket
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 from urllib.parse import urlparse
@@ -25,6 +25,7 @@ __usage__ = """
 Splunk output adapter (writer only)
 ---
 Write usage: rdump -w splunk+[PROTOCOL]://[IP]:[PORT]?tag=[TAG]&token=[TOKEN]&sourcetype=[SOURCETYPE]
+[PROTOCOL]: Protocol to use for forwarding data. Can be tcp, http or https, defaults to tcp if omitted.
 [IP]:[PORT]: ip and port to a splunk instance
 [TAG]: optional value to add as "rdtag" output field when writing
 [TOKEN]: Authentication token for sending data over HTTP(S)
@@ -34,7 +35,7 @@ Write usage: rdump -w splunk+[PROTOCOL]://[IP]:[PORT]?tag=[TAG]&token=[TOKEN]&so
 
 log = logging.getLogger(__package__)
 
-# Amount of records to bindle into a single request when sending data over HTTP(S).
+# Amount of records to bundle into a single request when sending data over HTTP(S).
 RECORD_BUFFER_LIMIT = 20
 
 RESERVED_SPLUNK_FIELDS = set(
@@ -46,17 +47,18 @@ RESERVED_SPLUNK_FIELDS = set(
         "source",
         "sourcetype",
         "tag",
+        "type",
     ]
 )
 
 
-class SPLUNK_PROTOCOLS(Enum):
+class Protocol(Enum):
     HTTP = "http"
     HTTPS = "https"
     TCP = "tcp"
 
 
-class SPLUNK_SOURCETYPES(Enum):
+class SourceType(Enum):
     JSON = "json"
     RECORDS = "records"
 
@@ -94,19 +96,23 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
         ("time", "ts"),
         ("source", "_source"),
     }
-    record_as_dict = packer.pack_obj(record)
-    record_as_dict["rdtag"] = tag
+
+    # When converting a record to json text for splunk, we distinguish between the 'event' (containing the data) and a
+    # few other fields that are splunk-specific for indexing. We add those 'indexer_fields' to the return object first.
     for dest_field, source_field in indexer_fields:
         if hasattr(record, source_field):
             val = getattr(record, source_field)
             if val:
                 if isinstance(val, datetime):
                     # Convert datetime objects to epoch timestamp for reserved fields.
-                    epoch = (val - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds()
-                    ret[dest_field] = epoch
+                    ret[dest_field] = val.timestamp()
                     continue
                 ret[dest_field] = to_str(val)
 
+    record_as_dict = packer.pack_obj(record)
+
+    # These fields end up in the 'event', but we have a few reserved field names. If those field names are in the
+    # record, we prefix them with 'rd_' (short for record descriptor)
     for field in RESERVED_SPLUNK_FIELDS:
         if field not in record_as_dict.keys():
             continue
@@ -114,6 +120,10 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
         val = record_as_dict[field]
         del record_as_dict[field]
         record_as_dict[new_field] = val
+
+    # almost done, just have to add the tag and the type (i.e the record descriptor's name) to the event.
+    record_as_dict["rdtag"] = tag
+    record_as_dict["type"] = record._desc.name
 
     ret["event"] = record_as_dict
     return json.dumps(ret, default=packer.pack_obj)
@@ -133,75 +143,86 @@ class SplunkWriter(AbstractWriter):
     ):
         if "://" not in uri:
             uri = f"tcp://{uri}"
-        parsed_url = urlparse(uri)
-        url_scheme = parsed_url.scheme.lower()
+
         if sourcetype is None:
             log.warning("No sourcetype provided, assuming 'records' sourcetype.")
-            sourcetype = SPLUNK_SOURCETYPES.RECORDS.value
-        self.protocol = next((protocol for protocol in SPLUNK_PROTOCOLS if protocol.value == url_scheme), None)
-        self.sourcetype = next((source for source in SPLUNK_SOURCETYPES if source.value == sourcetype), None)
+            sourcetype = SourceType.RECORDS.value
+
+        parsed_url = urlparse(uri)
+        url_scheme = parsed_url.scheme.lower()
+
+        self.protocol = next((protocol for protocol in Protocol if protocol.value == url_scheme), None)
+        self.sourcetype = next((source for source in SourceType if source.value == sourcetype), None)
 
         if not self.sourcetype:
             raise ValueError(f"Unsupported source type {sourcetype}.")
         if not self.protocol:
             raise ValueError(f"Unsupported protocol {url_scheme}.")
-        if self.protocol == SPLUNK_PROTOCOLS.TCP and self.sourcetype != SPLUNK_SOURCETYPES.RECORDS:
+        if self.protocol == Protocol.TCP and self.sourcetype != SourceType.RECORDS:
             raise ValueError("For sending data to splunk over TCP, only the 'records' sourcetype is allowed.")
 
         self.host = parsed_url.hostname
         self.port = parsed_url.port
         self.tag = tag
-        self.record_buffer = set()
+        self.record_buffer = []
         self._warned = False
         self.packer = None
 
-        if self.protocol == SPLUNK_PROTOCOLS.TCP:
+        if self.sourcetype == SourceType.JSON:
+            self.packer = JsonRecordPacker(indent=4, pack_descriptors=False)
+
+        if self.protocol == Protocol.TCP:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
             self.sock.connect((self.host, self.port))
 
-        elif self.protocol in [SPLUNK_PROTOCOLS.HTTP, SPLUNK_PROTOCOLS.HTTPS]:
+        elif self.protocol in [Protocol.HTTP, Protocol.HTTPS]:
             if not HAS_REQUESTS:
                 raise ImportError("The requests library is required for sending data over HTTP(S).")
+
             self.token = token
 
             # Assume verify=True unless specified otherwise.
             self.verify = not (str(ssl_verify).lower() in ("0", "false"))
 
             scheme = self.protocol.value
-            endpoint = "event" if self.sourcetype != SPLUNK_SOURCETYPES.RECORDS else "raw"
+            endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
             port = f":{self.port}" if self.port else ""
             self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
+
             if not self.token:
                 raise ValueError("An authorization token is required for the HTTP collector.")
+
             if not self.token.startswith("Splunk "):
                 self.token = "Splunk " + self.token
+
             if not self.verify:
                 log.warning("Certification verification is disabled.")
+
             self.headers = {
                 "Authorization": self.token,
+                # A randomized value so that Splunk can loadbalance between different incoming datastreams
                 "X-Splunk-Request-Channel": str(uuid.uuid4()),
             }
 
-        if self.sourcetype == SPLUNK_SOURCETYPES.JSON:
-            self.packer = JsonRecordPacker(indent=4, pack_descriptors=False)
-
-    def _send_http(self, data: bytes, flush: bool = False) -> None:
+    def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
+        # It's possible to call this function without any data, purely to flush. Hence this check.
         if data:
-            self.record_buffer.add(data)
+            self.record_buffer.append(data)
         if len(self.record_buffer) < RECORD_BUFFER_LIMIT and not flush:
+            # Buffer limit not exceeded yet, so we do not return a buffer yet, unless buffer is explicitly flushed.
             return
-        buf = b""
-        for record_data in self.record_buffer:
-            buf += record_data + b"\n"
-
-        if not len(buf):
+        buf = b"".join(self.record_buffer)
+        if not buf:
             return
 
-        # Remove the last newline as it is duplicate.
-        buf = buf[:-1]
-
-        # Empty the set
+        # We're going to be returning a buffer for the writer to send, so we can clear the internal record buffer.
         self.record_buffer.clear()
+        return buf
+
+    def _send_http(self, data: Optional[bytes] = None, flush: bool = False) -> None:
+        buf = self._cache_records_for_http(data, flush)
+        if not buf:
+            return
         response = requests.post(self.url, headers=self.headers, verify=self.verify, data=buf)
         if response.status_code != 200:
             raise Exception(f"{response.text} ({response.status_code})")
@@ -216,7 +237,8 @@ class SplunkWriter(AbstractWriter):
                 "Record has 'rdtag' field which conflicts with the Splunk adapter -- "
                 "Splunk output will have duplicate 'rdtag' fields",
             )
-        if self.sourcetype == SPLUNK_SOURCETYPES.RECORDS:
+
+        if self.sourcetype == SourceType.RECORDS:
             rec = splunkify_key_value(record, self.tag)
         else:
             rec = splunkify_json(self.packer, record, self.tag)
@@ -224,14 +246,14 @@ class SplunkWriter(AbstractWriter):
         # Trail with a newline for line breaking.
         data = to_bytes(rec) + b"\n"
 
-        if self.protocol == SPLUNK_PROTOCOLS.TCP:
+        if self.protocol == Protocol.TCP:
             self._send_tcp(data)
         else:
             self._send_http(data)
 
     def flush(self) -> None:
-        if self.protocol in [SPLUNK_PROTOCOLS.HTTP, SPLUNK_PROTOCOLS.HTTPS]:
-            self._send_http(None, flush=True)
+        if self.protocol in [Protocol.HTTP, Protocol.HTTPS]:
+            self._send_http(flush=True)
 
     def close(self) -> None:
         # For TCP
