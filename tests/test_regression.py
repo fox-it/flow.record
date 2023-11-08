@@ -646,5 +646,43 @@ def test_fieldtype_typedlist_net_ipaddress():
     assert issubclass(fieldtype("net.ipaddress[]"), fieldtypes.FieldType)
 
 
+def test_record_reader_default_stdin(tmp_path):
+    """RecordWriter should default to stdin if no path is given"""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
+
+    # write some records
+    records_path = tmp_path / "test.records"
+    with RecordWriter(records_path) as writer:
+        writer.write(TestRecord("foo"))
+
+    # Test stdin
+    with patch("sys.stdin", BytesIO(records_path.read_bytes())):
+        with RecordReader() as reader:
+            for record in reader:
+                assert record.text == "foo"
+
+
+def test_record_writer_default_stdout(capsysbinary):
+    """RecordWriter should default to stdout if no path is given"""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
+
+    # write a record to stdout
+    with RecordWriter() as writer:
+        writer.write(TestRecord("foo"))
+
+    stdout = capsysbinary.readouterr().out
+    assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())

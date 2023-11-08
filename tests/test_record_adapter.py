@@ -476,7 +476,7 @@ def test_csvfilereader(tmp_path):
             assert rec.count == "2"
 
 
-def test_gcs_writer() -> None:
+def test_file_like_writer_reader() -> None:
     test_buf = BytesIO()
 
     adapter = RecordAdapter(fileobj=test_buf, out=True)
