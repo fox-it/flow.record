@@ -25,14 +25,13 @@ Write usage: rdump gcs://[PROJECT-ID]:[BUCKET-ID]?path=[PATH]
 
 log = logging.getLogger(__name__)
 
-GLOB_CHARACTERS = "*?[]"
+GLOB_CHARACTERS = ["*", "?", "[", "]"]
 
 
 class GcsReader(AbstractReader):
     def __init__(self, uri: str, path: str, selector: Union[None, Selector, CompiledSelector] = None, **kwargs) -> None:
         self.selector = selector
-        project_name = uri[: uri.find(":")]
-        bucket_name = uri[uri.find(":") + 1 :]
+        project_name, _, bucket_name = uri.partition(":")
 
         self.gcs = Client(project=project_name)
         self.bucket = self.gcs.bucket(bucket_name)
@@ -41,14 +40,14 @@ class GcsReader(AbstractReader):
         # To split the path prefix from the glob-specific stuff, we have to find the first place where
         # the glob starts. We'll then go through all files that match the path prefix before the glob,
         # and do fnmatch ourselves to check whether any given blob matches with our glob.
-        lowest_pos = min([path.find(char) if path.find(char) >= 0 else float("inf") for char in GLOB_CHARACTERS])
-        if lowest_pos == float("inf"):
+        first_glob_character = min((path.find(char) for char in GLOB_CHARACTERS if char in path), default=-1)
+        if first_glob_character == -1:
             # No glob character was found
             self.glob = None
             self.prefix = path
         else:
             # Split the glob and the prefix
-            self.prefix = path[:lowest_pos]
+            self.prefix = path[:first_glob_character]
             self.glob = path
 
     def __iter__(self) -> Iterator[Record]:
@@ -71,8 +70,7 @@ class GcsReader(AbstractReader):
 
 class GcsWriter(AbstractWriter):
     def __init__(self, uri: str, path: str, **kwargs):
-        project_name = uri[: uri.find(":")]
-        bucket_name = uri[uri.find(":") + 1 :]
+        project_name, _, bucket_name = uri.partition(":")
         self.writer = None
 
         self.gcs = Client(project=project_name)
@@ -95,3 +93,4 @@ class GcsWriter(AbstractWriter):
     def close(self) -> None:
         if self.writer:
             self.writer.close()
+            self.writer = None
