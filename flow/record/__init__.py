@@ -3,6 +3,7 @@ import os
 
 from flow.record.base import (
     RECORD_VERSION,
+    RECORDSTREAM_MAGIC,
     DynamicDescriptor,
     FieldType,
     GroupedRecord,
@@ -17,6 +18,8 @@ from flow.record.base import (
     extend_record,
     iter_timestamped_records,
     open_path,
+    open_path_or_stream,
+    open_stream,
     stream,
 )
 from flow.record.jsonpacker import JsonRecordPacker
@@ -33,6 +36,7 @@ from flow.record.stream import (
 
 __all__ = [
     "RECORD_VERSION",
+    "RECORDSTREAM_MAGIC",
     "FieldType",
     "Record",
     "GroupedRecord",
@@ -47,7 +51,9 @@ __all__ = [
     "JsonRecordPacker",
     "RecordStreamWriter",
     "RecordStreamReader",
+    "open_path_or_stream",
     "open_path",
+    "open_stream",
     "stream",
     "dynamic_fieldtype",
     "DynamicDescriptor",

@@ -5,7 +5,8 @@ import pathlib
 import subprocess
 import sys
 from datetime import datetime, timezone
-from unittest.mock import mock_open, patch
+from io import BytesIO
+from unittest.mock import MagicMock, mock_open, patch
 
 import msgpack
 import pytest
@@ -589,7 +590,11 @@ def test_record_adapter_windows_path(tmp_path):
         writer.write(TestRecord("foo"))
         writer.write(TestRecord("bar"))
 
-    with patch("io.open", mock_open(read_data=path_records.read_bytes())) as m:
+    test_read_buf = BytesIO(path_records.read_bytes())
+    mock_reader = MagicMock(wraps=test_read_buf, spec=BytesIO)
+
+    with patch("io.open", MagicMock(return_value=mock_reader)) as m:
+        m.return_value.closed = False
         adapter = RecordReader(r"c:\users\user\test.records")
         assert type(adapter).__name__ == "StreamReader"
         m.assert_called_once_with(r"c:\users\user\test.records", "rb")
@@ -639,6 +644,44 @@ def test_fieldtype_typedlist_net_ipaddress():
     assert fieldtype("net.ipaddress[]").__type__ == fieldtypes.net.ipaddress
     assert issubclass(fieldtype("net.ipaddress[]"), list)
     assert issubclass(fieldtype("net.ipaddress[]"), fieldtypes.FieldType)
+
+
+def test_record_reader_default_stdin(tmp_path):
+    """RecordWriter should default to stdin if no path is given"""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
+
+    # write some records
+    records_path = tmp_path / "test.records"
+    with RecordWriter(records_path) as writer:
+        writer.write(TestRecord("foo"))
+
+    # Test stdin
+    with patch("sys.stdin", BytesIO(records_path.read_bytes())):
+        with RecordReader() as reader:
+            for record in reader:
+                assert record.text == "foo"
+
+
+def test_record_writer_default_stdout(capsysbinary):
+    """RecordWriter should default to stdout if no path is given"""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "text"),
+        ],
+    )
+
+    # write a record to stdout
+    with RecordWriter() as writer:
+        writer.write(TestRecord("foo"))
+
+    stdout = capsysbinary.readouterr().out
+    assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
 
 if __name__ == "__main__":

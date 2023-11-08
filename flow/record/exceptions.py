@@ -4,3 +4,7 @@ class RecordDescriptorError(Exception):
 
 class RecordDescriptorNotFound(Exception):
     """The specified record descriptor could not be found"""
+
+
+class RecordAdapterNotFound(Exception):
+    """Could not find a fitting RecordAdapter for a given input"""
