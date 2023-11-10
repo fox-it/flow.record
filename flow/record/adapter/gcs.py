@@ -38,16 +38,9 @@ class GcsReader(AbstractReader):
         self.bucket = self.gcs.bucket(bucket_name)
 
         # GCS Doesn't support iterating blobs using a glob pattern, so we have to do that ourselves. To extract the path
-        # prefix from the glob-pattern we have to find the first place where the glob starts. We'll then go through all
-        # files that match the path prefix, and do fnmatch ourselves to check whether any given blob path matches with
-        # the full pattern.
-        prefix_and_glob = re.split(GLOB_CHARACTERS_RE, path, maxsplit=1)
-        if len(prefix_and_glob) == 2:
-            self.prefix = prefix_and_glob[0]
-            self.pattern = path
-        else:
-            self.prefix = path
-            self.pattern = None
+        # prefix from the glob-pattern we have to find the first place where the glob starts.
+        self.prefix, *glob_pattern = re.split(GLOB_CHARACTERS_RE, path)
+        self.pattern = path if glob_pattern else None
 
     def __iter__(self) -> Iterator[Record]:
         blobs = self.gcs.list_blobs(bucket_or_name=self.bucket, prefix=self.prefix)
