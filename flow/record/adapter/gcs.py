@@ -1,4 +1,5 @@
 import logging
+import re
 from fnmatch import fnmatch
 from typing import Iterator, Union
 
@@ -25,7 +26,7 @@ Write usage: rdump gcs://[PROJECT-ID]:[BUCKET-ID]?path=[PATH]
 
 log = logging.getLogger(__name__)
 
-GLOB_CHARACTERS = ["*", "?", "[", "]"]
+GLOB_CHARACTERS_RE = r"[\[\]\*\?]"
 
 
 class GcsReader(AbstractReader):
@@ -36,26 +37,24 @@ class GcsReader(AbstractReader):
         self.gcs = Client(project=project_name)
         self.bucket = self.gcs.bucket(bucket_name)
 
-        # GCS Doesn't support iterating blobs using a glob pattern, so we have to do that ourselves.
-        # To split the path prefix from the glob-specific stuff, we have to find the first place where
-        # the glob starts. We'll then go through all files that match the path prefix before the glob,
-        # and do fnmatch ourselves to check whether any given blob matches with our glob.
-        first_glob_character = min((path.find(char) for char in GLOB_CHARACTERS if char in path), default=-1)
-        if first_glob_character == -1:
-            # No glob character was found
-            self.glob = None
-            self.prefix = path
+        # GCS Doesn't support iterating blobs using a glob pattern, so we have to do that ourselves. To extract the path
+        # prefix from the glob-pattern we have to find the first place where the glob starts. We'll then go through all
+        # files that match the path prefix, and do fnmatch ourselves to check whether any given blob path matches with
+        # the full pattern.
+        prefix_and_glob = re.split(GLOB_CHARACTERS_RE, path, maxsplit=1)
+        if len(prefix_and_glob) == 2:
+            self.prefix = prefix_and_glob[0]
+            self.pattern = path
         else:
-            # Split the glob and the prefix
-            self.prefix = path[:first_glob_character]
-            self.glob = path
+            self.prefix = path
+            self.pattern = None
 
     def __iter__(self) -> Iterator[Record]:
         blobs = self.gcs.list_blobs(bucket_or_name=self.bucket, prefix=self.prefix)
         for blob in blobs:
             if blob.size == 0:  # Skip empty files
                 continue
-            if self.glob and not fnmatch(blob.name, self.glob):
+            if self.pattern and not fnmatch(blob.name, self.pattern):
                 continue
             blobreader = BlobReader(blob)
 

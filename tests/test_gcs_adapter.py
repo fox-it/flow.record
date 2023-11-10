@@ -62,13 +62,13 @@ def test_gcs_uri_and_path(mock_google_sdk: MagicMock) -> None:
     mock_client.bucket.assert_called_with("test-bucket")
 
     assert adapter_with_glob.prefix == "/path/to/records/"
-    assert adapter_with_glob.glob == "/path/to/records/*/*.avro"
+    assert adapter_with_glob.pattern == "/path/to/records/*/*.avro"
 
     adapter_without_glob = RecordAdapter("gcs://test-project:test-bucket?path=/path/to/records/test-records.rec")
     assert isinstance(adapter_without_glob, GcsReader)
 
     assert adapter_without_glob.prefix == "/path/to/records/test-records.rec"
-    assert adapter_without_glob.glob is None
+    assert adapter_without_glob.pattern is None
 
 
 @clean_up_adapter_import
