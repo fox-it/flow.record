@@ -7,6 +7,7 @@ import pytest
 
 from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import sanitized_name
+from flow.record.exceptions import RecordDescriptorError
 
 
 def generate_records(amount: int) -> Record:
@@ -239,3 +240,52 @@ def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_va
     with RecordReader(f"sqlite://{db}") as reader:
         record = next(iter(reader))
         assert record.field == expected_value
+
+
+@pytest.mark.parametrize(
+    "invalid_table_name",
+    [
+        "'single_quote",
+        '"double_quote',
+        "`backtick",
+    ],
+)
+def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) -> None:
+    """Test if we get proper exception when table name is invalid for flow.record."""
+
+    # Creating the tables with these invalid_table_names in SQLite is no problem
+    db = tmp_path / "records.db"
+    with sqlite3.connect(db) as con:
+        con.execute(f"CREATE TABLE [{invalid_table_name}] (field TEXT, field2 TEXT)")
+        con.execute(f"INSERT INTO [{invalid_table_name}] VALUES(?, ?)", ("hello", "world"))
+        con.execute(f"INSERT INTO [{invalid_table_name}] VALUES(?, ?)", ("goodbye", "planet"))
+
+    # However, these invalid_table_names should raise an exception when reading
+    with pytest.raises(RecordDescriptorError, match="Invalid record type name"):
+        with RecordReader(f"sqlite://{db}") as reader:
+            for record in reader:
+                pass
+
+
+@pytest.mark.parametrize(
+    "invalid_field_name",
+    [
+        "'single_quote",
+        '"double_quote',
+        "`backtick",
+    ],
+)
+def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) -> None:
+    """Test if we get proper exception when SQLite field name is invalid for flow.record."""
+
+    # Creating the table with invalid field name in SQLite is no problem
+    db = tmp_path / "records.db"
+    with sqlite3.connect(db) as con:
+        con.execute(f"CREATE TABLE [test] (field TEXT, [{invalid_field_name}] TEXT)")
+        con.execute("INSERT INTO [test] VALUES(?, ?)", ("hello", "world"))
+        con.execute("INSERT INTO [test] VALUES(?, ?)", ("goodbye", "planet"))
+
+    # However, these field names are invalid in flow.record and should raise an exception
+    with pytest.raises(RecordDescriptorError, match="Field .* is an invalid or reserved field name."):
+        with RecordReader(f"sqlite://{db}") as reader:
+            _ = next(iter(reader))

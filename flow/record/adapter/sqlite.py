@@ -74,11 +74,11 @@ def create_descriptor_table(con: sqlite3.Connection, descriptor: RecordDescripto
     column_defs = []
     for column_name, fieldset in descriptor.get_all_fields().items():
         column_type = FIELD_MAP.get(fieldset.typename, "TEXT")
-        column_defs.append(f'   "{column_name}" {column_type}')
+        column_defs.append(f"   `{column_name}` {column_type}")
     sql_columns = ",\n".join(column_defs)
 
     # Create the descriptor table
-    sql = f"""CREATE TABLE IF NOT EXISTS "{table_name}" (\n{sql_columns}\n)"""
+    sql = f"CREATE TABLE IF NOT EXISTS `{table_name}` (\n{sql_columns}\n)"
     logger.debug(sql)
     con.execute(sql)
 
@@ -88,7 +88,7 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
     table_name = descriptor.name
 
     # Get existing columns
-    cursor = con.execute(f'PRAGMA table_info("{table_name}")')
+    cursor = con.execute(f"PRAGMA table_info(`{table_name}`)")
     column_names = set(row[1] for row in cursor.fetchall())
 
     # Add missing columns
@@ -97,7 +97,7 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
         if column_name in column_names:
             continue
         column_type = FIELD_MAP.get(fieldset.typename, "TEXT")
-        column_defs.append(f"  ALTER TABLE [{table_name}] ADD COLUMN [{column_name}] {column_type}")
+        column_defs.append(f"  ALTER TABLE `{table_name}` ADD COLUMN `{column_name}` {column_type}")
 
     # No missing columns
     if not column_defs:
@@ -114,9 +114,9 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     rdict = record._asdict()
 
     # Construct placeholder SQL query
-    column_names = ", ".join(f'"{name}"' for name in rdict.keys())
+    column_names = ", ".join(f"`{name}`" for name in rdict.keys())
     value_placeholder = ", ".join(["?"] * len(rdict))
-    sql = f"""INSERT INTO "{table_name}" ({column_names}) VALUES ({value_placeholder})"""
+    sql = f"INSERT INTO `{table_name}` ({column_names}) VALUES ({value_placeholder})"
 
     # Convert values to str() for types we don't support
     values = []
@@ -172,7 +172,7 @@ class SqliteReader(AbstractReader):
             fnames.append(fname)
 
         descriptor_cls = RecordDescriptor(table_name, fields)
-        cursor = self.con.execute(f'SELECT * FROM "{table_name_org}"')
+        cursor = self.con.execute(f"SELECT * FROM `{table_name_org}`")
         while True:
             rows = cursor.fetchmany(self.batch_size)
             if not rows:
