@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from datetime import datetime
+from functools import lru_cache
 from typing import Iterator
 
 from flow.record import Record, RecordDescriptor
@@ -108,15 +109,20 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
     con.executescript(sql)
 
 
+@lru_cache(maxsize=1000)
+def prepare_insert_sql(table_name: str, field_names: tuple[str]) -> str:
+    """Return (cached) prepared SQL statement for inserting a record based on table name and field names."""
+    column_names = ", ".join(f"`{name}`" for name in field_names)
+    value_placeholder = ", ".join(["?"] * len(field_names))
+    return f"INSERT INTO `{table_name}` ({column_names}) VALUES ({value_placeholder})"
+
+
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     """Insert a record into the database."""
     table_name = record._desc.name
     rdict = record._asdict()
 
-    # Construct placeholder SQL query
-    column_names = ", ".join(f"`{name}`" for name in rdict.keys())
-    value_placeholder = ", ".join(["?"] * len(rdict))
-    sql = f"INSERT INTO `{table_name}` ({column_names}) VALUES ({value_placeholder})"
+    sql = prepare_insert_sql(table_name, record.__slots__)
 
     # Convert values to str() for types we don't support
     values = []

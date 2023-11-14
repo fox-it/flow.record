@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
-from flow.record.adapter.sqlite import sanitized_name
+from flow.record.adapter.sqlite import prepare_insert_sql, sanitized_name
 from flow.record.exceptions import RecordDescriptorError
 
 
@@ -289,3 +289,10 @@ def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) ->
     with pytest.raises(RecordDescriptorError, match="Field .* is an invalid or reserved field name."):
         with RecordReader(f"sqlite://{db}") as reader:
             _ = next(iter(reader))
+
+
+def test_prepare_insert_sql():
+    table_name = "my_table"
+    field_names = ("name", "age", "email")
+    expected_sql = "INSERT INTO `my_table` (`name`, `age`, `email`) VALUES (?, ?, ?)"
+    assert prepare_insert_sql(table_name, field_names) == expected_sql
