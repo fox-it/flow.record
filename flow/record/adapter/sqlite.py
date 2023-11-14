@@ -15,9 +15,12 @@ logger = logging.getLogger(__name__)
 __usage__ = """
 SQLite adapter
 ---
-Write usage: rdump -w sqlite://[PATH]
-Read usage: rdump sqlite://[PATH]
+Write usage: rdump -w sqlite://[PATH]?batch_size=[BATCH_SIZE]
+Read usage: rdump sqlite://[PATH]?batch_size=[BATCH_SIZE]
 [PATH]: path to sqlite database file
+
+Optional parameters:
+    [BATCH_SIZE]: number of records to read or write in a single transaction (default: 1000)
 """
 
 # flow.record field mappings to SQLite types
@@ -207,12 +210,12 @@ class SqliteReader(AbstractReader):
 
 
 class SqliteWriter(AbstractWriter):
-    def __init__(self, path: str, **kwargs):
+    def __init__(self, path: str, batch_size: str | int = 1000, **kwargs):
         self.descriptors_seen = set()
         self.con = None
         self.con = sqlite3.connect(path)
         self.count = 0
-        self.batch_size = 1000
+        self.batch_size = int(batch_size)
 
     def write(self, record: Record) -> None:
         """Write a record to the database"""

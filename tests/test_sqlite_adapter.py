@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import pytest
 
@@ -10,7 +10,7 @@ from flow.record.adapter.sqlite import prepare_insert_sql, sanitized_name
 from flow.record.exceptions import RecordDescriptorError
 
 
-def generate_records(amount: int) -> Record:
+def generate_records(amount: int) -> Iterator[Record]:
     """Generates some test records"""
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
@@ -296,3 +296,35 @@ def test_prepare_insert_sql():
     field_names = ("name", "age", "email")
     expected_sql = "INSERT INTO `my_table` (`name`, `age`, `email`) VALUES (?, ?, ?)"
     assert prepare_insert_sql(table_name, field_names) == expected_sql
+
+
+@pytest.mark.parametrize(
+    "batch_size, expected_first, expected_second",
+    [
+        (1, 1, 2),
+        (10, 0, 10),
+        (100, 0, 100),
+        (1000, 0, 1000),
+    ],
+)
+def test_batch_size(tmp_path: Path, batch_size: int, expected_first: int, expected_second: int) -> None:
+    """Test that batch_size is respected when writing records."""
+    records = generate_records(batch_size + 100)
+    db_path = tmp_path / "records.db"
+    with RecordWriter(f"sqlite://{db_path}?batch_size={batch_size}") as writer:
+        # write a single record, should not be flushed yet if batch_size > 1
+        writer.write(next(records))
+
+        # test count of records in table (no flush yet if batch_size > 1)
+        with sqlite3.connect(db_path) as con:
+            x = con.execute("select count(*) from `test/record`")
+            assert x.fetchone()[0] is expected_first
+
+        # write at least batch_size records, should be flushed due to batch_size
+        for i in range(batch_size):
+            writer.write(next(records))
+
+        # test count of records in table after flush
+        with sqlite3.connect(db_path) as con:
+            x = con.execute("select count(*) from `test/record`")
+            assert x.fetchone()[0] == expected_second
