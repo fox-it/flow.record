@@ -144,12 +144,12 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
 
 
 class SqliteReader(AbstractReader):
-    def __init__(self, path: str, selector: Selector | str | None = None, **kwargs):
+    def __init__(self, path: str, batch_size: str | int = 1000, selector: Selector | str | None = None, **kwargs):
         self.selector = make_selector(selector)
         self.descriptors_seen = set()
         self.con = sqlite3.connect(path)
         self.count = 0
-        self.batch_size = 1000
+        self.batch_size = int(batch_size)
 
     def table_names(self) -> list[str]:
         """Return a list of table names in the database."""
