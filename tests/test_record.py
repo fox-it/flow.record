@@ -15,7 +15,7 @@ from flow.record import (
     fieldtypes,
     record_stream,
 )
-from flow.record.base import merge_record_descriptors
+from flow.record.base import merge_record_descriptors, normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
 
@@ -781,3 +781,14 @@ def test_merge_record_descriptor_name():
     assert MergedRecord.name == "test/ip_record"
     record = MergedRecord()
     assert record._desc.name == "test/ip_record"
+
+
+def test_clean_fieldname():
+    assert normalize_fieldname("hello") == "hello"
+    assert normalize_fieldname("my-variable-name-with-dashes") == "my_variable_name_with_dashes"
+    assert normalize_fieldname("_my_name_starting_with_underscore") == "n__my_name_starting_with_underscore"
+    assert normalize_fieldname("1337") == "n_1337"
+    assert normalize_fieldname("my name with spaces") == "my_name_with_spaces"
+    assert normalize_fieldname("my name (with) parentheses") == "my_name__with__parentheses"
+    assert normalize_fieldname("_generated") == "_generated"
+    assert normalize_fieldname("_source") == "_source"

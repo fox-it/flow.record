@@ -8,7 +8,7 @@ from typing import Iterator
 
 from flow.record import Record, RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.base import RESERVED_FIELDS
+from flow.record.base import RESERVED_FIELDS, normalize_fieldname
 from flow.record.selector import Selector, make_selector
 
 logger = logging.getLogger(__name__)
@@ -48,27 +48,6 @@ SQLITE_FIELD_MAP = {
     "DATETIME": "datetime",
     "TIMESTAMP": "datetime",
 }
-
-
-def sanitized_name(name: str) -> str:
-    """Returns a sanitized version of name.
-
-    Some (field) names are not allowed in flow.record, while they can be allowed in SQLite.
-    This sanitizes the name so it can still be used in flow.record.
-
-        >>> sanitized_name("my-variable-name-with-dashes")
-        'my_variable_name_with_dashes'
-        >>> sanitized_name("_my_name_starting_with_underscore")
-        'n__my_name_starting_with_underscore'
-        >>> sanitized_name("1337")
-        'n_1337'
-    """
-
-    if name not in RESERVED_FIELDS:
-        name = name.replace("-", "_")
-        if name.startswith("_") or name[0].isdecimal():
-            name = "n_" + name
-    return name
 
 
 def create_descriptor_table(con: sqlite3.Connection, descriptor: RecordDescriptor) -> None:
@@ -162,7 +141,7 @@ class SqliteReader(AbstractReader):
         # flow.record is quite strict with what is allowed in fieldnames or decriptor name.
         # While SQLite is less strict, we need to sanitize the names to make them compatible.
         table_name_org = table_name
-        table_name = sanitized_name(table_name)
+        table_name = normalize_fieldname(table_name)
 
         schema = self.con.execute(
             "SELECT c.type, c.name FROM pragma_table_info(?) c",
@@ -174,7 +153,7 @@ class SqliteReader(AbstractReader):
         fname_to_type = {}
         for idx, row in enumerate(schema):
             ftype, fname = row
-            fname = sanitized_name(fname)
+            fname = normalize_fieldname(fname)
             ftype = SQLITE_FIELD_MAP.get(ftype, "string")
             fname_to_type[fname] = ftype
             if fname not in RESERVED_FIELDS:
@@ -182,6 +161,7 @@ class SqliteReader(AbstractReader):
             fnames.append(fname)
 
         descriptor_cls = RecordDescriptor(table_name, fields)
+        table_name_org = table_name_org.replace("`", r"\\\`")
         cursor = self.con.execute(f"SELECT * FROM `{table_name_org}`")
         while True:
             rows = cursor.fetchmany(self.batch_size)
