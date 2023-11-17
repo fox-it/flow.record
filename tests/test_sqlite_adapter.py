@@ -328,3 +328,20 @@ def test_batch_size(tmp_path: Path, batch_size: int, expected_first: int, expect
         with sqlite3.connect(db_path) as con:
             x = con.execute("select count(*) from `test/record`")
             assert x.fetchone()[0] == expected_second
+
+
+def test_selector(tmp_path: Path) -> None:
+    """Test selector when reading records."""
+    db_path = tmp_path / "records.db"
+    with RecordWriter(f"sqlite://{db_path}") as writer:
+        for record in generate_records(10):
+            writer.write(record)
+
+    with RecordReader(f"sqlite://{db_path}", selector="r.name == 'record5'") as reader:
+        records = list(reader)
+        assert len(records) == 1
+        assert records[0].name == "record5"
+
+    with RecordReader(f"sqlite://{db_path}", selector="r.name == 'record12345'") as reader:
+        records = list(reader)
+        assert len(records) == 0

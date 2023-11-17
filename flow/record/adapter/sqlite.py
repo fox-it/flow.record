@@ -9,6 +9,7 @@ from typing import Iterator
 from flow.record import Record, RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS
+from flow.record.selector import Selector, make_selector
 
 logger = logging.getLogger(__name__)
 
@@ -143,12 +144,12 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
 
 
 class SqliteReader(AbstractReader):
-    def __init__(self, path: str, **kwargs):
+    def __init__(self, path: str, batch_size: str | int = 1000, selector: Selector | str | None = None, **kwargs):
+        self.selector = make_selector(selector)
         self.descriptors_seen = set()
         self.con = sqlite3.connect(path)
         self.count = 0
-        self.batch_size = 1000
-        self.rewrite = {}
+        self.batch_size = int(batch_size)
 
     def table_names(self) -> list[str]:
         """Return a list of table names in the database."""
@@ -206,7 +207,9 @@ class SqliteReader(AbstractReader):
         """Iterate over all tables in the database and yield records."""
         for table_name in self.table_names():
             logging.debug("Reading table: %s", table_name)
-            yield from self.read_table(table_name)
+            for record in self.read_table(table_name):
+                if not self.selector or self.selector.match(record):
+                    yield record
 
 
 class SqliteWriter(AbstractWriter):
