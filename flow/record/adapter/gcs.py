@@ -13,14 +13,14 @@ from flow.record.selector import CompiledSelector, Selector
 __usage__ = """
 Google Cloud Storage adapter
 ---
-Read usage: rdump gcs://[PROJECT-ID]:[BUCKET-ID]?path=[PATH]
-[PROJECT-ID]: Google Cloud Project ID
-[BUCKET-ID]: Bucket ID
+Read usage: rdump gcs://[BUCKET_ID]/path?project_id=[PROJECT_ID]
+[PROJECT_ID]: Google Cloud Project ID
+[BUCKET_ID]: Bucket ID
 [path]: Path to look for files, with support for glob-pattern matching
 
-Write usage: rdump gcs://[PROJECT-ID]:[BUCKET-ID]?path=[PATH]
-[PROJECT-ID]: Google Cloud Project ID
-[BUCKET-ID]: Bucket ID
+Write usage: rdump gcs://[BUCKET_ID]/path?project_id=[PROJECT_ID]
+[PROJECT_ID]: Google Cloud Project ID
+[BUCKET_ID]: Bucket ID
 [path]: Path to write records to
 """
 
@@ -30,11 +30,10 @@ GLOB_CHARACTERS_RE = r"[\[\]\*\?]"
 
 
 class GcsReader(AbstractReader):
-    def __init__(self, uri: str, path: str, selector: Union[None, Selector, CompiledSelector] = None, **kwargs) -> None:
+    def __init__(self, uri: str, project: str, selector: Union[None, Selector, CompiledSelector] = None, **kwargs):
         self.selector = selector
-        project_name, _, bucket_name = uri.partition(":")
-
-        self.gcs = Client(project=project_name)
+        bucket_name, _, path = uri.partition("/")
+        self.gcs = Client(project=project)
         self.bucket = self.gcs.bucket(bucket_name)
 
         # GCS Doesn't support iterating blobs using a glob pattern, so we have to do that ourselves. To extract the path
@@ -61,11 +60,11 @@ class GcsReader(AbstractReader):
 
 
 class GcsWriter(AbstractWriter):
-    def __init__(self, uri: str, path: str, **kwargs):
-        project_name, _, bucket_name = uri.partition(":")
+    def __init__(self, uri: str, project: str, **kwargs):
+        bucket_name, _, path = uri.partition("/")
         self.writer = None
 
-        self.gcs = Client(project=project_name)
+        self.gcs = Client(project=project)
         self.bucket = self.gcs.bucket(bucket_name)
 
         blob = self.bucket.blob(path)

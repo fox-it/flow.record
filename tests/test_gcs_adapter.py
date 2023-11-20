@@ -54,20 +54,20 @@ def test_gcs_uri_and_path(mock_google_sdk: MagicMock) -> None:
 
     mock_client = MagicMock()
     mock_google_sdk.cloud.storage.client.Client.return_value = mock_client
-    adapter_with_glob = RecordAdapter("gcs://test-project:test-bucket?path=/path/to/records/*/*.avro")
+    adapter_with_glob = RecordAdapter("gcs://test-bucket/path/to/records/*/*.avro", project="test-project")
 
     assert isinstance(adapter_with_glob, GcsReader)
 
     mock_google_sdk.cloud.storage.client.Client.assert_called_with(project="test-project")
     mock_client.bucket.assert_called_with("test-bucket")
 
-    assert adapter_with_glob.prefix == "/path/to/records/"
-    assert adapter_with_glob.pattern == "/path/to/records/*/*.avro"
+    assert adapter_with_glob.prefix == "path/to/records/"
+    assert adapter_with_glob.pattern == "path/to/records/*/*.avro"
 
-    adapter_without_glob = RecordAdapter("gcs://test-project:test-bucket?path=/path/to/records/test-records.rec")
+    adapter_without_glob = RecordAdapter("gcs://test-bucket/path/to/records/test-records.rec", project="test-project")
     assert isinstance(adapter_without_glob, GcsReader)
 
-    assert adapter_without_glob.prefix == "/path/to/records/test-records.rec"
+    assert adapter_without_glob.prefix == "path/to/records/test-records.rec"
     assert adapter_without_glob.pattern is None
 
 
@@ -90,14 +90,14 @@ def test_gcs_reader_glob(mock_google_sdk) -> None:
 
     # Create a mocked instance of the 'Blob' class of google.cloud.storage.fileio
     recordsfile_blob_mock = MagicMock()
-    recordsfile_blob_mock.name = "/path/to/records/subfolder/results/tests.records"
+    recordsfile_blob_mock.name = "path/to/records/subfolder/results/tests.records"
     recordsfile_blob_mock.data = mock_recordstream
     recordsfile_blob_mock.size = len(mock_recordstream)
 
     # As this blob is located in the '🍩 select' folder, it should not match with the glob that will be used later
     # (which requires /results/ to be present in the path string)
     wrong_location_blob = MagicMock()
-    wrong_location_blob.name = "/path/to/records/subfolder/donutselect/tests.records"
+    wrong_location_blob.name = "path/to/records/subfolder/donutselect/tests.records"
     wrong_location_blob.size = 0x69
     wrong_location_blob.data = b""
 
@@ -110,7 +110,8 @@ def test_gcs_reader_glob(mock_google_sdk) -> None:
     mock_google_sdk.cloud.storage.fileio.BlobReader.return_value = mock_reader
     with patch("io.open", MagicMock(return_value=mock_reader)):
         adapter = RecordAdapter(
-            url="gcs://test-project:test-bucket?path=/path/to/records/*/results/*.records",
+            url="gcs://test-bucket/path/to/records/*/results/*.records",
+            project="test-project",
             selector="r.idx >= 5",
         )
 
@@ -118,7 +119,7 @@ def test_gcs_reader_glob(mock_google_sdk) -> None:
         mock_client.bucket.assert_called_with("test-bucket")
         mock_client.list_blobs.assert_called_with(
             bucket_or_name="test-bucket-returned-from-client",
-            prefix="/path/to/records/",
+            prefix="path/to/records/",
         )
 
     # We expect the GCS Reader to skip over blobs of size 0, as those will inherently not contain records.
@@ -143,7 +144,7 @@ def test_gcs_writer(mock_google_sdk) -> None:
     mock_writer = MagicMock(wraps=test_buf, spec=BytesIO)
     mock_google_sdk.cloud.storage.fileio.BlobWriter.return_value = mock_writer
 
-    adapter = RecordAdapter("gcs://test-project:test-bucket?path=/test/test.records", out=True)
+    adapter = RecordAdapter("gcs://test-bucket/test/test.records", project="test-project", out=True)
 
     assert isinstance(adapter, GcsWriter)
 

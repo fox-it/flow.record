@@ -49,6 +49,9 @@ geoip = [
 avro = [
     "fastavro[snappy]",
 ]
+gcs = [
+    "google-cloud-storage",
+]
 test = [
     "lz4",
     "zstandard",
