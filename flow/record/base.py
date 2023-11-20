@@ -982,9 +982,9 @@ def normalize_fieldname(field_name: str) -> str:
         >>> normalize_fieldname("my-variable-name-with-dashes")
         'my_variable_name_with_dashes'
         >>> normalize_fieldname("_my_name_starting_with_underscore")
-        'n__my_name_starting_with_underscore'
+        'x__my_name_starting_with_underscore'
         >>> normalize_fieldname("1337")
-        'n_1337'
+        'x_1337'
         >>> normalize_fieldname("my name with spaces")
         'my_name_with_spaces'
         >>> normalize_fieldname("my name (with) parentheses")
@@ -997,7 +997,7 @@ def normalize_fieldname(field_name: str) -> str:
         field_name = re.sub(r"[- ()]", "_", field_name)
         # prepend `n_` if field_name is empty or starts with underscore or digit
         if len(field_name) == 0 or field_name.startswith("_") or field_name[0].isdecimal():
-            field_name = "n_" + field_name
+            field_name = "x_" + field_name
     return field_name
 
 
