@@ -6,7 +6,8 @@ from typing import Any, Iterator
 import pytest
 
 from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
-from flow.record.adapter.sqlite import prepare_insert_sql, sanitized_name
+from flow.record.adapter.sqlite import prepare_insert_sql
+from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
 
 
@@ -78,7 +79,7 @@ def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
     con.close()
 
     data_records = []
-    sanitized_field_name = sanitized_name(field_name)
+    sanitized_field_name = normalize_fieldname(field_name)
 
     with RecordReader(f"sqlite://{db}") as reader:
         data_records = [(getattr(record, sanitized_field_name),) for record in reader]
