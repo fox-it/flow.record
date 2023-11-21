@@ -53,6 +53,7 @@ test = [
     "lz4",
     "zstandard",
     "fastavro",
+    "duckdb; platform_python_implementation != 'PyPy'",
 ]
 
 [project.scripts]
