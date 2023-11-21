@@ -1,14 +1,12 @@
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, NamedTuple
 
 try:
     import duckdb
 except ModuleNotFoundError:
     duckdb = None
-
-from typing import NamedTuple
 
 import pytest
 
