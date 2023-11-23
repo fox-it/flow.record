@@ -158,7 +158,7 @@ def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
             CREATE TABLE 'test/record' (
                 name TEXT,
                 data BLOB,
-                datetime DATETIME,
+                datetime TIMESTAMPTZ,
                 score DOUBLE
             )
             """
@@ -182,6 +182,7 @@ def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
             assert record.name == f"record{i}"
             assert record.data == f"foobar{i}".encode()
             assert record.datetime == datetime(2023, 10, i, 13, 37, tzinfo=timezone.utc)
+            assert str(record.datetime) == f"2023-10-{i:02d} 13:37:00+00:00"
             assert record.score == 3.14 + i
 
 

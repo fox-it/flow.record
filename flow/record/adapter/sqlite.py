@@ -28,12 +28,12 @@ Optional parameters:
 FIELD_MAP = {
     "int": "INTEGER",
     "uint32": "INTEGER",
-    "varint": "INTEGER",
+    "varint": "BIGINT",
     "float": "REAL",
     "boolean": "INTEGER",
     "bytes": "BLOB",
-    "filesize": "INTEGER",
-    "datetime": "TIMESTAMP",
+    "filesize": "BIGINT",
+    "datetime": "TIMESTAMPTZ",
 }
 
 
@@ -41,12 +41,15 @@ FIELD_MAP = {
 SQLITE_FIELD_MAP = {
     "VARCHAR": "string",
     "INTEGER": "varint",
+    "BIGINT": "varint",
     "BLOB": "bytes",
     "REAL": "float",
     "DOUBLE": "float",
     "BOOLEAN": "boolean",
     "DATETIME": "datetime",
     "TIMESTAMP": "datetime",
+    "TIMESTAMPTZ": "datetime",
+    "TIMESTAMP WITH TIME ZONE": "datetime",
 }
 
 
