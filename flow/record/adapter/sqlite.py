@@ -147,8 +147,7 @@ class SqliteReader(AbstractReader):
 
         # flow.record is quite strict with what is allowed in fieldnames or decriptor name.
         # While SQLite is less strict, we need to sanitize the names to make them compatible.
-        table_name_org = table_name
-        table_name_org = table_name_org.replace('"', '""')
+        table_name_org = table_name.replace('"', '""')
         table_name = normalize_fieldname(table_name)
 
         schema = self.con.execute(
