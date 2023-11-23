@@ -130,8 +130,6 @@ def test_write_to_sqlite(tmp_path: Path, count: int, db: Database) -> None:
         for record in generate_records(count):
             writer.write(record)
 
-    print("written!")
-
     record_count = 0
     with db.connector.connect(str(db_path)) as con:
         cursor = con.execute("SELECT COUNT(*) FROM 'test/record'")

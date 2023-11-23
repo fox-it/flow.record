@@ -52,5 +52,5 @@ class DuckdbWriter(SqliteWriter):
         self.con.begin()
 
     def tx_cycle(self) -> None:
-        self.con.execute("COMMIT")
-        self.con.execute("BEGIN")
+        self.con.commit()
+        self.con.begin()
