@@ -11,6 +11,8 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS, normalize_fieldname
 from flow.record.selector import Selector, make_selector
 
+logger = logging.getLogger(__name__)
+
 __usage__ = """
 SQLite adapter
 ---
@@ -61,7 +63,7 @@ def create_descriptor_table(con: sqlite3.Connection, descriptor: RecordDescripto
 
     # Create the descriptor table
     sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" (\n{sql_columns}\n)'
-    logging.debug(sql)
+    logger.debug(sql)
     con.execute(sql)
 
 
@@ -115,13 +117,15 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
         values.append(value)
 
     # Insert record into database
-    logging.debug(sql)
-    logging.debug(values)
+    logger.debug(sql)
+    logger.debug(values)
     con.execute(sql, values)
 
 
 class SqliteReader(AbstractReader):
     """SQLite reader."""
+
+    logger = logger
 
     def __init__(self, path: str, *, batch_size: str | int = 1000, selector: Selector | str | None = None, **kwargs):
         self.selector = make_selector(selector)
@@ -187,7 +191,7 @@ class SqliteReader(AbstractReader):
     def __iter__(self) -> Iterator[Record]:
         """Iterate over all tables in the database and yield records."""
         for table_name in self.table_names():
-            logging.debug("Reading table: %s", table_name)
+            self.logger.debug("Reading table: %s", table_name)
             for record in self.read_table(table_name):
                 if not self.selector or self.selector.match(record):
                     yield record
@@ -195,6 +199,8 @@ class SqliteReader(AbstractReader):
 
 class SqliteWriter(AbstractWriter):
     """SQLite writer."""
+
+    logger = logger
 
     def __init__(self, path: str, *, batch_size: str | int = 1000, **kwargs):
         self.descriptors_seen = set()

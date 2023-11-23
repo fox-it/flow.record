@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import duckdb
 
 from flow.record.adapter.sqlite import (
@@ -8,6 +10,8 @@ from flow.record.adapter.sqlite import (
     SqliteWriter,
     make_selector,
 )
+
+logger = logging.getLogger(__name__)
 
 __usage__ = """
 DuckDB adapter
@@ -24,6 +28,8 @@ Optional parameters:
 class DuckdbReader(SqliteReader):
     """DuckDB reader, subclasses from SQLite reader."""
 
+    logger = logger
+
     def __init__(self, path: str, *, batch_size: str | int = 1000, selector: Selector | str | None = None, **kwargs):
         self.selector = make_selector(selector)
         self.descriptors_seen = set()
@@ -34,6 +40,8 @@ class DuckdbReader(SqliteReader):
 
 class DuckdbWriter(SqliteWriter):
     """DuckDB writer, subclasses from SQLite writer."""
+
+    logger = logger
 
     def __init__(self, path: str, *, batch_size: str | int = 1000, **kwargs):
         self.descriptors_seen = set()
