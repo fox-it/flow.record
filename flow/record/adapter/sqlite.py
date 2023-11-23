@@ -202,7 +202,7 @@ class SqliteWriter(AbstractWriter):
         self.con = sqlite3.connect(path, isolation_level=None)
         self.count = 0
         self.batch_size = int(batch_size)
-        self.con.execute("BEGIN")
+        self.tx_cycle()
 
     def write(self, record: Record) -> None:
         """Write a record to the database"""
