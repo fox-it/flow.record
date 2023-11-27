@@ -1,27 +1,28 @@
+from __future__ import annotations
+
 import logging
 import re
 from fnmatch import fnmatch
-from typing import Iterator, Union
+from typing import Iterator
 
 from google.cloud.storage.client import Client
 from google.cloud.storage.fileio import BlobReader, BlobWriter
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordAdapter
-from flow.record.selector import CompiledSelector, Selector
+from flow.record.selector import Selector
 
 __usage__ = """
 Google Cloud Storage adapter
 ---
-Read usage: rdump gcs://[BUCKET_ID]/path?project_id=[PROJECT_ID]
-[PROJECT_ID]: Google Cloud Project ID
-[BUCKET_ID]: Bucket ID
-[path]: Path to look for files, with support for glob-pattern matching
+Read usage: rdump gcs://[BUCKET_ID]/path?project=[PROJECT]
+Write usage: rdump -w gcs://[BUCKET_ID]/path?project=[PROJECT]
 
-Write usage: rdump gcs://[BUCKET_ID]/path?project_id=[PROJECT_ID]
-[PROJECT_ID]: Google Cloud Project ID
 [BUCKET_ID]: Bucket ID
-[path]: Path to write records to
+[path]: Path to read from or write to, supports glob-pattern matching when reading
+
+Optional arguments:
+    [PROJECT]: Google Cloud Project ID, If not passed, falls back to the default inferred from the environment.
 """
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ GLOB_CHARACTERS_RE = r"[\[\]\*\?]"
 
 
 class GcsReader(AbstractReader):
-    def __init__(self, uri: str, project: str, selector: Union[None, Selector, CompiledSelector] = None, **kwargs):
+    def __init__(self, uri: str, *, project: str | None = None, selector: Selector | None = None, **kwargs):
         self.selector = selector
         bucket_name, _, path = uri.partition("/")
         self.gcs = Client(project=project)
