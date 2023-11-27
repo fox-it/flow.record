@@ -971,6 +971,36 @@ def extend_record(
     return ExtendedRecord.init_from_dict(collections.ChainMap(*kv_maps))
 
 
+@functools.lru_cache(maxsize=4096)
+def normalize_fieldname(field_name: str) -> str:
+    """Returns a normalized version of ``field_name``.
+
+    Some (field) names are not allowed in flow.record, while they can be allowed in other formats.
+    This normalizes the name so it can still be used in flow.record.
+    Reserved field_names are not normalized.
+
+        >>> normalize_fieldname("my-variable-name-with-dashes")
+        'my_variable_name_with_dashes'
+        >>> normalize_fieldname("_my_name_starting_with_underscore")
+        'x__my_name_starting_with_underscore'
+        >>> normalize_fieldname("1337")
+        'x_1337'
+        >>> normalize_fieldname("my name with spaces")
+        'my_name_with_spaces'
+        >>> normalize_fieldname("my name (with) parentheses")
+        'my_name__with__parentheses'
+        >>> normalize_fieldname("_generated")
+        '_generated'
+    """
+
+    if field_name not in RESERVED_FIELDS:
+        field_name = re.sub(r"[- ()]", "_", field_name)
+        # prepend `n_` if field_name is empty or starts with underscore or digit
+        if len(field_name) == 0 or field_name.startswith("_") or field_name[0].isdecimal():
+            field_name = "x_" + field_name
+    return field_name
+
+
 class DynamicFieldtypeModule:
     def __init__(self, path=""):
         self.path = path
