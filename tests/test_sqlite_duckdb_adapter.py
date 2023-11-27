@@ -357,7 +357,7 @@ def test_batch_size(
 
         # test count of records in table (no flush yet if batch_size > 1)
         with db.connector.connect(str(db_path)) as con:
-            x = con.execute('select count(*) from "test/record"')
+            x = con.execute('SELECT COUNT(*) FROM "test/record"')
             assert x.fetchone()[0] is expected_first
 
         # write at least batch_size records, should be flushed due to batch_size
