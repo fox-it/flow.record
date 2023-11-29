@@ -624,3 +624,39 @@ def test_flow_record_invalid_tz(tmp_path, capsys):
 
     # restore DISPLAY_TZINFO just in case
     flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
+
+
+@pytest.mark.parametrize(
+    "rdump_params",
+    [
+        ["--mode=line-verbose"],
+        ["--line-verbose"],
+        ["-Lv"],
+        ["-w line://?verbose=true"],
+        ["-w line://?verbose=1"],
+        ["-w line://?verbose=True"],
+    ],
+)
+def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
+    TestRecord = RecordDescriptor(
+        "test/rdump/line_verbose",
+        [
+            ("datetime", "stamp"),
+            ("bytes", "data"),
+            ("uint32", "counter"),
+            ("string", "foo"),
+        ],
+    )
+    record_path = tmp_path / "test.records"
+
+    with RecordWriter(record_path) as writer:
+        writer.write(TestRecord())
+
+    rdump.main([str(record_path)] + rdump_params)
+    captured = capsys.readouterr()
+
+    assert captured.err == ""
+    assert "stamp (datetime) =" in captured.out
+    assert "data (bytes) =" in captured.out
+    assert "counter (uint32) =" in captured.out
+    assert "foo (string) =" in captured.out

@@ -98,7 +98,9 @@ def main(argv=None):
     output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
     output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
-    output.add_argument("-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line"), help="Output mode")
+    output.add_argument(
+        "-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line", "line-verbose"), help="Output mode"
+    )
     output.add_argument(
         "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
     )
@@ -155,6 +157,15 @@ def main(argv=None):
         default=argparse.SUPPRESS,
         help="Short for --mode=line",
     )
+    aliases.add_argument(
+        "-Lv",
+        "--line-verbose",
+        action="store_const",
+        const="line-verbose",
+        dest="mode",
+        default=argparse.SUPPRESS,
+        help="Short for --mode=line-verbose",
+    )
 
     args = parser.parse_args(argv)
 
@@ -176,6 +187,7 @@ def main(argv=None):
             "json": "jsonfile://?indent=2&descriptors=false",
             "jsonlines": "jsonfile://?descriptors=false",
             "line": "line://",
+            "line-verbose": "line://?verbose=true",
         }
         uri = mode_to_uri.get(args.mode, uri)
         qparams = {

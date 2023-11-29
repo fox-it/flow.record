@@ -499,7 +499,7 @@ class RecordDescriptor:
             "_source": RecordField("_source", "string"),
             "_classification": RecordField("_classification", "datetime"),
             "_generated": RecordField("_generated", "datetime"),
-            "_version": RecordField("_version", "vaeint"),
+            "_version": RecordField("_version", "varint"),
         }
 
         Returns:
