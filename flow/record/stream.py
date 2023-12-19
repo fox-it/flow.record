@@ -19,7 +19,7 @@ from .packer import RecordPacker
 log = logging.getLogger(__package__)
 
 aRepr = reprlib.Repr()
-aRepr.maxother = 100
+aRepr.maxother = 255
 
 
 def RecordOutput(fp):
