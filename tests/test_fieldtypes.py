@@ -4,6 +4,7 @@ import hashlib
 import os
 import pathlib
 import posixpath
+import types
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -538,7 +539,8 @@ def custom_pure_path(sep, altsep):
 
         class CustomFlavour:
             def __new__(cls, *args, **kwargs):
-                flavour = posixpath
+                flavour = types.ModuleType("mockpath")
+                flavour.__dict__.update(posixpath.__dict__)
                 flavour.sep = sep
                 flavour.altsep = altsep
                 return flavour
