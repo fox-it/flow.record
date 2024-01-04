@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from flow.record import RecordDescriptor, open_path_or_stream
+from flow.record import Record, RecordDescriptor, open_path_or_stream
 from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
 
@@ -19,7 +19,7 @@ Optional arguments:
 
 @lru_cache(maxsize=1024)
 def field_types_for_record_descriptor(desc: RecordDescriptor) -> dict[str, str]:
-    """Return a dictionary of fieldname -> fieldtype for given RecordDescriptor.
+    """Return dictionary of fieldname -> fieldtype for given RecordDescriptor.
 
     Args:
         desc: RecordDescriptor to get fieldtypes for
@@ -34,7 +34,15 @@ class LineWriter(AbstractWriter):
 
     fp = None
 
-    def __init__(self, path, *, fields=None, exclude=None, verbose=False, **kwargs):
+    def __init__(
+        self,
+        path: str,
+        *,
+        fields: list[str] | str | None = None,
+        exclude: list[str] | str | None = None,
+        verbose: bool = False,
+        **kwargs,
+    ):
         self.fp = open_path_or_stream(path, "wb")
         self.count = 0
         self.fields = fields
@@ -45,12 +53,12 @@ class LineWriter(AbstractWriter):
         if isinstance(self.exclude, str):
             self.exclude = self.exclude.split(",")
 
-    def write(self, rec):
+    def write(self, rec: Record) -> None:
         rdict = rec._asdict(fields=self.fields, exclude=self.exclude)
         rdict_types = field_types_for_record_descriptor(rec._desc) if self.verbose else None
 
         self.count += 1
-        self.fp.write("--[ RECORD {} ]--\n".format(self.count).encode())
+        self.fp.write(f"--[ RECORD {self.count} ]--\n".encode())
         if rdict:
             if rdict_types:
                 # also account for extra characters for fieldtype and whitespace + parenthesis
@@ -63,11 +71,11 @@ class LineWriter(AbstractWriter):
                 key = f"{key} ({rdict_types[key]})"
             self.fp.write(fmt.format(key, value).encode())
 
-    def flush(self):
+    def flush(self) -> None:
         if self.fp:
             self.fp.flush()
 
-    def close(self):
+    def close(self) -> None:
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
         self.fp = None
