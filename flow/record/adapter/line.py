@@ -1,4 +1,6 @@
-from flow.record import open_path_or_stream
+from functools import lru_cache
+
+from flow.record import RecordDescriptor, open_path_or_stream
 from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
 
@@ -11,6 +13,18 @@ Write usage: rdump -w line://[PATH]?verbose=[VERBOSE]
 Optional arguments:
     [VERBOSE]: Also show fieldtype in line output (default: False)
 """
+
+
+@lru_cache(maxsize=1024)
+def field_types_for_record_descriptor(desc: RecordDescriptor) -> dict[str, str]:
+    """Return a dictionary of fieldname -> fieldtype for given RecordDescriptor.
+
+    Args:
+        desc: RecordDescriptor to get fieldtypes for
+    Returns:
+        Dictionary of fieldname -> fieldtype
+    """
+    return {fname: fieldset.typename for fname, fieldset in desc.get_all_fields().items()}
 
 
 class LineWriter(AbstractWriter):
@@ -31,9 +45,7 @@ class LineWriter(AbstractWriter):
 
     def write(self, rec):
         rdict = rec._asdict(fields=self.fields, exclude=self.exclude)
-        rdict_types = None
-        if self.verbose:
-            rdict_types = {fname: fieldset.typename for fname, fieldset in rec._desc.get_all_fields().items()}
+        rdict_types = field_types_for_record_descriptor(rec._desc) if self.verbose else None
 
         self.count += 1
         self.fp.write("--[ RECORD {} ]--\n".format(self.count).encode())

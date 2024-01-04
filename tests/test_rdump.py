@@ -650,11 +650,20 @@ def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
     record_path = tmp_path / "test.records"
 
     with RecordWriter(record_path) as writer:
-        writer.write(TestRecord())
+        writer.write(TestRecord(counter=1))
+        writer.write(TestRecord(counter=2))
+        writer.write(TestRecord(counter=3))
 
+    from flow.record.adapter.line import field_types_for_record_descriptor
+
+    field_types_for_record_descriptor.cache_clear()
+    assert field_types_for_record_descriptor.cache_info().currsize == 0
     rdump.main([str(record_path)] + rdump_params)
-    captured = capsys.readouterr()
+    assert field_types_for_record_descriptor.cache_info().misses == 1
+    assert field_types_for_record_descriptor.cache_info().hits == 2
+    assert field_types_for_record_descriptor.cache_info().currsize == 1
 
+    captured = capsys.readouterr()
     assert captured.err == ""
     assert "stamp (datetime) =" in captured.out
     assert "data (bytes) =" in captured.out
