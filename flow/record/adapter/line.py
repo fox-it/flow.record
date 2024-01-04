@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import lru_cache
 
 from flow.record import RecordDescriptor, open_path_or_stream
