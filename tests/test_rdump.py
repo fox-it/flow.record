@@ -632,9 +632,9 @@ def test_flow_record_invalid_tz(tmp_path, capsys):
         ["--mode=line-verbose"],
         ["--line-verbose"],
         ["-Lv"],
-        ["-w line://?verbose=true"],
-        ["-w line://?verbose=1"],
-        ["-w line://?verbose=True"],
+        ["-w", "line://?verbose=true"],
+        ["-w", "line://?verbose=1"],
+        ["-w", "line://?verbose=True"],
     ],
 )
 def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
