@@ -691,8 +691,7 @@ class path(pathlib.PurePath, FieldType):
         return super().__eq__(other)
 
     def __str__(self) -> str:
-        result = super().__str__()
-        return "" if result == "." else result
+        return "" if self.parts == () else super().__str__()
 
     def __repr__(self) -> str:
         return repr(str(self))

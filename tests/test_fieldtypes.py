@@ -706,6 +706,7 @@ def test_path_multiple_parts(path_parts, expected_instance):
         ("\\tmp\\foo\\bar", r"'\\tmp\\foo\\bar'", "\\tmp\\foo\\bar"),
         ("user/.bash_history", "'user/.bash_history'", "user/.bash_history"),
         ("", "''", ""),
+        (".", "'.'", "."),
     ],
 )
 def test_path_posix(path_initializer, path, expected_repr, expected_str):
@@ -755,6 +756,7 @@ def test_path_posix(path_initializer, path, expected_repr, expected_str):
         ),
         ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
         ("", "''", ""),
+        (".", "'.'", "."),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
