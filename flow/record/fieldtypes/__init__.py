@@ -690,15 +690,19 @@ class path(pathlib.PurePath, FieldType):
             return str(self) == other or self == self.__class__(other)
         return super().__eq__(other)
 
+    def __str__(self) -> str:
+        result = super().__str__()
+        return "" if result == "." else result
+
     def __repr__(self) -> str:
         return repr(str(self))
 
-    def _pack(self):
+    def _pack(self) -> tuple[str, int]:
         path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
         return (str(self), path_type)
 
     @classmethod
-    def _unpack(cls, data: Tuple[str, str]):
+    def _unpack(cls, data: Tuple[str, str]) -> posix_path | windows_path:
         path_, path_type = data
         if path_type == PATH_POSIX:
             return posix_path(path_)
@@ -709,12 +713,12 @@ class path(pathlib.PurePath, FieldType):
             return posix_path(path_)
 
     @classmethod
-    def from_posix(cls, path_: str):
+    def from_posix(cls, path_: str) -> posix_path:
         """Initialize a path instance from a posix path string using / as a separator."""
         return posix_path(path_)
 
     @classmethod
-    def from_windows(cls, path_: str):
+    def from_windows(cls, path_: str) -> windows_path:
         """Initialize a path instance from a windows path string using \\ or / as a separator."""
         return windows_path(path_)
 

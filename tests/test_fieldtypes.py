@@ -609,8 +609,8 @@ def test_path():
     assert r.value is None
 
     r = TestRecord("")
-    assert str(r.value) == "."
-    assert r.value == "."
+    assert str(r.value) == ""
+    assert r.value == ""
 
     if os.name == "nt":
         native_path_str = windows_path_str
@@ -700,14 +700,15 @@ def test_path_multiple_parts(path_parts, expected_instance):
     ],
 )
 @pytest.mark.parametrize(
-    "path,expected_repr",
+    "path,expected_repr,expected_str",
     [
-        ("/tmp/foo/bar", "/tmp/foo/bar"),
-        ("\\tmp\\foo\\bar", r"\\tmp\\foo\\bar"),
-        ("user/.bash_history", "user/.bash_history"),
+        ("/tmp/foo/bar", "'/tmp/foo/bar'", "/tmp/foo/bar"),
+        ("\\tmp\\foo\\bar", r"'\\tmp\\foo\\bar'", "\\tmp\\foo\\bar"),
+        ("user/.bash_history", "'user/.bash_history'", "user/.bash_history"),
+        ("", "''", ""),
     ],
 )
-def test_path_posix(path_initializer, path, expected_repr):
+def test_path_posix(path_initializer, path, expected_repr, expected_str):
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -716,7 +717,9 @@ def test_path_posix(path_initializer, path, expected_repr):
     )
 
     record = TestRecord(path=path_initializer(path))
-    assert repr(record) == f"<test/path path='{expected_repr}'>"
+    assert repr(record) == f"<test/path path={expected_repr}>"
+    assert repr(record.path) == expected_repr
+    assert str(record.path) == expected_str
 
 
 @pytest.mark.parametrize(
@@ -751,6 +754,7 @@ def test_path_posix(path_initializer, path, expected_repr):
             'y:\\shakespeare\\"to be or not to be".txt',
         ),
         ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
+        ("", "''", ""),
     ],
 )
 def test_path_windows(path_initializer, path, expected_repr, expected_str):
