@@ -481,8 +481,10 @@ def test_rdump_stdin_peek(tmp_path: Path):
         writer.write(TestRecord(count=i, foo="bar"))
     writer.close()
 
+    gzip_file_path = path.with_suffix(".records.gz")
+
     # Gzip compress records file (using python)
-    with gzip.GzipFile(path.with_suffix(".records.gz"), mode="wb") as gzip_file:
+    with gzip.GzipFile(gzip_file_path, mode="wb") as gzip_file:
         gzip_file.write(path.read_bytes())
 
     on_windows = platform.system() == "Windows"
@@ -490,7 +492,7 @@ def test_rdump_stdin_peek(tmp_path: Path):
 
     # Rdump should transparently decompress and select the correct adapter
     # Shell gets used on windows for `type` to be available
-    p1 = subprocess.Popen([read_command, gzip_file.filename], stdout=subprocess.PIPE, shell=on_windows)
+    p1 = subprocess.Popen([read_command, gzip_file_path], stdout=subprocess.PIPE, shell=on_windows)
 
     # For windows compatibility we use an absolute path of the rdump executable
     rdump = shutil.which("rdump", path=Path(sys.executable).parent)
