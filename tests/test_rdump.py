@@ -1,10 +1,14 @@
 import base64
+import gzip
 import hashlib
 import json
 import os
 import platform
+import shutil
 import subprocess
+import sys
 from datetime import timezone
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -461,10 +465,7 @@ def test_rdump_headerless_csv(tmp_path, capsysbinary):
     ]
 
 
-def test_rdump_stdin_peek(tmp_path):
-    if platform.system() == "Windows":
-        pytest.skip("No Gzip on Windows")
-
+def test_rdump_stdin_peek(tmp_path: Path):
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -480,15 +481,23 @@ def test_rdump_stdin_peek(tmp_path):
         writer.write(TestRecord(count=i, foo="bar"))
     writer.close()
 
-    # Gzip compress records file
-    compress_cmd = ["gzip", "--keep", str(path)]
-    subprocess.check_output(compress_cmd)
-    compressed_path = str(path) + ".gz"
+    gzip_file_path = path.with_suffix(".records.gz")
+
+    # Gzip compress records file (using python)
+    with gzip.GzipFile(gzip_file_path, mode="wb") as gzip_file:
+        gzip_file.write(path.read_bytes())
+
+    on_windows = platform.system() == "Windows"
+    read_command = "cat" if not on_windows else "type"
 
     # Rdump should transparently decompress and select the correct adapter
-    p1 = subprocess.Popen(["cat", compressed_path], stdout=subprocess.PIPE)
+    # Shell gets used on windows for `type` to be available
+    p1 = subprocess.Popen([read_command, gzip_file_path], stdout=subprocess.PIPE, shell=on_windows)
+
+    # For windows compatibility we use an absolute path of the rdump executable
+    rdump = shutil.which("rdump", path=Path(sys.executable).parent)
     p2 = subprocess.Popen(
-        ["rdump", "-s", "r.count == 5"],
+        [rdump, "-s", "r.count == 5"],
         stdin=p1.stdout,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
