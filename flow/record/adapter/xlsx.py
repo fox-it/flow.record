@@ -19,7 +19,7 @@ class XlsxWriter(AbstractWriter):
     wb = None
 
     def __init__(self, path, **kwargs):
-        self.fp = record.open_path(path, "wb")
+        self.fp = record.open_path_or_stream(path, "wb")
         self.wb = openpyxl.Workbook()
         self.ws = self.wb.active
         self.desc = None
@@ -51,7 +51,7 @@ class XlsxReader(AbstractReader):
 
     def __init__(self, path, selector=None, **kwargs):
         self.selector = make_selector(selector)
-        self.fp = record.open_path(path, "rb")
+        self.fp = record.open_path_or_stream(path, "rb")
         self.desc = None
         self.wb = openpyxl.load_workbook(self.fp)
         self.ws = self.wb.active

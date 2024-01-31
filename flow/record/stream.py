@@ -3,12 +3,13 @@ from __future__ import print_function
 import datetime
 import logging
 import os
+import reprlib
 import struct
 import sys
 from collections import ChainMap
 from functools import lru_cache
 
-from flow.record import RecordWriter
+from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.selector import make_selector
 
@@ -17,7 +18,8 @@ from .packer import RecordPacker
 
 log = logging.getLogger(__package__)
 
-RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
+aRepr = reprlib.Repr()
+aRepr.maxother = 255
 
 
 def RecordOutput(fp):
@@ -158,7 +160,7 @@ def record_stream(sources, selector=None):
         except KeyboardInterrupt:
             raise
         except Exception as e:  # noqa: B902
-            log.warning("Exception in {!r} for {!r}: {!r} -- skipping to next reader".format(reader, src, e))
+            log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
             continue
 
 

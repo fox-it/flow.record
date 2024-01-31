@@ -3,6 +3,8 @@
 import hashlib
 import os
 import pathlib
+import posixpath
+import types
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -12,6 +14,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import (
     PATH_POSIX,
     PATH_WINDOWS,
+    PY_312,
     _is_posixlike_path,
     _is_windowslike_path,
 )
@@ -444,6 +447,8 @@ def test_datetime():
         ("2006-11-10T14:29:55.585192699999999", datetime(2006, 11, 10, 14, 29, 55, 585192, tzinfo=UTC)),
         (datetime(2023, 1, 1, tzinfo=UTC), datetime(2023, 1, 1, tzinfo=UTC)),
         (0, datetime(1970, 1, 1, 0, 0, tzinfo=UTC)),
+        ("2023-09-01 13:37:12.345678+09:00", datetime(2023, 9, 1, 4, 37, 12, 345678, tzinfo=UTC)),
+        ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
 def test_datetime_formats(tmp_path, value, expected_dt):
@@ -525,12 +530,29 @@ def test_digest():
 
 
 def custom_pure_path(sep, altsep):
-    class CustomFlavour(pathlib._PosixFlavour):
-        def __new__(cls):
-            instance = pathlib._PosixFlavour.__new__(cls)
-            instance.sep = sep
-            instance.altsep = altsep
-            return instance
+    # Starting from Python 3.12, pathlib._Flavours are removed as you can
+    # now properly subclass pathlib.Path
+    # The flavour property of Path's is replaced by a link to e.g.
+    # posixpath or ntpath.
+    # See also: https://github.com/python/cpython/issues/88302
+    if PY_312:
+
+        class CustomFlavour:
+            def __new__(cls, *args, **kwargs):
+                flavour = types.ModuleType("mockpath")
+                flavour.__dict__.update(posixpath.__dict__)
+                flavour.sep = sep
+                flavour.altsep = altsep
+                return flavour
+
+    else:
+
+        class CustomFlavour(pathlib._PosixFlavour):
+            def __new__(cls):
+                instance = super().__new__(cls)
+                instance.sep = sep
+                instance.altsep = altsep
+                return instance
 
     class PureCustomPath(pathlib.PurePath):
         _flavour = CustomFlavour()
