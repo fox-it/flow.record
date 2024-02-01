@@ -17,10 +17,10 @@ from urllib.parse import urlparse
 try:
     try:
         from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-    except ImportError:
+    except (AttributeError, ImportError):
         from backports.zoneinfo import ZoneInfo, ZoneInfoNotFoundError
     HAS_ZONE_INFO = True
-except ImportError:
+except (AttributeError, ImportError):
     HAS_ZONE_INFO = False
 
 

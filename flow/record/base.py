@@ -25,26 +25,26 @@ try:
     import lz4.frame as lz4
 
     HAS_LZ4 = True
-except ImportError:
+except (AttributeError, ImportError):
     HAS_LZ4 = False
 try:
     import bz2
 
     HAS_BZ2 = True
-except ImportError:
+except (AttributeError, ImportError):
     HAS_BZ2 = False
 try:
     import zstandard as zstd
 
     HAS_ZSTD = True
-except ImportError:
+except (AttributeError, ImportError):
     HAS_ZSTD = False
 
 try:
     import fastavro as avro  # noqa
 
     HAS_AVRO = True
-except ImportError:
+except (AttributeError, ImportError):
     HAS_AVRO = False
 
 from collections import OrderedDict

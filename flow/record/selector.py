@@ -12,7 +12,7 @@ try:
     import astor
 
     HAVE_ASTOR = True
-except ImportError:
+except (AttributeError, ImportError):
     HAVE_ASTOR = False
 
 string_types = (str, type(""))

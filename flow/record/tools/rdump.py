@@ -18,7 +18,7 @@ from flow.record.utils import catch_sigpipe
 
 try:
     from flow.record.version import version
-except ImportError:
+except (AttributeError, ImportError):
     version = "unknown"
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def list_adapters():
             mod = import_module(f"flow.record.adapter.{adapter}")
             usage = indent(mod.__usage__.strip(), prefix="    ")
             print(f"  {adapter}:\n{usage}\n")
-        except ImportError as reason:
+        except (AttributeError, ImportError) as reason:
             failed.append((adapter, reason))
 
     if failed:
