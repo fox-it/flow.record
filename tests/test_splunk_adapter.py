@@ -25,6 +25,9 @@ BASE_FIELD_VALUES = {
 
 JSON_PACKER = JsonRecordPacker(pack_descriptors=False)
 
+# Reserved fields is an ordered dict so we can make assertions with a static order of reserved fields.
+RESERVED_FIELDS_KEY_VALUE_SUFFIX = '_source=None _classification=None _generated="'
+
 
 @pytest.fixture
 def mock_requests_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
@@ -50,13 +53,16 @@ def test_splunkify_reserved_field():
 
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value == 'type="test/record" rdtag=None rd_foo="bar"'
+
+        assert output_key_value.startswith(
+            f'rdtype="test/record" rdtag=None rd_foo="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+        )
 
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "rd_foo": "bar",
                 },
                 **BASE_FIELD_VALUES,
@@ -79,12 +85,14 @@ def test_splunkify_normal_field():
 
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value == 'type="test/record" rdtag=None foo="bar"'
+        assert output_key_value.startswith(
+            f'rdtype="test/record" rdtag=None foo="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+        )
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": "bar",
                 },
                 **BASE_FIELD_VALUES,
@@ -104,12 +112,12 @@ def test_splunkify_rdtag_field():
 
         output_key_value = splunkify_key_value(test_record, tag="bar")
         output_json = splunkify_json(JSON_PACKER, test_record, tag="bar")
-        assert output_key_value == 'type="test/record" rdtag="bar"'
+        assert output_key_value.startswith(f'rdtype="test/record" rdtag="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}')
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": "bar",
-                    "type": "test/record",
+                    "rdtype": "test/record",
                 },
                 **BASE_FIELD_VALUES,
             )
@@ -131,12 +139,14 @@ def test_splunkify_none_field():
 
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value == 'type="test/record" rdtag=None foo=None'
+        assert output_key_value.startswith(
+            f'rdtype="test/record" rdtag=None foo=None {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+        )
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": None,
                 },
                 **BASE_FIELD_VALUES,
@@ -159,12 +169,14 @@ def test_splunkify_byte_field():
 
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value == 'type="test/record" rdtag=None foo="YmFy"'
+        assert output_key_value.startswith(
+            f'rdtype="test/record" rdtag=None foo="YmFy" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+        )
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": "YmFy",
                 },
                 **BASE_FIELD_VALUES,
@@ -187,12 +199,12 @@ def test_splunkify_backslash_quote_field():
 
         output = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output == 'type="test/record" rdtag=None foo="\\\\\\""'
+        assert output.startswith(f'rdtype="test/record" rdtag=None foo="\\\\\\"" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}')
         assert json.loads(output_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": '\\"',
                 },
                 **BASE_FIELD_VALUES,
@@ -240,7 +252,14 @@ def test_tcp_protocol():
 
         test_record = test_record_descriptor(foo="bar")
         tcp_writer.write(test_record)
-        mock_socket.return_value.sendall.assert_called_with(b'type="test/record" rdtag=None foo="bar"\n')
+
+        args, _ = mock_socket.return_value.sendall.call_args
+        written_to_splunk = args[0]
+
+        assert written_to_splunk.startswith(
+            b'rdtype="test/record" rdtag=None foo="bar" ' + RESERVED_FIELDS_KEY_VALUE_SUFFIX.encode()
+        )
+        assert written_to_splunk.endswith(b'"\n')
 
 
 def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
@@ -282,8 +301,14 @@ def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
                 "X-Splunk-Request-Channel": ANY,
             },
             verify=True,
-            data=b'type="test/record" rdtag=None foo="bar"\n',
+            data=ANY,
         )
+        _, kwargs = mock_requests_package.post.call_args
+        sent_data = kwargs["data"]
+        assert sent_data.startswith(
+            b'rdtype="test/record" rdtag=None foo="bar" ' + RESERVED_FIELDS_KEY_VALUE_SUFFIX.encode()
+        )
+        assert sent_data.endswith(b'"\n')
 
 
 def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
@@ -322,13 +347,13 @@ def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
         )
 
         _, kwargs = mock_requests_package.post.call_args
-        called_with_data = kwargs["data"]
-        first_record_json, _, second_record_json = called_with_data.partition(b"\n")
+        sent_data = kwargs["data"]
+        first_record_json, _, second_record_json = sent_data.partition(b"\n")
         assert json.loads(first_record_json) == {
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": "bar",
                 },
                 **BASE_FIELD_VALUES,
@@ -338,7 +363,7 @@ def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
             "event": dict(
                 {
                     "rdtag": None,
-                    "type": "test/record",
+                    "rdtype": "test/record",
                     "foo": "baz",
                 },
                 **BASE_FIELD_VALUES,

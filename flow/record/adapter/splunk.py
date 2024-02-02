@@ -66,14 +66,18 @@ class SourceType(Enum):
 def splunkify_key_value(record: Record, tag: Optional[str] = None) -> str:
     ret = []
 
-    ret.append(f'type="{record._desc.name}"')
+    ret.append(f'rdtype="{record._desc.name}"')
 
     if tag is None:
         ret.append("rdtag=None")
     else:
         ret.append(f'rdtag="{tag}"')
 
-    for field in record._desc.fields:
+    for field in record._desc.get_all_fields():
+        # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
+        if field == "_version":
+            continue
+
         val = getattr(record, field)
         if val is None:
             ret.append(f"{field}=None")
@@ -90,24 +94,24 @@ def splunkify_key_value(record: Record, tag: Optional[str] = None) -> str:
 def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] = None) -> str:
     ret = {}
 
-    indexer_fields = {
+    indexer_fields = [
         ("host", "host"),
         ("host", "hostname"),
         ("time", "ts"),
         ("source", "_source"),
-    }
+    ]
 
     # When converting a record to json text for splunk, we distinguish between the 'event' (containing the data) and a
     # few other fields that are splunk-specific for indexing. We add those 'indexer_fields' to the return object first.
-    for dest_field, source_field in indexer_fields:
-        if hasattr(record, source_field):
-            val = getattr(record, source_field)
+    for splunk_name, field_name in indexer_fields:
+        if hasattr(record, field_name):
+            val = getattr(record, field_name)
             if val:
                 if isinstance(val, datetime):
                     # Convert datetime objects to epoch timestamp for reserved fields.
-                    ret[dest_field] = val.timestamp()
+                    ret[splunk_name] = val.timestamp()
                     continue
-                ret[dest_field] = to_str(val)
+                ret[splunk_name] = to_str(val)
 
     record_as_dict = packer.pack_obj(record)
 
@@ -121,9 +125,11 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
         del record_as_dict[field]
         record_as_dict[new_field] = val
 
-    # almost done, just have to add the tag and the type (i.e the record descriptor's name) to the event.
+    # Almost done, just have to add the tag and the type (i.e the record descriptor's name) to the event.
     record_as_dict["rdtag"] = tag
-    record_as_dict["type"] = record._desc.name
+
+    # Yes.
+    record_as_dict["rdtype"] = record._desc.name
 
     ret["event"] = record_as_dict
     return json.dumps(ret, default=packer.pack_obj)
@@ -141,6 +147,7 @@ class SplunkWriter(AbstractWriter):
         ssl_verify: bool = True,
         **kwargs,
     ):
+        # If the writer is initiated without a protocol, we assume we will be writing over tcp
         if "://" not in uri:
             uri = f"tcp://{uri}"
 
@@ -174,35 +181,34 @@ class SplunkWriter(AbstractWriter):
         if self.protocol == Protocol.TCP:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
             self.sock.connect((self.host, self.port))
+            return
 
-        elif self.protocol in [Protocol.HTTP, Protocol.HTTPS]:
-            if not HAS_REQUESTS:
-                raise ImportError("The requests library is required for sending data over HTTP(S).")
+        # Protocol is not TCP, so it is either HTTP or HTTPS
+        scheme = self.protocol.value
 
-            self.token = token
+        if not HAS_REQUESTS:
+            raise ImportError("The requests library is required for sending data over HTTP(S).")
 
-            # Assume verify=True unless specified otherwise.
-            self.verify = not (str(ssl_verify).lower() in ("0", "false"))
+        self.token = token
+        if not self.token:
+            raise ValueError("An authorization token is required for the HTTP collector.")
+        if not self.token.startswith("Splunk "):
+            self.token = "Splunk " + self.token
 
-            scheme = self.protocol.value
-            endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
-            port = f":{self.port}" if self.port else ""
-            self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
+        # Assume verify=True unless specified otherwise.
+        self.verify = str(ssl_verify).lower() not in ("0", "false")
+        if not self.verify:
+            log.warning("Certification verification is disabled.")
 
-            if not self.token:
-                raise ValueError("An authorization token is required for the HTTP collector.")
+        endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
+        port = f":{self.port}" if self.port else ""
+        self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
 
-            if not self.token.startswith("Splunk "):
-                self.token = "Splunk " + self.token
-
-            if not self.verify:
-                log.warning("Certification verification is disabled.")
-
-            self.headers = {
-                "Authorization": self.token,
-                # A randomized value so that Splunk can loadbalance between different incoming datastreams
-                "X-Splunk-Request-Channel": str(uuid.uuid4()),
-            }
+        self.headers = {
+            "Authorization": self.token,
+            # A randomized value so that Splunk can loadbalance between different incoming datastreams
+            "X-Splunk-Request-Channel": str(uuid.uuid4()),
+        }
 
     def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
         # It's possible to call this function without any data, purely to flush. Hence this check.
@@ -225,7 +231,7 @@ class SplunkWriter(AbstractWriter):
             return
         response = requests.post(self.url, headers=self.headers, verify=self.verify, data=buf)
         if response.status_code != 200:
-            raise Exception(f"{response.text} ({response.status_code})")
+            raise ConnectionError(f"{response.text} ({response.status_code})")
 
     def _send_tcp(self, data: bytes) -> None:
         self.sock.sendall(data)
