@@ -1,4 +1,6 @@
+import os
 import sys
+from unittest.mock import _patch_dict
 
 import pytest
 
@@ -15,7 +17,11 @@ from flow.record import (
     fieldtypes,
     record_stream,
 )
-from flow.record.base import merge_record_descriptors, normalize_fieldname
+from flow.record.base import (
+    IGNORE_FIELDS_FOR_COMPARISON_VARIABLE,
+    merge_record_descriptors,
+    normalize_fieldname,
+)
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
 
@@ -792,3 +798,28 @@ def test_normalize_fieldname():
     assert normalize_fieldname("my name (with) parentheses") == "my_name__with__parentheses"
     assert normalize_fieldname("_generated") == "_generated"
     assert normalize_fieldname("_source") == "_source"
+
+
+def test_compare_records():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "firstname"),
+            ("string", "lastname"),
+        ],
+    )
+
+    same_same = TestRecord(firstname="James", lastname="Bond")
+    but_different = TestRecord(firstname="Ethan", lastname="Hunt")
+    but_still_same = TestRecord(firstname="Andrew", lastname="Bond")
+
+    records = [same_same, but_different, but_still_same]
+
+    assert same_same != but_still_same
+    with _patch_dict(os.environ, {IGNORE_FIELDS_FOR_COMPARISON_VARIABLE: "_generated,firstname"}):
+        assert same_same == but_still_same
+        assert same_same != but_different
+        assert len(set(records)) == 2
+
+    with pytest.raises(ValueError):
+        same_same.firstname = "Mr."

@@ -95,6 +95,8 @@ class {name}(Record):
 {unpack_code}
 """
 
+IGNORE_FIELDS_FOR_COMPARISON_VARIABLE = "FLOW_RECORD_IGNORE"
+
 
 class FieldType:
     def _typename(self):
@@ -111,36 +113,52 @@ class FieldType:
         return data
 
 
+def excluded_fields_for_comparison() -> Optional[list[str]]:
+    """Return which fields should be ignored when comparing records against one another, if any"""
+    if excluded_fields := os.environ.get(IGNORE_FIELDS_FOR_COMPARISON_VARIABLE):
+        excluded_fields = excluded_fields.split(",")
+    return excluded_fields
+
+
 class Record:
     __slots__ = ()
 
     def __eq__(self, other):
         if not isinstance(other, Record):
             return False
-        return self._pack() == other._pack()
 
-    def _pack(self, unversioned=False):
+        excluded_fields = excluded_fields_for_comparison()
+        return self._pack(excluded_fields=excluded_fields) == other._pack(excluded_fields=excluded_fields)
+
+    def _pack(self, unversioned=False, excluded_fields: list = None):
         values = []
         for k in self.__slots__:
             v = getattr(self, k)
             v = v._pack() if isinstance(v, FieldType) else v
 
+            if excluded_fields and k in excluded_fields:
+                continue
+
             # Skip version field if requested (only for compatibility reasons)
             if unversioned and k == "_version" and v == 1:
                 continue
-            else:
-                values.append(v)
+
+            if k == "_mutable":
+                continue
+
+            values.append(v)
 
         return self._desc.identifier, tuple(values)
 
     def _packdict(self):
         return dict(
             (k, v._pack() if isinstance(v, FieldType) else v)
-            for k, v in ((k, getattr(self, k)) for k in self.__slots__)
+            for k, v in ((k, getattr(self, k)) for k in self.__slots__ if k != "_mutable")
         )
 
     def _asdict(self, fields=None, exclude=None):
         exclude = exclude or []
+        exclude.append("_mutable")
         if fields:
             return OrderedDict((k, getattr(self, k)) for k in fields if k in self.__slots__ and k not in exclude)
         return OrderedDict((k, getattr(self, k)) for k in self.__slots__ if k not in exclude)
@@ -152,13 +170,24 @@ class Record:
         if v is not None and k in self.__slots__ and field_type:
             if not isinstance(v, field_type):
                 v = field_type(v)
+        if k != "_mutable" and not self._mutable:
+            raise ValueError("This record has been hashed and its properties should therefore not be changed anymore.")
+
         super().__setattr__(k, v)
 
     def _replace(self, **kwds):
-        result = self.__class__(*map(kwds.pop, self.__slots__, (getattr(self, k) for k in self.__slots__)))
+        result = self.__class__(
+            *map(kwds.pop, self.__slots__, (getattr(self, k) for k in self.__slots__ if k != "_mutable"))
+        )
         if kwds:
             raise ValueError("Got unexpected field names: {kwds!r}".format(kwds=list(kwds)))
         return result
+
+    def __hash__(self) -> int:
+        self._mutable = False
+        excluded_fields = excluded_fields_for_comparison()
+
+        return self._pack(excluded_fields=excluded_fields).__hash__()
 
     def __repr__(self):
         return "<{} {}>".format(
@@ -244,17 +273,19 @@ class GroupedRecord(Record):
             return getattr(x, attr)
         raise AttributeError(attr)
 
-    def _pack(self):
+    def _pack(self, excluded_fields: list = None):
         return (
             self.name,
-            tuple(record._pack() for record in self.records),
+            tuple(record._pack(excluded_fields) for record in self.records),
         )
 
     def _replace(self, **kwds):
         new_records = []
         for record in self.records:
             new_records.append(
-                record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
+                record.__class__(
+                    *map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__ if k != "_mutable"))
+                )
             )
         if kwds:
             raise ValueError("Got unexpected field names: {kwds!r}".format(kwds=list(kwds)))
@@ -355,13 +386,16 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
 
     name = name.replace("/", "_")
     args = ""
-    init_code = ""
+    init_code = "\t\t__self._mutable = True\n"
     unpack_code = ""
 
     if len(all_fields) >= 255 and not (sys.version_info >= (3, 7)) or contains_keyword:
         args = "*args, **kwargs"
         init_code = (
+            "\t\t__self._mutable = True\n"
             "\t\tfor k, v in _zip_longest(__self.__slots__, args):\n"
+            '\t\t\tif k == "_mutable":\n'
+            "\t\t\t\tcontinue\n"
             "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n"
             "\t\t_generated = __self._generated\n"
         )
@@ -396,7 +430,7 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     code = RECORD_CLASS_TEMPLATE.format(
         name=name,
         args=args,
-        slots_tuple=tuple(all_fields.keys()),
+        slots_tuple=(tuple(all_fields.keys()) + ("_mutable",)),
         init_code=init_code,
         unpack_code=unpack_code,
         field_types=field_types,
@@ -542,7 +576,7 @@ class RecordDescriptor:
         """
 
         if not raise_unknown:
-            rdict = {k: v for k, v in rdict.items() if k in self.recordType.__slots__}
+            rdict = {k: v for k, v in rdict.items() if k in self.recordType.__slots__ and k != "_mutable"}
         return self.recordType(**rdict)
 
     def init_from_record(self, record: Record, raise_unknown=False) -> Record:
