@@ -792,3 +792,18 @@ def test_normalize_fieldname():
     assert normalize_fieldname("my name (with) parentheses") == "my_name__with__parentheses"
     assert normalize_fieldname("_generated") == "_generated"
     assert normalize_fieldname("_source") == "_source"
+
+
+def test_sorted_records():
+    FooRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "bar"),
+        ],
+    )
+
+    a = FooRecord(bar="hello")
+    b = FooRecord(bar="world")
+    c = FooRecord(bar="!")
+
+    assert sorted([b, c, a]) == [a, b, c]

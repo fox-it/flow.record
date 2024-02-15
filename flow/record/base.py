@@ -119,6 +119,9 @@ class Record:
             return False
         return self._pack() == other._pack()
 
+    def __lt__(self, other):
+        return self._generated < other._generated
+
     def _pack(self, unversioned=False):
         values = []
         for k in self.__slots__:
