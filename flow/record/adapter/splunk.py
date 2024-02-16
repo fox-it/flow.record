@@ -115,15 +115,17 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
 
     record_as_dict = packer.pack_obj(record)
 
+    # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
+    del record_as_dict["_version"]
+
     # These fields end up in the 'event', but we have a few reserved field names. If those field names are in the
     # record, we prefix them with 'rd_' (short for record descriptor)
     for field in RESERVED_SPLUNK_FIELDS:
-        if field not in record_as_dict.keys():
+        if field not in record_as_dict:
             continue
         new_field = f"rd_{field}"
-        val = record_as_dict[field]
+        record_as_dict[new_field] = record_as_dict[field]
         del record_as_dict[field]
-        record_as_dict[new_field] = val
 
     # Almost done, just have to add the tag and the type (i.e the record descriptor's name) to the event.
     record_as_dict["rdtag"] = tag
@@ -152,7 +154,7 @@ class SplunkWriter(AbstractWriter):
             uri = f"tcp://{uri}"
 
         if sourcetype is None:
-            log.warning("No sourcetype provided, assuming 'records' sourcetype.")
+            log.warning("No sourcetype provided, assuming 'records' sourcetype")
             sourcetype = SourceType.RECORDS.value
 
         parsed_url = urlparse(uri)
@@ -162,11 +164,11 @@ class SplunkWriter(AbstractWriter):
         self.sourcetype = next((source for source in SourceType if source.value == sourcetype), None)
 
         if not self.sourcetype:
-            raise ValueError(f"Unsupported source type {sourcetype}.")
+            raise ValueError(f"Unsupported source type {sourcetype}")
         if not self.protocol:
-            raise ValueError(f"Unsupported protocol {url_scheme}.")
+            raise ValueError(f"Unsupported protocol {url_scheme}")
         if self.protocol == Protocol.TCP and self.sourcetype != SourceType.RECORDS:
-            raise ValueError("For sending data to splunk over TCP, only the 'records' sourcetype is allowed.")
+            raise ValueError("For sending data to Splunk over TCP, only the 'records' sourcetype is allowed")
 
         self.host = parsed_url.hostname
         self.port = parsed_url.port
@@ -187,18 +189,18 @@ class SplunkWriter(AbstractWriter):
         scheme = self.protocol.value
 
         if not HAS_REQUESTS:
-            raise ImportError("The requests library is required for sending data over HTTP(S).")
+            raise ImportError("The requests library is required for sending data over HTTP(S)")
 
         self.token = token
         if not self.token:
-            raise ValueError("An authorization token is required for the HTTP collector.")
+            raise ValueError("An authorization token is required for the HTTP collector")
         if not self.token.startswith("Splunk "):
             self.token = "Splunk " + self.token
 
         # Assume verify=True unless specified otherwise.
         self.verify = str(ssl_verify).lower() not in ("0", "false")
         if not self.verify:
-            log.warning("Certification verification is disabled.")
+            log.warning("Certificate verification is disabled")
 
         endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
         port = f":{self.port}" if self.port else ""

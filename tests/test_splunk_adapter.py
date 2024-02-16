@@ -20,7 +20,7 @@ BASE_FIELD_VALUES = {
     "_classification": None,
     "_generated": ANY,
     "_source": None,
-    "_version": 1,
+    # "_version": 1,  # We omit _version as the Splunk adapter has no reader support for serializing the records back
 }
 
 JSON_PACKER = JsonRecordPacker(pack_descriptors=False)
