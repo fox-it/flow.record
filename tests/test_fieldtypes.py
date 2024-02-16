@@ -348,8 +348,7 @@ def test_float():
 
     # invalid float
     with pytest.raises(ValueError):
-        with pytest.deprecated_call():
-            r = TestRecord("abc")
+        r = TestRecord("abc")
 
 
 def test_uri_type():
