@@ -564,9 +564,6 @@ class RecordContextMatcher:
         self.data["r"] = rec
         self.rec = rec
 
-        # This ensures backwards compatibility with old Selector queries
-        self.data["obj"] = rec
-
         # Type matcher
         self.data["Type"] = TypeMatcher(rec)
 
