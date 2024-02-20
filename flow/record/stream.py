@@ -256,7 +256,7 @@ class RecordFieldRewriter:
         self.exclude = exclude or []
         self.expression = compile(expression, "<string>", "exec") if expression else None
 
-        self.record_descriptor_for_fields = lru_cache(maxsize=256)(self.record_descriptor_for_fields)
+        self.record_descriptor_for_fields = lru_cache(256)(self.record_descriptor_for_fields)
 
     def record_descriptor_for_fields(self, descriptor, fields=None, exclude=None, new_fields=None):
         if not fields and not exclude and not new_fields:
