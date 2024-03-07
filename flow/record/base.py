@@ -15,7 +15,17 @@ import warnings
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import IO, Any, BinaryIO, Iterator, Mapping, Optional, Sequence, Union
+from typing import (
+    IO,
+    Any,
+    BinaryIO,
+    Iterable,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+)
 from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
@@ -97,15 +107,15 @@ class {name}(Record):
 
 
 if env_excluded_fields := os.environ.get("FLOW_RECORD_IGNORE"):
-    IGNORE_FIELDS_FOR_COMPARISON = env_excluded_fields.split(",")
+    IGNORE_FIELDS_FOR_COMPARISON = set(env_excluded_fields.split(","))
 else:
-    IGNORE_FIELDS_FOR_COMPARISON = []
+    IGNORE_FIELDS_FOR_COMPARISON = set()
 
 
-def update_ignored_fields_for_comparison(ignored_fields: list[str]) -> None:
+def set_ignored_fields_for_comparison(ignored_fields: Iterable[str]) -> None:
     """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
     global IGNORE_FIELDS_FOR_COMPARISON
-    IGNORE_FIELDS_FOR_COMPARISON = ignored_fields
+    IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
 
 
 class FieldType:
@@ -179,7 +189,7 @@ class Record:
         return result
 
     def __hash__(self) -> int:
-        return self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON).__hash__()
+        return hash(self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON))
 
     def __repr__(self):
         return "<{} {}>".format(

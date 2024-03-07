@@ -21,7 +21,7 @@ from flow.record import (
 from flow.record.base import (
     merge_record_descriptors,
     normalize_fieldname,
-    update_ignored_fields_for_comparison,
+    set_ignored_fields_for_comparison,
 )
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
@@ -818,7 +818,7 @@ def test_compare_global_variable():
 
     assert same_same != but_still_same
 
-    update_ignored_fields_for_comparison(["_generated", "firstname"])
+    set_ignored_fields_for_comparison({"_generated", "firstname"})
     assert same_same == but_still_same
     assert same_same != but_different
     assert len(set(records)) == 2
@@ -837,7 +837,7 @@ def test_compare_environment_variable():
 
         from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
 
-        assert IGNORE_FIELDS_FOR_COMPARISON == ["_generated", "lastname"]
+        assert IGNORE_FIELDS_FOR_COMPARISON == {"_generated", "lastname"}
 
         TestRecord = RecordDescriptor(
             "test/record",

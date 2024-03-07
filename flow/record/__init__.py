@@ -21,8 +21,8 @@ from flow.record.base import (
     open_path,
     open_path_or_stream,
     open_stream,
+    set_ignored_fields_for_comparison,
     stream,
-    update_ignored_fields_for_comparison,
 )
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.stream import (
@@ -57,8 +57,8 @@ __all__ = [
     "open_path_or_stream",
     "open_path",
     "open_stream",
+    "set_ignored_fields_for_comparison",
     "stream",
-    "update_ignored_fields_for_comparison",
     "dynamic_fieldtype",
     "DynamicDescriptor",
     "PathTemplateWriter",
