@@ -49,10 +49,15 @@ geoip = [
 avro = [
     "fastavro[snappy]",
 ]
+duckdb = [
+    "duckdb",
+    "pytz", # duckdb requires pytz for timezone support
+]
 test = [
-    "lz4",
-    "zstandard",
-    "fastavro",
+    "flow.record[compression]",
+    "flow.record[avro]",
+    "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
+    "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
 ]
 
 [project.scripts]

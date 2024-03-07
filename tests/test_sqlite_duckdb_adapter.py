@@ -1,7 +1,12 @@
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, NamedTuple
+
+try:
+    import duckdb
+except ModuleNotFoundError:
+    duckdb = None
 
 import pytest
 
@@ -9,6 +14,26 @@ from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
+
+
+class Database(NamedTuple):
+    scheme: str
+    connector: Any
+
+
+# We test for sqlite3 and duckdb (if available)
+if duckdb is None:
+    databases = [
+        Database("sqlite", sqlite3),
+    ]
+else:
+    databases = [
+        Database("sqlite", sqlite3),
+        Database("duckdb", duckdb),
+    ]
+
+# pytest fixture that will run the test for each database in the databases list
+sqlite_duckdb_parametrize = pytest.mark.parametrize("db", databases, ids=[db.scheme for db in databases])
 
 
 def generate_records(amount: int) -> Iterator[Record]:
@@ -34,11 +59,12 @@ def generate_records(amount: int) -> Iterator[Record]:
         "_my_movies",
     ],
 )
-def test_table_name_sanitization(tmp_path: Path, table_name: str) -> None:
+@sqlite_duckdb_parametrize
+def test_table_name_sanitization(tmp_path: Path, table_name: str, db: Database) -> None:
     """Ensure that we can read table names that are technically invalid in flow.record."""
-    db = tmp_path / "records.db"
-    con = sqlite3.connect(db)
-    con.execute(f"CREATE TABLE '{table_name}' (title TEXT, year INTEGER, score REAL)")
+    db_path = tmp_path / "records.db"
+    con = db.connector.connect(str(db_path))
+    con.execute(f"CREATE TABLE '{table_name}' (title TEXT, year INTEGER, score DOUBLE)")
     data = [
         ("Monty Python Live at the Hollywood Bowl", 1982, 7.9),
         ("Monty Python's The Meaning of Life", 1983, 7.5),
@@ -49,7 +75,7 @@ def test_table_name_sanitization(tmp_path: Path, table_name: str) -> None:
     con.close()
 
     data_records = []
-    with RecordReader(f"sqlite://{db}") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}") as reader:
         data_records = [(record.title, record.year, record.score) for record in reader]
     assert data == data_records
 
@@ -63,11 +89,12 @@ def test_table_name_sanitization(tmp_path: Path, table_name: str) -> None:
         "1337_starting_with_number",
     ],
 )
-def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
+@sqlite_duckdb_parametrize
+def test_field_name_sanitization(tmp_path: Path, field_name: str, db: Database) -> None:
     """Ensure that we can read field names that are technically invalid in flow.record."""
-    db = tmp_path / "records.db"
-    con = sqlite3.connect(db)
-    con.execute(f"CREATE TABLE 'my_table' ('{field_name}' TEXT)")
+    db_path = tmp_path / "records.db"
+    con = db.connector.connect(str(db_path))
+    con.execute(f'CREATE TABLE "my_table" ("{field_name}" TEXT)')
     data = [
         ("hello",),
         ("world",),
@@ -81,7 +108,7 @@ def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
     data_records = []
     sanitized_field_name = normalize_fieldname(field_name)
 
-    with RecordReader(f"sqlite://{db}") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}") as reader:
         data_records = [(getattr(record, sanitized_field_name),) for record in reader]
     assert data == data_records
 
@@ -95,20 +122,21 @@ def test_field_name_sanitization(tmp_path: Path, field_name: str) -> None:
         2000,
     ],
 )
-def test_write_to_sqlite(tmp_path: Path, count: int) -> None:
+@sqlite_duckdb_parametrize
+def test_write_to_sqlite(tmp_path: Path, count: int, db: Database) -> None:
     """Tests writing records to a SQLite database."""
-    db = tmp_path / "records.db"
-    with RecordWriter(f"sqlite://{db}") as writer:
+    db_path = tmp_path / "records.db"
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
         for record in generate_records(count):
             writer.write(record)
 
     record_count = 0
-    with sqlite3.connect(db) as con:
+    with db.connector.connect(str(db_path)) as con:
         cursor = con.execute("SELECT COUNT(*) FROM 'test/record'")
         record_count = cursor.fetchone()[0]
 
         cursor = con.execute("SELECT * FROM 'test/record'")
-        for index, row in enumerate(cursor):
+        for index, row in enumerate(cursor.fetchall()):
             assert row[0] == f"record{index}"
             assert row[1] == "bar"
             assert row[2] == "baz"
@@ -119,18 +147,19 @@ def test_write_to_sqlite(tmp_path: Path, count: int) -> None:
     assert record_count == count
 
 
-def test_read_from_sqlite(tmp_path: Path) -> None:
+@sqlite_duckdb_parametrize
+def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
     """Tests basic reading from a SQLite database."""
     # Generate a SQLite database
-    db = tmp_path / "records.db"
-    with sqlite3.connect(db) as con:
+    db_path = tmp_path / "records.db"
+    with db.connector.connect(str(db_path)) as con:
         con.execute(
             """
             CREATE TABLE 'test/record' (
                 name TEXT,
                 data BLOB,
-                datetime DATETIME,
-                score REAL
+                datetime TIMESTAMPTZ,
+                score DOUBLE
             )
             """
         )
@@ -143,7 +172,7 @@ def test_read_from_sqlite(tmp_path: Path) -> None:
             )
 
     # Read the SQLite database using flow.record
-    with RecordReader(f"sqlite://{db}") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}") as reader:
         for i, record in enumerate(reader, start=1):
             assert isinstance(record.name, str)
             assert isinstance(record.datetime, datetime)
@@ -153,12 +182,14 @@ def test_read_from_sqlite(tmp_path: Path) -> None:
             assert record.name == f"record{i}"
             assert record.data == f"foobar{i}".encode()
             assert record.datetime == datetime(2023, 10, i, 13, 37, tzinfo=timezone.utc)
+            assert str(record.datetime) == f"2023-10-{i:02d} 13:37:00+00:00"
             assert record.score == 3.14 + i
 
 
-def test_write_dynamic_descriptor(tmp_path: Path) -> None:
+@sqlite_duckdb_parametrize
+def test_write_dynamic_descriptor(tmp_path: Path, db: Database) -> None:
     """Test the ability to write records with different descriptors to the same table."""
-    db = tmp_path / "records.db"
+    db_path = tmp_path / "records.db"
     TestRecord = RecordDescriptor(
         "test/dynamic",
         [
@@ -179,7 +210,7 @@ def test_write_dynamic_descriptor(tmp_path: Path) -> None:
     )
 
     # We should be able to write records with different descriptors to the same table
-    with RecordWriter(f"sqlite://{db}") as writer:
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
         record1 = TestRecord(name="record1", foo="bar", bar="baz")
         writer.write(record1)
         record2 = TestRecord_extra(name="record2", foo="bar", bar="baz", extra="extra", extra2="extra2")
@@ -187,7 +218,7 @@ def test_write_dynamic_descriptor(tmp_path: Path) -> None:
 
     # The read table should be a combination of both descriptors
     record_count = 0
-    with RecordReader(f"sqlite://{db}") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}") as reader:
         for record_count, record in enumerate(reader, start=1):
             assert record._desc.get_field_tuples() == (
                 ("string", "name"),
@@ -206,14 +237,15 @@ def test_write_dynamic_descriptor(tmp_path: Path) -> None:
     assert record_count == 2
 
 
-def test_write_zero_records(tmp_path: Path) -> None:
+@sqlite_duckdb_parametrize
+def test_write_zero_records(tmp_path: Path, db: Database) -> None:
     """Test writing zero records."""
-    db = tmp_path / "records.db"
-    with RecordWriter(f"sqlite://{db}") as writer:
+    db_path = tmp_path / "records.db"
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
         assert writer
 
     # test if it's a valid database
-    with sqlite3.connect(db) as con:
+    with db.connector.connect(str(db_path)) as con:
         assert con.execute("SELECT * FROM sqlite_master").fetchall() == []
 
 
@@ -295,7 +327,7 @@ def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) ->
 def test_prepare_insert_sql():
     table_name = "my_table"
     field_names = ("name", "age", "email")
-    expected_sql = "INSERT INTO `my_table` (`name`, `age`, `email`) VALUES (?, ?, ?)"
+    expected_sql = 'INSERT INTO "my_table" ("name", "age", "email") VALUES (?, ?, ?)'
     assert prepare_insert_sql(table_name, field_names) == expected_sql
 
 
@@ -308,17 +340,24 @@ def test_prepare_insert_sql():
         (1000, 0, 1000),
     ],
 )
-def test_batch_size(tmp_path: Path, batch_size: int, expected_first: int, expected_second: int) -> None:
+@sqlite_duckdb_parametrize
+def test_batch_size(
+    tmp_path: Path,
+    batch_size: int,
+    expected_first: int,
+    expected_second: int,
+    db: Database,
+) -> None:
     """Test that batch_size is respected when writing records."""
     records = generate_records(batch_size + 100)
     db_path = tmp_path / "records.db"
-    with RecordWriter(f"sqlite://{db_path}?batch_size={batch_size}") as writer:
+    with RecordWriter(f"{db.scheme}://{db_path}?batch_size={batch_size}") as writer:
         # write a single record, should not be flushed yet if batch_size > 1
         writer.write(next(records))
 
         # test count of records in table (no flush yet if batch_size > 1)
-        with sqlite3.connect(db_path) as con:
-            x = con.execute("select count(*) from `test/record`")
+        with db.connector.connect(str(db_path)) as con:
+            x = con.execute('SELECT COUNT(*) FROM "test/record"')
             assert x.fetchone()[0] is expected_first
 
         # write at least batch_size records, should be flushed due to batch_size
@@ -326,23 +365,24 @@ def test_batch_size(tmp_path: Path, batch_size: int, expected_first: int, expect
             writer.write(next(records))
 
         # test count of records in table after flush
-        with sqlite3.connect(db_path) as con:
-            x = con.execute("select count(*) from `test/record`")
+        with db.connector.connect(str(db_path)) as con:
+            x = con.execute('SELECT COUNT(*) FROM "test/record"')
             assert x.fetchone()[0] == expected_second
 
 
-def test_selector(tmp_path: Path) -> None:
+@sqlite_duckdb_parametrize
+def test_selector(tmp_path: Path, db: Database) -> None:
     """Test selector when reading records."""
     db_path = tmp_path / "records.db"
-    with RecordWriter(f"sqlite://{db_path}") as writer:
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
         for record in generate_records(10):
             writer.write(record)
 
-    with RecordReader(f"sqlite://{db_path}", selector="r.name == 'record5'") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record5'") as reader:
         records = list(reader)
         assert len(records) == 1
         assert records[0].name == "record5"
 
-    with RecordReader(f"sqlite://{db_path}", selector="r.name == 'record12345'") as reader:
+    with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record12345'") as reader:
         records = list(reader)
         assert len(records) == 0
