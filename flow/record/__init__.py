@@ -2,6 +2,7 @@ import gzip
 import os
 
 from flow.record.base import (
+    IGNORE_FIELDS_FOR_COMPARISON,
     RECORD_VERSION,
     RECORDSTREAM_MAGIC,
     DynamicDescriptor,
@@ -20,6 +21,7 @@ from flow.record.base import (
     open_path,
     open_path_or_stream,
     open_stream,
+    set_ignored_fields_for_comparison,
     stream,
 )
 from flow.record.jsonpacker import JsonRecordPacker
@@ -35,6 +37,7 @@ from flow.record.stream import (
 )
 
 __all__ = [
+    "IGNORE_FIELDS_FOR_COMPARISON",
     "RECORD_VERSION",
     "RECORDSTREAM_MAGIC",
     "FieldType",
@@ -54,6 +57,7 @@ __all__ = [
     "open_path_or_stream",
     "open_path",
     "open_stream",
+    "set_ignored_fields_for_comparison",
     "stream",
     "dynamic_fieldtype",
     "DynamicDescriptor",
