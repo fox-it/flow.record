@@ -105,7 +105,7 @@ def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     table_name = record._desc.name
     rdict = record._asdict()
 
-    sql = prepare_insert_sql(table_name, tuple(slot for slot in record.__slots__ if slot != "_mutable"))
+    sql = prepare_insert_sql(table_name, record.__slots__)
 
     # Convert values to str() for types we don't support
     values = []

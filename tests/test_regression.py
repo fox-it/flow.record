@@ -222,7 +222,7 @@ def test_version_field_regression():
 
     r = TestRecord(1)
 
-    assert r.__slots__[-2] == "_version"
+    assert r.__slots__[-1] == "_version"
 
     r._version = 256
     data = packer.pack(r)

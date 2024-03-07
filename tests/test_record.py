@@ -1,6 +1,7 @@
+import importlib
 import os
 import sys
-from unittest.mock import _patch_dict
+from unittest.mock import patch
 
 import pytest
 
@@ -18,9 +19,9 @@ from flow.record import (
     record_stream,
 )
 from flow.record.base import (
-    IGNORE_FIELDS_FOR_COMPARISON_VARIABLE,
     merge_record_descriptors,
     normalize_fieldname,
+    update_ignored_fields_for_comparison,
 )
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
@@ -800,7 +801,7 @@ def test_normalize_fieldname():
     assert normalize_fieldname("_source") == "_source"
 
 
-def test_compare_records():
+def test_compare_global_variable():
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -816,10 +817,42 @@ def test_compare_records():
     records = [same_same, but_different, but_still_same]
 
     assert same_same != but_still_same
-    with _patch_dict(os.environ, {IGNORE_FIELDS_FOR_COMPARISON_VARIABLE: "_generated,firstname"}):
+
+    update_ignored_fields_for_comparison(["_generated", "firstname"])
+    assert same_same == but_still_same
+    assert same_same != but_different
+    assert len(set(records)) == 2
+
+
+def test_compare_environment_variable():
+    with patch.dict(os.environ), patch.dict(sys.modules):
+        os.environ["FLOW_RECORD_IGNORE"] = "_generated,lastname"
+
+        # Force a re-import of flow.record so the global variable gets re-initialized based on the environment variable
+        keys = [key for key in sys.modules if key == "flow" or "flow." in key]
+        for key in keys:
+            del sys.modules[key]
+
+        importlib.import_module("flow.record")
+
+        from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
+
+        assert IGNORE_FIELDS_FOR_COMPARISON == ["_generated", "lastname"]
+
+        TestRecord = RecordDescriptor(
+            "test/record",
+            [
+                ("string", "firstname"),
+                ("string", "lastname"),
+            ],
+        )
+
+        same_same = TestRecord(firstname="John", lastname="Rambo")
+        but_different = TestRecord(firstname="Johnny", lastname="English")
+        but_still_same = TestRecord(firstname="John", lastname="McClane")
+
+        records = [same_same, but_different, but_still_same]
+
         assert same_same == but_still_same
         assert same_same != but_different
         assert len(set(records)) == 2
-
-    with pytest.raises(ValueError):
-        same_same.firstname = "Mr."
