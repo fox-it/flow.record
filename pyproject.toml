@@ -78,4 +78,4 @@ license-files = ["LICENSE", "COPYRIGHT"]
 include = ["flow.*"]
 
 [tool.setuptools_scm]
-write_to = "flow/record/version.py"
+version_file = "flow/record/version.py"
