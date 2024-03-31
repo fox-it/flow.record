@@ -15,7 +15,17 @@ import warnings
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
-from typing import IO, Any, BinaryIO, Iterator, Mapping, Optional, Sequence, Union
+from typing import (
+    IO,
+    Any,
+    BinaryIO,
+    Iterable,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+)
 from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
@@ -96,6 +106,18 @@ class {name}(Record):
 """
 
 
+if env_excluded_fields := os.environ.get("FLOW_RECORD_IGNORE"):
+    IGNORE_FIELDS_FOR_COMPARISON = set(env_excluded_fields.split(","))
+else:
+    IGNORE_FIELDS_FOR_COMPARISON = set()
+
+
+def set_ignored_fields_for_comparison(ignored_fields: Iterable[str]) -> None:
+    """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
+    global IGNORE_FIELDS_FOR_COMPARISON
+    IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
+
+
 class FieldType:
     def _typename(self):
         t = type(self)
@@ -117,13 +139,19 @@ class Record:
     def __eq__(self, other):
         if not isinstance(other, Record):
             return False
-        return self._pack() == other._pack()
 
-    def _pack(self, unversioned=False):
+        return self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON) == other._pack(
+            excluded_fields=IGNORE_FIELDS_FOR_COMPARISON
+        )
+
+    def _pack(self, unversioned=False, excluded_fields: list = None):
         values = []
         for k in self.__slots__:
             v = getattr(self, k)
             v = v._pack() if isinstance(v, FieldType) else v
+
+            if excluded_fields and k in excluded_fields:
+                continue
 
             # Skip version field if requested (only for compatibility reasons)
             if unversioned and k == "_version" and v == 1:
@@ -159,6 +187,9 @@ class Record:
         if kwds:
             raise ValueError("Got unexpected field names: {kwds!r}".format(kwds=list(kwds)))
         return result
+
+    def __hash__(self) -> int:
+        return hash(self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON))
 
     def __repr__(self):
         return "<{} {}>".format(
