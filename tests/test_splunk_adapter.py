@@ -106,25 +106,23 @@ def test_splunkify_source_field():
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
-            [],
+            [("string", "source")],
         )
 
-        test_record = test_record_descriptor()
-        test_record._source = "test_source"
+        test_record = test_record_descriptor(source="file_on_target")
+        test_record._source = "path_of_target"
 
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
         assert output_key_value.startswith(
-            f'rdtype="test/record" rdtag=None source="test_source" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+            'rdtype="test/record" rdtag=None source="path_of_target" rd_source="file_on_target" '
+            + RESERVED_FIELDS_KEY_VALUE_SUFFIX
         )
 
         assert json.loads(output_json) == {
-            "source": "test_source",
+            "source": "path_of_target",
             "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                },
+                {"rdtag": None, "rdtype": "test/record", "rd_source": "file_on_target"},
                 **BASE_FIELD_VALUES,
             ),
         }
