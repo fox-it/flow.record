@@ -17,16 +17,14 @@ from flow.record.adapter.splunk import (
 from flow.record.jsonpacker import JsonRecordPacker
 
 BASE_FIELD_VALUES = {
-    "_classification": None,
-    "_generated": ANY,
-    "_source": None,
-    # "_version": 1,  # We omit _version as the Splunk adapter has no reader support for serializing the records back
+    "rd_classification": None,
+    "rd_generated": ANY,
 }
 
 JSON_PACKER = JsonRecordPacker(pack_descriptors=False)
 
 # Reserved fields is an ordered dict so we can make assertions with a static order of reserved fields.
-RESERVED_FIELDS_KEY_VALUE_SUFFIX = '_source=None _classification=None _generated="'
+RESERVED_FIELDS_KEY_VALUE_SUFFIX = 'rd_classification=None rd_generated="'
 
 
 @pytest.fixture
@@ -41,8 +39,8 @@ def mock_requests_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock
 def test_splunkify_reserved_field():
     with patch.object(
         flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(["foo"]),
+        "PREFIX_WITH_RD",
+        set(["foo", "_generated", "_classification"]),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
@@ -97,6 +95,38 @@ def test_splunkify_normal_field():
                 },
                 **BASE_FIELD_VALUES,
             )
+        }
+
+
+def test_splunkify_source_field():
+    with patch.object(
+        flow.record.adapter.splunk,
+        "RESERVED_SPLUNK_FIELDS",
+        set(),
+    ):
+        test_record_descriptor = RecordDescriptor(
+            "test/record",
+            [],
+        )
+
+        test_record = test_record_descriptor()
+        test_record._source = "test_source"
+
+        output_key_value = splunkify_key_value(test_record)
+        output_json = splunkify_json(JSON_PACKER, test_record)
+        assert output_key_value.startswith(
+            f'rdtype="test/record" rdtag=None source="test_source" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
+        )
+
+        assert json.loads(output_json) == {
+            "source": "test_source",
+            "event": dict(
+                {
+                    "rdtag": None,
+                    "rdtype": "test/record",
+                },
+                **BASE_FIELD_VALUES,
+            ),
         }
 
 

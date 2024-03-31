@@ -38,18 +38,21 @@ log = logging.getLogger(__package__)
 # Amount of records to bundle into a single request when sending data over HTTP(S).
 RECORD_BUFFER_LIMIT = 20
 
-RESERVED_SPLUNK_FIELDS = set(
-    [
-        "_indextime",
-        "_time",
-        "index",
-        "punct",
-        "source",
-        "sourcetype",
-        "tag",
-        "type",
-    ]
-)
+# https://docs.splunk.com/Documentation/Splunk/7.3.1/Data/Configureindex-timefieldextraction
+RESERVED_SPLUNK_FIELDS = [
+    "_indextime",
+    "_time",
+    "index",
+    "punct",
+    "source",
+    "sourcetype",
+    "tag",
+    "type",
+]
+
+RESERVED_RECORD_FIELDS = ["_classification", "_generated"]
+
+PREFIX_WITH_RD = set(RESERVED_SPLUNK_FIELDS + RESERVED_RECORD_FIELDS)
 
 
 class Protocol(Enum):
@@ -73,19 +76,28 @@ def splunkify_key_value(record: Record, tag: Optional[str] = None) -> str:
     else:
         ret.append(f'rdtag="{tag}"')
 
+    if record._source is not None:
+        ret.append(f'source="{record._source}"')
+
     for field in record._desc.get_all_fields():
         # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
         if field == "_version":
             continue
+        # We've handled source seperately
+        if field == "_source":
+            continue
 
         val = getattr(record, field)
+
+        if field in PREFIX_WITH_RD:
+            underscore = "" if field.startswith("_") else "_"
+            field = f"rd{underscore}{field}"
+
         if val is None:
             ret.append(f"{field}=None")
         else:
             val = to_base64(val) if isinstance(val, bytes) else to_str(val)
             val = val.replace("\\", "\\\\").replace('"', '\\"')
-            if field in RESERVED_SPLUNK_FIELDS:
-                field = f"rd_{field}"
             ret.append(f'{field}="{val}"')
 
     return " ".join(ret)
@@ -118,12 +130,18 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
     # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
     del record_as_dict["_version"]
 
+    # Delete the _source field as we have already added it to indexing-specific fields.
+    del record_as_dict["_source"]
+
     # These fields end up in the 'event', but we have a few reserved field names. If those field names are in the
     # record, we prefix them with 'rd_' (short for record descriptor)
-    for field in RESERVED_SPLUNK_FIELDS:
+    for field in PREFIX_WITH_RD:
         if field not in record_as_dict:
             continue
-        new_field = f"rd_{field}"
+
+        underscore = "" if field.startswith("_") else "_"
+        new_field = f"rd{underscore}{field}"
+
         record_as_dict[new_field] = record_as_dict[field]
         del record_as_dict[field]
 
