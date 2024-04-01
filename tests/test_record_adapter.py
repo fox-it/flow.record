@@ -1,6 +1,7 @@
 import datetime
 import platform
 import sys
+from gzip import GzipFile
 from io import BytesIO
 
 import pytest
@@ -22,6 +23,8 @@ from flow.record.base import (
     HAS_LZ4,
     HAS_ZSTD,
     LZ4_MAGIC,
+    RECORDSTREAM_MAGIC,
+    RECORDSTREAM_MAGIC_DEPTH,
     ZSTD_MAGIC,
 )
 from flow.record.selector import CompiledSelector, Selector
@@ -476,12 +479,16 @@ def test_csvfilereader(tmp_path):
             assert rec.count == "2"
 
 
-def test_file_like_writer_reader() -> None:
+@pytest.mark.parametrize("use_gzip", [False, True])
+def test_file_like_writer_reader(use_gzip: bool) -> None:
     test_buf = BytesIO()
 
-    adapter = RecordAdapter(fileobj=test_buf, out=True)
+    url = "nonexistent/path/my_records.gz" if use_gzip else None
+    adapter = RecordAdapter(url, fileobj=test_buf, out=True)
 
     assert isinstance(adapter, StreamWriter)
+    if use_gzip:
+        assert isinstance(adapter.fp, GzipFile)
 
     # Add mock records
     test_records = list(generate_records(10))
@@ -491,7 +498,14 @@ def test_file_like_writer_reader() -> None:
     adapter.flush()
 
     # Grab the bytes before closing the BytesIO object.
-    read_buf = BytesIO(test_buf.getvalue())
+    written_bytes = test_buf.getvalue()
+
+    if use_gzip:
+        assert written_bytes.startswith(GZIP_MAGIC)
+    else:
+        assert written_bytes[:RECORDSTREAM_MAGIC_DEPTH].endswith(RECORDSTREAM_MAGIC)
+
+    read_buf = BytesIO(written_bytes)
 
     # Close the writer and assure the object has been closed
     adapter.close()

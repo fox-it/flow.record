@@ -726,6 +726,29 @@ def open_path_or_stream(path: Union[str, Path, BinaryIO], mode: str, clobber: bo
         raise ValueError(f"Unsupported path type {path}")
 
 
+def wrap_in_compression(fp: BinaryIO, mode: str, path: str) -> BinaryIO:
+    if path.endswith(".gz"):
+        return gzip.GzipFile(fileobj=fp, mode=mode)
+    elif path.endswith(".bz2"):
+        if not HAS_BZ2:
+            raise RuntimeError("bz2 python module not available")
+        return bz2.BZ2File(fp, mode)
+    elif path.endswith(".lz4"):
+        if not HAS_LZ4:
+            raise RuntimeError("lz4 python module not available")
+        return lz4.open(fp, mode)
+    elif path.endswith((".zstd", ".zst")):
+        if not HAS_ZSTD:
+            raise RuntimeError("zstandard python module not available")
+        if "w" not in mode:
+            dctx = zstd.ZstdDecompressor()
+            return dctx.stream_reader(fp)
+        else:
+            cctx = zstd.ZstdCompressor()
+            return cctx.stream_writer(fp)
+    return fp
+
+
 def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     """
     Open ``path`` using ``mode`` and returns a file object.
@@ -755,40 +778,18 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     if not is_stdio and not clobber and os.path.exists(path) and out:
         raise IOError("Output file {!r} already exists, and clobber=False".format(path))
 
-    # check path extension for compression
-    if path:
-        if path.endswith(".gz"):
-            fp = gzip.GzipFile(path, mode)
-        elif path.endswith(".bz2"):
-            if not HAS_BZ2:
-                raise RuntimeError("bz2 python module not available")
-            fp = bz2.BZ2File(path, mode)
-        elif path.endswith(".lz4"):
-            if not HAS_LZ4:
-                raise RuntimeError("lz4 python module not available")
-            fp = lz4.open(path, mode)
-        elif path.endswith((".zstd", ".zst")):
-            if not HAS_ZSTD:
-                raise RuntimeError("zstandard python module not available")
-            if not out:
-                dctx = zstd.ZstdDecompressor()
-                fp = dctx.stream_reader(open(path, "rb"))
-            else:
-                cctx = zstd.ZstdCompressor()
-                fp = cctx.stream_writer(open(path, "wb"))
-
     # normal file or stdio for reading or writing
-    if not fp:
-        if is_stdio:
-            if binary:
-                fp = getattr(sys.stdout, "buffer", sys.stdout) if out else getattr(sys.stdin, "buffer", sys.stdin)
-            else:
-                fp = sys.stdout if out else sys.stdin
+    if is_stdio:
+        if binary:
+            fp = getattr(sys.stdout, "buffer", sys.stdout) if out else getattr(sys.stdin, "buffer", sys.stdin)
         else:
-            fp = io.open(path, mode)
-        # check if we are reading a compressed stream
-        if not out and binary:
-            fp = open_stream(fp, mode)
+            fp = sys.stdout if out else sys.stdin
+    else:
+        fp = wrap_in_compression(io.open(path, mode), mode, path)
+
+    # check if we are reading a compressed stream
+    if not out and binary:
+        fp = open_stream(fp, mode)
     return fp
 
 
@@ -831,6 +832,11 @@ def RecordAdapter(
         cls_url = p.netloc + p.path
         if sub_adapter:
             cls_url = sub_adapter + "://" + cls_url
+
+        # If the destination path ends with a compression extension, we wrap the fileobj in a transparent compressor.
+        if out and fileobj is not None:
+            fileobj = wrap_in_compression(fileobj, "wb", p.path)
+
     if out is False:
         if url in ("-", "", None) and fileobj is None:
             # For reading stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will
