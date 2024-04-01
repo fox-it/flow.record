@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from flow.record import Record, RecordAdapter, RecordDescriptor, RecordStreamWriter
+from flow.record.base import GZIP_MAGIC
 
 
 def generate_records(amount) -> Generator[Record, Any, None]:
@@ -144,7 +145,7 @@ def test_gcs_writer(mock_google_sdk) -> None:
     mock_writer = MagicMock(wraps=test_buf, spec=BytesIO)
     mock_google_sdk.cloud.storage.fileio.BlobWriter.return_value = mock_writer
 
-    adapter = RecordAdapter("gcs://test-bucket/test/test.records", project="test-project", out=True)
+    adapter = RecordAdapter("gcs://test-bucket/test/test.records.gz", project="test-project", out=True)
 
     assert isinstance(adapter, GcsWriter)
 
@@ -153,11 +154,13 @@ def test_gcs_writer(mock_google_sdk) -> None:
     for record in test_records:
         adapter.write(record)
 
-    # For GCS, the flush() function should do nothing, as GCS does not support it.
     adapter.flush()
-    mock_writer.flush.assert_not_called()
+    mock_writer.flush.assert_called()
 
     # Grab the bytes before it's too late
+    written_bytes = test_buf.getvalue()
+    assert written_bytes.startswith(GZIP_MAGIC)
+
     read_buf = BytesIO(test_buf.getvalue())
 
     # Close the writer and assure the object has been closed

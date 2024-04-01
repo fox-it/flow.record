@@ -76,13 +76,13 @@ class GcsWriter(AbstractWriter):
         self.adapter.write(record)
 
     def flush(self) -> None:
-        # https://cloud.google.com/python/docs/reference/storage/latest/google.cloud.storage.fileio.BlobWriter)
-        # Flushing without closing is not supported by the remote service and therefore calling it on this class
-        # normally results in io.UnsupportedOperation. However, that behavior is incompatible with some consumers and
-        # wrappers of fileobjects in Python.
-        pass
+        # The underlying adapter may require flushing
+        self.adapter.flush()
 
     def close(self) -> None:
+        self.flush()
+        self.adapter.close()
+
         if self.writer:
             self.writer.close()
             self.writer = None
