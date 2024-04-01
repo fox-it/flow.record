@@ -61,7 +61,7 @@ class GcsReader(AbstractReader):
 
 
 class GcsWriter(AbstractWriter):
-    def __init__(self, uri: str, project: str, **kwargs):
+    def __init__(self, uri: str, *, project: str | None = None, **kwargs):
         bucket_name, _, path = uri.partition("/")
         self.writer = None
 
