@@ -50,7 +50,7 @@ RESERVED_SPLUNK_FIELDS = [
     "type",
 ]
 
-RESERVED_RECORD_FIELDS = ["_classification", "_generated"]
+RESERVED_RECORD_FIELDS = ["_classification", "_generated", "_source"]
 
 PREFIX_WITH_RD = set(RESERVED_SPLUNK_FIELDS + RESERVED_RECORD_FIELDS)
 
@@ -76,22 +76,15 @@ def splunkify_key_value(record: Record, tag: Optional[str] = None) -> str:
     else:
         ret.append(f'rdtag="{tag}"')
 
-    if record._source is not None:
-        ret.append(f'source="{record._source}"')
-
     for field in record._desc.get_all_fields():
         # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
         if field == "_version":
-            continue
-        # We've handled source seperately
-        if field == "_source":
             continue
 
         val = getattr(record, field)
 
         if field in PREFIX_WITH_RD:
-            underscore = "" if field.startswith("_") else "_"
-            field = f"rd{underscore}{field}"
+            field = f"rd_{field}"
 
         if val is None:
             ret.append(f"{field}=None")
@@ -110,7 +103,6 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
         ("host", "host"),
         ("host", "hostname"),
         ("time", "ts"),
-        ("source", "_source"),
     ]
 
     # When converting a record to json text for splunk, we distinguish between the 'event' (containing the data) and a
@@ -130,17 +122,12 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
     # Omit the _version field as the Splunk adapter has no reader support for deserialising records back.
     del record_as_dict["_version"]
 
-    # Delete the _source field as we have already added it to indexing-specific fields.
-    del record_as_dict["_source"]
-
     # These fields end up in the 'event', but we have a few reserved field names. If those field names are in the
     # record, we prefix them with 'rd_' (short for record descriptor)
     for field in PREFIX_WITH_RD:
         if field not in record_as_dict:
             continue
-
-        underscore = "" if field.startswith("_") else "_"
-        new_field = f"rd{underscore}{field}"
+        new_field = f"rd_{field}"
 
         record_as_dict[new_field] = record_as_dict[field]
         del record_as_dict[field]

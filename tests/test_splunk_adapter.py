@@ -17,14 +17,15 @@ from flow.record.adapter.splunk import (
 from flow.record.jsonpacker import JsonRecordPacker
 
 BASE_FIELD_VALUES = {
-    "rd_classification": None,
-    "rd_generated": ANY,
+    "rd__source": None,
+    "rd__classification": None,
+    "rd__generated": ANY,
 }
 
 JSON_PACKER = JsonRecordPacker(pack_descriptors=False)
 
 # Reserved fields is an ordered dict so we can make assertions with a static order of reserved fields.
-RESERVED_FIELDS_KEY_VALUE_SUFFIX = 'rd_classification=None rd_generated="'
+RESERVED_FIELDS_KEY_VALUE_SUFFIX = 'rd__source=None rd__classification=None rd__generated="'
 
 
 @pytest.fixture
@@ -40,7 +41,7 @@ def test_splunkify_reserved_field():
     with patch.object(
         flow.record.adapter.splunk,
         "PREFIX_WITH_RD",
-        set(["foo", "_generated", "_classification"]),
+        set(["foo", "_generated", "_classification", "_source"]),
     ):
         test_record_descriptor = RecordDescriptor(
             "test/record",
@@ -115,15 +116,22 @@ def test_splunkify_source_field():
         output_key_value = splunkify_key_value(test_record)
         output_json = splunkify_json(JSON_PACKER, test_record)
         assert output_key_value.startswith(
-            'rdtype="test/record" rdtag=None source="path_of_target" rd_source="file_on_target" '
-            + RESERVED_FIELDS_KEY_VALUE_SUFFIX
+            'rdtype="test/record" rdtag=None rd_source="file_on_target" rd__source="path_of_target"'
         )
 
+        expected_base_field_values = BASE_FIELD_VALUES.copy()
+        expected_base_field_values["rd__source"] = "path_of_target"
+
         assert json.loads(output_json) == {
-            "source": "path_of_target",
             "event": dict(
-                {"rdtag": None, "rdtype": "test/record", "rd_source": "file_on_target"},
-                **BASE_FIELD_VALUES,
+                {
+                    "rdtag": None,
+                    "rdtype": "test/record",
+                    "rd_source": "file_on_target",
+                    "rd__source": "path_of_target",
+                    "rd__generated": ANY,
+                    "rd__classification": None,
+                },
             ),
         }
 
