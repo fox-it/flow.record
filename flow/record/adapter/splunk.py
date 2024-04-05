@@ -144,6 +144,7 @@ def splunkify_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] 
 
 class SplunkWriter(AbstractWriter):
     sock = None
+    session = None
 
     def __init__(
         self,
@@ -160,18 +161,14 @@ class SplunkWriter(AbstractWriter):
 
         if sourcetype is None:
             log.warning("No sourcetype provided, assuming 'records' sourcetype")
-            sourcetype = SourceType.RECORDS.value
+            sourcetype = SourceType.RECORDS
 
         parsed_url = urlparse(uri)
         url_scheme = parsed_url.scheme.lower()
 
-        self.protocol = next((protocol for protocol in Protocol if protocol.value == url_scheme), None)
-        self.sourcetype = next((source for source in SourceType if source.value == sourcetype), None)
+        self.sourcetype = SourceType(sourcetype)
+        self.protocol = Protocol(url_scheme)
 
-        if not self.sourcetype:
-            raise ValueError(f"Unsupported source type {sourcetype}")
-        if not self.protocol:
-            raise ValueError(f"Unsupported protocol {url_scheme}")
         if self.protocol == Protocol.TCP and self.sourcetype != SourceType.RECORDS:
             raise ValueError("For sending data to Splunk over TCP, only the 'records' sourcetype is allowed")
 
@@ -188,6 +185,7 @@ class SplunkWriter(AbstractWriter):
         if self.protocol == Protocol.TCP:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
             self.sock.connect((self.host, self.port))
+            self._send = self._send_tcp
             return
 
         # Protocol is not TCP, so it is either HTTP or HTTPS
@@ -200,7 +198,7 @@ class SplunkWriter(AbstractWriter):
         if not self.token:
             raise ValueError("An authorization token is required for the HTTP collector")
         if not self.token.startswith("Splunk "):
-            self.token = "Splunk " + self.token
+            self.token = f"Splunk {self.token}"
 
         # Assume verify=True unless specified otherwise.
         self.verify = str(ssl_verify).lower() not in ("0", "false")
@@ -217,6 +215,11 @@ class SplunkWriter(AbstractWriter):
             "X-Splunk-Request-Channel": str(uuid.uuid4()),
         }
 
+        self.session = requests.Session()
+        self.session.verify = self.verify
+        self.session.headers.update(self.headers)
+        self._send = self._send_http
+
     def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
         # It's possible to call this function without any data, purely to flush. Hence this check.
         if data:
@@ -232,11 +235,14 @@ class SplunkWriter(AbstractWriter):
         self.record_buffer.clear()
         return buf
 
+    def _send(self, data: bytes) -> None:
+        raise RuntimeError("This method should be overridden at runtime")
+
     def _send_http(self, data: Optional[bytes] = None, flush: bool = False) -> None:
         buf = self._cache_records_for_http(data, flush)
         if not buf:
             return
-        response = requests.post(self.url, headers=self.headers, verify=self.verify, data=buf)
+        response = self.session.post(self.url, data=buf)
         if response.status_code != 200:
             raise ConnectionError(f"{response.text} ({response.status_code})")
 
@@ -259,10 +265,7 @@ class SplunkWriter(AbstractWriter):
         # Trail with a newline for line breaking.
         data = to_bytes(rec) + b"\n"
 
-        if self.protocol == Protocol.TCP:
-            self._send_tcp(data)
-        else:
-            self._send_http(data)
+        self._send(data)
 
     def flush(self) -> None:
         if self.protocol in [Protocol.HTTP, Protocol.HTTPS]:
@@ -273,8 +276,11 @@ class SplunkWriter(AbstractWriter):
         if self.sock:
             self.sock.close()
         self.sock = None
-        # For HTTP(S)
-        self.flush()
+
+        if self.session:
+            self.flush()
+            self.session.close()
+        self.session = None
 
 
 class SplunkReader(AbstractReader):
