@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import warnings
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from itertools import zip_longest
 from pathlib import Path
@@ -116,6 +117,17 @@ def set_ignored_fields_for_comparison(ignored_fields: Iterable[str]) -> None:
     """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
     global IGNORE_FIELDS_FOR_COMPARISON
     IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
+
+
+@contextmanager
+def ignore_fields_for_comparison(ignored_fields: Iterable[str]):
+    """Context manager to temporarily ignore fields for comparison."""
+    original_ignored_fields = IGNORE_FIELDS_FOR_COMPARISON
+    try:
+        set_ignored_fields_for_comparison(ignored_fields)
+        yield
+    finally:
+        set_ignored_fields_for_comparison(original_ignored_fields)
 
 
 class FieldType:
