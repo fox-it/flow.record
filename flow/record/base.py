@@ -215,7 +215,7 @@ class Record:
             for list_value in value:
                 if isinstance(list_value, dict):
                     # List values that are dicts must be converted to tuples
-                    dict_as_tuple = ((k, v) for k, v in list_value.items())
+                    dict_as_tuple = tuple(list_value.items())
                     list_values.append(dict_as_tuple)
                 else:
                     list_values.append(list_value)

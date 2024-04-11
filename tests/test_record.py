@@ -933,5 +933,5 @@ def test_list_field_type_hashing():
         ],
     )
 
-    test_record = TestRecord(stringlist=["a", "b", "c", "d"], dictlist=[{"a": "b", "c": "d"}])
+    test_record = TestRecord(stringlist=["a", "b", "c", "d"], dictlist=[{"a": "b", "c": "d"}, {"foo": "bar"}])
     assert isinstance(hash(test_record), int)
