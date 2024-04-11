@@ -922,3 +922,16 @@ def test_ignore_fields_for_comparision_contextmanager():
     # test reset again
     assert len(set(records)) == len(records)
     assert records[0] != records[1]
+
+
+def test_list_field_type_hashing():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string[]", "stringlist"),
+            ("dictlist", "dictlist"),
+        ],
+    )
+
+    test_record = TestRecord(stringlist=["a", "b", "c", "d"], dictlist=[{"a": "b", "c": "d"}, {"foo": "bar"}])
+    assert isinstance(hash(test_record), int)

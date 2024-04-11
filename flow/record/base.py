@@ -201,7 +201,27 @@ class Record:
         return result
 
     def __hash__(self) -> int:
-        return hash(self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON))
+        desc_identifier, values = self._pack(excluded_fields=IGNORE_FIELDS_FOR_COMPARISON)
+        if not any((isinstance(value, list) for value in values)):
+            return hash((desc_identifier, values))
+
+        # Lists have to be converted to tuples to be able to hash them
+        record_values = []
+        for value in values:
+            if not isinstance(value, list):
+                record_values.append(value)
+                continue
+            list_values = []
+            for list_value in value:
+                if isinstance(list_value, dict):
+                    # List values that are dicts must be converted to tuples
+                    dict_as_tuple = tuple(list_value.items())
+                    list_values.append(dict_as_tuple)
+                else:
+                    list_values.append(list_value)
+            record_values.append(tuple(list_values))
+
+        return hash((desc_identifier, tuple(record_values)))
 
     def __repr__(self):
         return "<{} {}>".format(
