@@ -186,39 +186,36 @@ class SplunkWriter(AbstractWriter):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
             self.sock.connect((self.host, self.port))
             self._send = self._send_tcp
-            return
+        elif self.protocol in (Protocol.HTTP, Protocol.HTTPS):
+            if not HAS_REQUESTS:
+                raise ImportError("The requests library is required for sending data over HTTP(S)")
 
-        # Protocol is not TCP, so it is either HTTP or HTTPS
-        scheme = self.protocol.value
+            scheme = self.protocol.value
+            self.token = token
+            if not self.token:
+                raise ValueError("An authorization token is required for the HTTP collector")
+            if not self.token.startswith("Splunk "):
+                self.token = f"Splunk {self.token}"
 
-        if not HAS_REQUESTS:
-            raise ImportError("The requests library is required for sending data over HTTP(S)")
+            # Assume verify=True unless specified otherwise.
+            self.verify = str(ssl_verify).lower() not in ("0", "false")
+            if not self.verify:
+                log.warning("Certificate verification is disabled")
 
-        self.token = token
-        if not self.token:
-            raise ValueError("An authorization token is required for the HTTP collector")
-        if not self.token.startswith("Splunk "):
-            self.token = f"Splunk {self.token}"
+            endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
+            port = f":{self.port}" if self.port else ""
+            self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
 
-        # Assume verify=True unless specified otherwise.
-        self.verify = str(ssl_verify).lower() not in ("0", "false")
-        if not self.verify:
-            log.warning("Certificate verification is disabled")
+            self.headers = {
+                "Authorization": self.token,
+                # A randomized value so that Splunk can loadbalance between different incoming datastreams
+                "X-Splunk-Request-Channel": str(uuid.uuid4()),
+            }
 
-        endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
-        port = f":{self.port}" if self.port else ""
-        self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
-
-        self.headers = {
-            "Authorization": self.token,
-            # A randomized value so that Splunk can loadbalance between different incoming datastreams
-            "X-Splunk-Request-Channel": str(uuid.uuid4()),
-        }
-
-        self.session = requests.Session()
-        self.session.verify = self.verify
-        self.session.headers.update(self.headers)
-        self._send = self._send_http
+            self.session = requests.Session()
+            self.session.verify = self.verify
+            self.session.headers.update(self.headers)
+            self._send = self._send_http
 
     def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
         # It's possible to call this function without any data, purely to flush. Hence this check.
