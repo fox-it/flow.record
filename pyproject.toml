@@ -53,6 +53,9 @@ duckdb = [
     "duckdb",
     "pytz", # duckdb requires pytz for timezone support
 ]
+splunk = [
+    "httpx",
+]
 test = [
     "flow.record[compression]",
     "flow.record[avro]",
