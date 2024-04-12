@@ -29,12 +29,12 @@ RESERVED_FIELDS_KEY_VALUE_SUFFIX = 'rd__source=None rd__classification=None rd__
 
 
 @pytest.fixture
-def mock_requests_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
+def mock_httpx_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
     with monkeypatch.context() as m:
-        mock_requests = MagicMock()
-        m.setitem(sys.modules, "requests", mock_requests)
+        mock_httpx = MagicMock()
+        m.setitem(sys.modules, "httpx", mock_httpx)
 
-        yield mock_requests
+        yield mock_httpx
 
 
 def test_splunkify_reserved_field():
@@ -298,7 +298,7 @@ def test_tcp_protocol():
         assert written_to_splunk.endswith(b'"\n')
 
 
-def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
+def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock):
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
 
@@ -306,10 +306,10 @@ def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
 
     with patch.object(
         flow.record.adapter.splunk,
-        "HAS_REQUESTS",
+        "HAS_HTTPX",
         True,
     ):
-        mock_requests_package.Session.return_value.post.return_value.status_code = 200
+        mock_httpx_package.Client.return_value.post.return_value.status_code = 200
         https_writer = SplunkWriter("https://splunk:8088", token="password123")
 
         assert https_writer.host == "splunk"
@@ -318,10 +318,10 @@ def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
         assert https_writer.verify is True
         assert https_writer.url == "https://splunk:8088/services/collector/raw?auto_extract_timestamp=true"
 
-        assert https_writer.session.verify is True
+        _, kwargs = mock_httpx_package.Client.call_args
+        assert kwargs["verify"] is True
 
-        args, _ = https_writer.session.headers.update.call_args
-        given_headers = args[0]
+        given_headers = kwargs["headers"]
         assert given_headers["Authorization"] == "Splunk password123"
         assert "X-Splunk-Request-Channel" in given_headers
 
@@ -333,14 +333,14 @@ def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
         test_record = test_record_descriptor(foo="bar")
         https_writer.write(test_record)
 
-        mock_requests_package.Session.return_value.post.assert_not_called()
+        mock_httpx_package.Client.return_value.post.assert_not_called()
 
         https_writer.close()
-        mock_requests_package.Session.return_value.post.assert_called_with(
+        mock_httpx_package.Client.return_value.post.assert_called_with(
             "https://splunk:8088/services/collector/raw?auto_extract_timestamp=true",
             data=ANY,
         )
-        _, kwargs = mock_requests_package.Session.return_value.post.call_args
+        _, kwargs = mock_httpx_package.Client.return_value.post.call_args
         sent_data = kwargs["data"]
         assert sent_data.startswith(
             b'rdtype="test/record" rdtag=None foo="bar" ' + RESERVED_FIELDS_KEY_VALUE_SUFFIX.encode()
@@ -348,7 +348,7 @@ def test_https_protocol_records_sourcetype(mock_requests_package: MagicMock):
         assert sent_data.endswith(b'"\n')
 
 
-def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
+def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock):
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
 
@@ -356,10 +356,10 @@ def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
 
     with patch.object(
         flow.record.adapter.splunk,
-        "HAS_REQUESTS",
+        "HAS_HTTPX",
         True,
     ):
-        mock_requests_package.Session.return_value.post.return_value.status_code = 200
+        mock_httpx_package.Client.return_value.post.return_value.status_code = 200
 
         https_writer = SplunkWriter("https://splunk:8088", token="password123", sourcetype="json")
 
@@ -370,15 +370,15 @@ def test_https_protocol_json_sourcetype(mock_requests_package: MagicMock):
 
         https_writer.write(test_record_descriptor(foo="bar"))
         https_writer.write(test_record_descriptor(foo="baz"))
-        mock_requests_package.Session.return_value.post.assert_not_called()
+        mock_httpx_package.Client.return_value.post.assert_not_called()
 
         https_writer.close()
-        mock_requests_package.Session.return_value.post.assert_called_with(
+        mock_httpx_package.Client.return_value.post.assert_called_with(
             "https://splunk:8088/services/collector/event?auto_extract_timestamp=true",
             data=ANY,
         )
 
-        _, kwargs = mock_requests_package.Session.return_value.post.call_args
+        _, kwargs = mock_httpx_package.Client.return_value.post.call_args
         sent_data = kwargs["data"]
         first_record_json, _, second_record_json = sent_data.partition(b"\n")
         assert json.loads(first_record_json) == {

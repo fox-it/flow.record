@@ -8,13 +8,11 @@ from typing import Optional
 from urllib.parse import urlparse
 
 try:
-    import requests
-    import urllib3
+    import httpx
 
-    urllib3.disable_warnings()
-    HAS_REQUESTS = True
+    HAS_HTTPX = True
 except ImportError:
-    HAS_REQUESTS = False
+    HAS_HTTPX = False
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record
@@ -187,8 +185,8 @@ class SplunkWriter(AbstractWriter):
             self.sock.connect((self.host, self.port))
             self._send = self._send_tcp
         elif self.protocol in (Protocol.HTTP, Protocol.HTTPS):
-            if not HAS_REQUESTS:
-                raise ImportError("The requests library is required for sending data over HTTP(S)")
+            if not HAS_HTTPX:
+                raise ImportError("The httpx library is required for sending data over HTTP(S)")
 
             scheme = self.protocol.value
             self.token = token
@@ -212,9 +210,8 @@ class SplunkWriter(AbstractWriter):
                 "X-Splunk-Request-Channel": str(uuid.uuid4()),
             }
 
-            self.session = requests.Session()
-            self.session.verify = self.verify
-            self.session.headers.update(self.headers)
+            self.session = httpx.Client(verify=self.verify, headers=self.headers)
+
             self._send = self._send_http
 
     def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
