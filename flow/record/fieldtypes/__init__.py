@@ -753,7 +753,6 @@ class command(FieldType):
         # pre checking for windows like paths
         windows = value.startswith(("\\", "\\?", "%")) or value.lstrip("\"'")[1] == ":"
         executable, *args = shlex.split(value, posix=not windows)
-        executable = executable.strip("\"' ")
 
         if windows:
             args = [value[len(executable) :].strip()]

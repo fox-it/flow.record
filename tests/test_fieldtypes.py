@@ -18,12 +18,9 @@ from flow.record.fieldtypes import (
     _is_posixlike_path,
     _is_windowslike_path,
     command,
-    fieldtype_for_value,
-    net,
-    uri,
-    windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
+from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
 
 UTC = timezone.utc
 
@@ -1011,11 +1008,11 @@ def test_command_record():
     )
 
     record = TestRecord(commando="help.exe -h")
-    assert record.path.executable == "help.exe"
-    assert record.path.args == ["-h"]
+    assert record.commando.executable == "help.exe"
+    assert record.commando.args == ["-h"]
 
     record = TestRecord(commando="something.so -h -q -something")
-    assert record.path.args == ["-h", "-q", "-something"]
+    assert record.commando.args == ["-h", "-q", "-something"]
 
 
 def test_command_integration(tmp_path):
