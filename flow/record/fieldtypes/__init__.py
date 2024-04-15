@@ -12,7 +12,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 try:
@@ -699,7 +699,7 @@ class path(pathlib.PurePath, FieldType):
         return (str(self), path_type)
 
     @classmethod
-    def _unpack(cls, data: Tuple[str, str]):
+    def _unpack(cls, data: tuple[str, str]):
         path_, path_type = data
         if path_type == PATH_POSIX:
             return posix_path(path_)
@@ -739,7 +739,7 @@ class windows_path(pathlib.PureWindowsPath, path):
 
 class command(FieldType):
     executable: str = None
-    args: List[str] = None
+    args: list[str] = None
 
     def __init__(self, value: str):
         if isinstance(value, tuple):
