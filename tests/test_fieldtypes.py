@@ -17,9 +17,13 @@ from flow.record.fieldtypes import (
     PY_312,
     _is_posixlike_path,
     _is_windowslike_path,
+    command,
+    fieldtype_for_value,
+    net,
+    uri,
+    windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
 
 UTC = timezone.utc
 
@@ -996,6 +1000,60 @@ def test_datetime_comparisions():
     assert dt("2023-01-01T13:36") < datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
     assert dt("2023-01-01T13:37") > datetime(2023, 1, 1, 13, 36, tzinfo=UTC)
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
+
+
+def test_command_record():
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    record = TestRecord(commando="help.exe -h")
+    assert record.path.executable == "help.exe"
+    assert record.path.args == ["-h"]
+
+    record = TestRecord(commando="something.so -h -q -something")
+    assert record.path.args == ["-h", "-q", "-something"]
+
+
+def test_command_integration(tmp_path):
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=r"\.\?\some_command.exe -h,help \d quiet")
+        writer.write(record)
+        assert record.commando.executable == r"\.\?\some_command.exe"
+        assert record.commando.args == [r"-h,help \d quiet"]
+
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable == r"\.\?\some_command.exe"
+            assert record.commando.args == [r"-h,help \d quiet"]
+
+
+@pytest.mark.parametrize(
+    "command_string, expected_executable, expected_argument",
+    [
+        ("windows.exe something,or,somethingelse", "windows.exe", ["something,or,somethingelse"]),
+        ("windows.dll something,or,somethingelse", "windows.dll", ["something,or,somethingelse"]),
+        (r"%WINDIR%\\windows.dll something,or,somethingelse", r"%WINDIR%\\windows.dll", ["something,or,somethingelse"]),
+        (r"'c:\path.to.some.exe' \d \a", r"c:\path.to.some.exe", [r"\d \a"]),
+        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
+        (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+    ],
+)
+def test_command(command_string, expected_executable, expected_argument):
+    cmd = command(command_string)
+
+    assert cmd.executable == expected_executable
+    assert cmd.args == expected_argument
 
 
 if __name__ == "__main__":

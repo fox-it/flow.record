@@ -5,13 +5,14 @@ import math
 import os
 import pathlib
 import re
+import shlex
 import sys
 import warnings
 from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from urllib.parse import urlparse
 
 try:
@@ -734,3 +735,34 @@ class windows_path(pathlib.PureWindowsPath, path):
                 quote = '"'
 
         return f"{quote}{s}{quote}"
+
+
+class command(FieldType):
+    executable: str = None
+    args: List[str] = None
+
+    def __init__(self, value: str):
+        if isinstance(value, tuple):
+            self.executable, args = value
+            self.args = list(args)
+            return
+
+        if not isinstance(value, str):
+            raise ValueError("expected value of type str")
+
+        # pre checking for windows like paths
+        windows = value.startswith(("\\", "\\?", "%")) or value.lstrip("\"'")[1] == ":"
+        executable, *args = shlex.split(value, posix=not windows)
+        executable = executable.strip("\"' ")
+
+        if windows:
+            args = [value[len(executable) :].strip()]
+
+        self.executable = executable.strip("\"' ")
+        self.args = args
+
+    def _pack(self):
+        return (self.executable, self.args)
+
+    def __repr__(self):
+        return "(executable={d.executable!r}, args={d.args})".format(d=self)
