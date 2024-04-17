@@ -740,7 +740,6 @@ class windows_path(pathlib.PureWindowsPath, path):
 class command(FieldType):
     executable: str = None
     args: list[str] = None
-    _raw_data: str = None
 
     def __new__(cls, value: str):
         if cls is not command:
@@ -760,7 +759,6 @@ class command(FieldType):
             cls = windows_command
         else:
             cls = posix_command
-        cls._raw_data = value
         return super().__new__(cls)
 
     def _pack(self):
