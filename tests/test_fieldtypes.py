@@ -20,7 +20,14 @@ from flow.record.fieldtypes import (
     command,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
+from flow.record.fieldtypes import (
+    fieldtype_for_value,
+    net,
+    posix_command,
+    uri,
+    windows_command,
+    windows_path,
+)
 
 UTC = timezone.utc
 
@@ -999,7 +1006,7 @@ def test_datetime_comparisions():
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
 
 
-def test_command_record():
+def test_command_record() -> None:
     TestRecord = RecordDescriptor(
         "test/command",
         [
@@ -1008,14 +1015,17 @@ def test_command_record():
     )
 
     record = TestRecord(commando="help.exe -h")
+    assert isinstance(record.commando, posix_command)
     assert record.commando.executable == "help.exe"
     assert record.commando.args == ["-h"]
 
     record = TestRecord(commando="something.so -h -q -something")
+    assert isinstance(record.commando, posix_command)
+    assert record.commando.executable == "something.so"
     assert record.commando.args == ["-h", "-q", "-something"]
 
 
-def test_command_integration(tmp_path):
+def test_command_integration(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "test/command",
         [
@@ -1024,33 +1034,60 @@ def test_command_integration(tmp_path):
     )
 
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=r"\.\?\some_command.exe -h,help \d quiet")
+        record = TestRecord(commando=r"\\.\\?\some_command.exe -h,help /d quiet")
         writer.write(record)
-        assert record.commando.executable == r"\.\?\some_command.exe"
-        assert record.commando.args == [r"-h,help \d quiet"]
+        assert record.commando.executable == r"\\.\\?\some_command.exe"
+        assert record.commando.args == [r"-h,help /d quiet"]
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable == r"\.\?\some_command.exe"
-            assert record.commando.args == [r"-h,help \d quiet"]
+            assert record.commando.executable == r"\\.\\?\some_command.exe"
+            assert record.commando.args == [r"-h,help /d quiet"]
 
 
 @pytest.mark.parametrize(
     "command_string, expected_executable, expected_argument",
     [
+        # Test relative windows paths
         ("windows.exe something,or,somethingelse", "windows.exe", ["something,or,somethingelse"]),
+        # Test weird command strings for windows
         ("windows.dll something,or,somethingelse", "windows.dll", ["something,or,somethingelse"]),
+        # Test environment variables
         (r"%WINDIR%\\windows.dll something,or,somethingelse", r"%WINDIR%\\windows.dll", ["something,or,somethingelse"]),
-        (r"'c:\path.to.some.exe' \d \a", r"c:\path.to.some.exe", [r"\d \a"]),
-        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
-        (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+        # Test a quoted path
+        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
+        # Test a unquoted path
+        (r"c:\Program Files\hello.exe", r"c:\Program Files\hello.exe", [""]),
+        # Test an unquoted path with a path as argument
+        (r"c:\Program Files\hello.exe c:\startmepls.exe", r"c:\Program Files\hello.exe", [r"c:\startmepls.exe"]),
     ],
 )
-def test_command(command_string, expected_executable, expected_argument):
-    cmd = command(command_string)
+def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
+    cmd = windows_command(command_string)
 
     assert cmd.executable == expected_executable
     assert cmd.args == expected_argument
+
+
+@pytest.mark.parametrize(
+    "command_string, expected_executable, expected_argument",
+    [
+        # Test relative posix command
+        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
+        # Test command with spaces
+        (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+    ],
+)
+def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
+    cmd = posix_command(command_string)
+
+    assert cmd.executable == expected_executable
+    assert cmd.args == expected_argument
+
+
+def test_command_failed():
+    with pytest.raises(ValueError):
+        command(b"failed")
 
 
 if __name__ == "__main__":

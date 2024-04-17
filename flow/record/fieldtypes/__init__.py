@@ -740,28 +740,83 @@ class windows_path(pathlib.PureWindowsPath, path):
 class command(FieldType):
     executable: str = None
     args: list[str] = None
+    _raw_data: str = None
 
-    def __init__(self, value: str):
-        if isinstance(value, tuple):
-            self.executable, args = value
-            self.args = list(args)
-            return
+    def __new__(cls, value: str):
+        if cls is not command:
+            return super().__new__(cls)
 
-        if not isinstance(value, str):
-            raise ValueError("expected value of type str")
+        if not isinstance(value, (str, tuple)):
+            raise ValueError(f"Expected a value of type 'str' or 'tuple' not {type(value)}")
 
         # pre checking for windows like paths
-        windows = value.startswith(("\\", "\\?", "%")) or value.lstrip("\"'")[1] == ":"
-        executable, *args = shlex.split(value, posix=not windows)
+        # This checks for windows like starts of a path:
+        #   an '%' for an environment variable
+        #   r'\\' for a UNC path
+        #   the strip and check for ":" on the second line is for `<drive_letter>:`
+        windows = value.startswith((r"\\", "%")) or value.lstrip("\"'")[1] == ":"
 
         if windows:
-            args = [value[len(executable) :].strip()]
-
-        self.executable = executable.strip("\"' ")
-        self.args = args
+            cls = windows_command
+        else:
+            cls = posix_command
+        cls._raw_data = value
+        return super().__new__(cls)
 
     def _pack(self):
-        return (self.executable, self.args)
+        command_type = PATH_WINDOWS if isinstance(self, windows_command) else PATH_POSIX
+        return ((self.executable, self.args), command_type)
+
+    @classmethod
+    def _unpack(cls, data: tuple[tuple[str, list], int]) -> command:
+        _value, _type = data
+        if _type == PATH_WINDOWS:
+            return windows_command(_value)
+
+        return posix_command(_value)
 
     def __repr__(self):
-        return "(executable={d.executable!r}, args={d.args})".format(d=self)
+        return f"(executable={self.executable!r}, args={self.args})"
+
+    @classmethod
+    def from_posix(cls, value: str):
+        return posix_command(value)
+
+    @classmethod
+    def from_windows(cls, value: str):
+        return windows_command(value)
+
+
+class posix_command(command):
+    def __init__(self, value: str | tuple):
+        if isinstance(value, tuple):
+            self.executable, self.args = value
+            self.args = list(self.args)
+            return
+
+        executable, *self.args = shlex.split(value)
+        self.executable = executable.strip("'\" ")
+
+
+class windows_command(command):
+    def __init__(self, value: str | tuple):
+        if isinstance(value, tuple):
+            self.executable, self.args = value
+            self.args = list(self.args)
+            return
+
+        executable, *args = shlex.split(value, posix=False)
+
+        # Best effor checking to reconstruct an unquoted path
+        _exec = [executable.strip("'\" ")]
+        _args = []
+        _idx = 0
+        for _val in args:
+            if "\\" in _val and ":" not in _val:
+                _exec.append(_val)
+                _idx += 1
+            else:
+                break
+
+        self.executable = " ".join(_exec)
+        self.args = [" ".join(args[_idx:])]
