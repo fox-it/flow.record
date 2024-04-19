@@ -740,13 +740,14 @@ class windows_path(pathlib.PureWindowsPath, path):
 class command(FieldType):
     executable: str = None
     args: list[str] = None
+    _posix: bool
 
     def __new__(cls, value: str):
         if cls is not command:
             return super().__new__(cls)
 
-        if not isinstance(value, (str, tuple)):
-            raise ValueError(f"Expected a value of type 'str' or 'tuple' not {type(value)}")
+        if not isinstance(value, str):
+            raise ValueError(f"Expected a value of type 'str' not {type(value)}")
 
         # pre checking for windows like paths
         # This checks for windows like starts of a path:
@@ -760,6 +761,20 @@ class command(FieldType):
         else:
             cls = posix_command
         return super().__new__(cls)
+
+    def __init__(self, value: str | tuple):
+        if isinstance(value, tuple):
+            self.executable, self.args = value
+            self.args = list(self.args)
+            return
+
+        self.executable, self.args = self._split_function(value)
+
+    def _split_function(self, value: str) -> tuple[str, list[str]]:
+        executable, *args = shlex.split(value, posix=self._posix)
+        executable = executable.strip("'\" ")
+
+        return executable, args
 
     def _pack(self):
         command_type = PATH_WINDOWS if isinstance(self, windows_command) else PATH_POSIX
@@ -786,35 +801,12 @@ class command(FieldType):
 
 
 class posix_command(command):
-    def __init__(self, value: str | tuple):
-        if isinstance(value, tuple):
-            self.executable, self.args = value
-            self.args = list(self.args)
-            return
-
-        executable, *self.args = shlex.split(value)
-        self.executable = executable.strip("'\" ")
+    _posix = True
 
 
 class windows_command(command):
-    def __init__(self, value: str | tuple):
-        if isinstance(value, tuple):
-            self.executable, self.args = value
-            self.args = list(self.args)
-            return
+    _posix = False
 
-        executable, *args = shlex.split(value, posix=False)
-
-        # Best effor checking to reconstruct an unquoted path
-        _exec = [executable.strip("'\" ")]
-        _args = []
-        _idx = 0
-        for _val in args:
-            if "\\" in _val and ":" not in _val:
-                _exec.append(_val)
-                _idx += 1
-            else:
-                break
-
-        self.executable = " ".join(_exec)
-        self.args = [" ".join(args[_idx:])]
+    def _split_function(self, value: str) -> tuple[str, list[str]]:
+        executable, args = super()._split_function(value)
+        return executable, [" ".join(args)]
