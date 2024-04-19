@@ -35,8 +35,8 @@ UTC = timezone.utc
 PY_311 = sys.version_info >= (3, 11, 0)
 PY_312 = sys.version_info >= (3, 12, 0)
 
-PATH_POSIX = 0
-PATH_WINDOWS = 1
+TYPE_POSIX = 0
+TYPE_WINDOWS = 1
 
 string_type = str
 varint_type = int
@@ -695,15 +695,15 @@ class path(pathlib.PurePath, FieldType):
         return repr(str(self))
 
     def _pack(self):
-        path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
+        path_type = TYPE_WINDOWS if isinstance(self, windows_path) else TYPE_POSIX
         return (str(self), path_type)
 
     @classmethod
     def _unpack(cls, data: tuple[str, str]):
         path_, path_type = data
-        if path_type == PATH_POSIX:
+        if path_type == TYPE_POSIX:
             return posix_path(path_)
-        elif path_type == PATH_WINDOWS:
+        elif path_type == TYPE_WINDOWS:
             return windows_path(path_)
         else:
             # Catch all: default to posix_path
@@ -770,6 +770,9 @@ class command(FieldType):
 
         self.executable, self.args = self._split_function(value)
 
+    def __repr__(self):
+        return f"(executable={self.executable!r}, args={self.args})"
+
     def _split_function(self, value: str) -> tuple[str, list[str]]:
         executable, *args = shlex.split(value, posix=self._posix)
         executable = executable.strip("'\" ")
@@ -777,19 +780,16 @@ class command(FieldType):
         return executable, args
 
     def _pack(self):
-        command_type = PATH_WINDOWS if isinstance(self, windows_command) else PATH_POSIX
+        command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
         return ((self.executable, self.args), command_type)
 
     @classmethod
     def _unpack(cls, data: tuple[tuple[str, list], int]) -> command:
         _value, _type = data
-        if _type == PATH_WINDOWS:
+        if _type == TYPE_WINDOWS:
             return windows_command(_value)
 
         return posix_command(_value)
-
-    def __repr__(self):
-        return f"(executable={self.executable!r}, args={self.args})"
 
     @classmethod
     def from_posix(cls, value: str):

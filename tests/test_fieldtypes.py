@@ -13,9 +13,9 @@ import pytest
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import (
-    PATH_POSIX,
-    PATH_WINDOWS,
     PY_312,
+    TYPE_POSIX,
+    TYPE_WINDOWS,
     _is_posixlike_path,
     _is_windowslike_path,
     command,
@@ -648,16 +648,16 @@ def test_path():
     assert isinstance(test_path, flow.record.fieldtypes.windows_path)
 
     test_path = flow.record.fieldtypes.path.from_posix(posix_path_str)
-    assert test_path._pack() == (posix_path_str, PATH_POSIX)
+    assert test_path._pack() == (posix_path_str, TYPE_POSIX)
 
-    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, PATH_POSIX))
+    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, TYPE_POSIX))
     assert str(test_path) == posix_path_str
     assert isinstance(test_path, flow.record.fieldtypes.posix_path)
 
     test_path = flow.record.fieldtypes.path.from_windows(windows_path_str)
-    assert test_path._pack() == (windows_path_str, PATH_WINDOWS)
+    assert test_path._pack() == (windows_path_str, TYPE_WINDOWS)
 
-    test_path = flow.record.fieldtypes.path._unpack((windows_path_str, PATH_WINDOWS))
+    test_path = flow.record.fieldtypes.path._unpack((windows_path_str, TYPE_WINDOWS))
     assert str(test_path) == windows_path_str
     assert isinstance(test_path, flow.record.fieldtypes.windows_path)
 
