@@ -770,7 +770,7 @@ class command(FieldType):
 
         self.executable, self.args = self._split_function(value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
 
     def _split_function(self, value: str) -> tuple[str, list[str]]:
@@ -779,7 +779,7 @@ class command(FieldType):
 
         return executable, args
 
-    def _pack(self):
+    def _pack(self) -> tuple[tuple[str, list], str]:
         command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
         return ((self.executable, self.args), command_type)
 
@@ -792,11 +792,11 @@ class command(FieldType):
         return posix_command(_value)
 
     @classmethod
-    def from_posix(cls, value: str):
+    def from_posix(cls, value: str) -> command:
         return posix_command(value)
 
     @classmethod
-    def from_windows(cls, value: str):
+    def from_windows(cls, value: str) -> command:
         return windows_command(value)
 
 
