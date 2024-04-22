@@ -1086,7 +1086,7 @@ def test_command_posix(command_string: str, expected_executable: str, expected_a
     assert cmd.args == expected_argument
 
 
-def test_command_failed():
+def test_command_failed() -> None:
     with pytest.raises(ValueError):
         command(b"failed")
 

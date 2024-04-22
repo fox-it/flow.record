@@ -742,7 +742,7 @@ class command(FieldType):
     args: list[str] = None
     _posix: bool
 
-    def __new__(cls, value: str):
+    def __new__(cls, value: str) -> command:
         if cls is not command:
             return super().__new__(cls)
 
