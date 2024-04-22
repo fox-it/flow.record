@@ -589,6 +589,41 @@ def test__is_windowslike_path(path_, is_windows):
     assert _is_windowslike_path(path_) == is_windows
 
 
+@pytest.mark.parametrize(
+    "path_, expected_str",
+    [
+        (None, None),
+        (".", "."),
+        ("", ""),
+        (" ", ""),
+        ("  ", ""),
+        ("\t", ""),
+        ("\t\t", ""),
+        ("\r", ""),
+        ("\r\r", ""),
+        ("\n", ""),
+        ("\n\n", ""),
+    ],
+)
+def test_empty_path_str(path_: str, expected_str: str) -> None:
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "value"),
+        ],
+    )
+
+    r = TestRecord(path_)
+    if path_ is None:
+        assert r.value is None
+    else:
+        assert str(r.value) == expected_str
+
+    if path_ is not None:
+        r = TestRecord(pathlib.Path(path_))
+        assert str(r.value) == expected_str
+
+
 def test_path():
     TestRecord = RecordDescriptor(
         "test/path",
@@ -603,13 +638,6 @@ def test_path():
     r = TestRecord(pathlib.PurePosixPath(posix_path_str))
     assert str(r.value) == posix_path_str
     assert isinstance(r.value, flow.record.fieldtypes.posix_path)
-
-    r = TestRecord()
-    assert r.value is None
-
-    r = TestRecord("")
-    assert str(r.value) == "."
-    assert r.value == "."
 
     if os.name == "nt":
         native_path_str = windows_path_str

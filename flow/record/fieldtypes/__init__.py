@@ -734,3 +734,31 @@ class windows_path(pathlib.PureWindowsPath, path):
                 quote = '"'
 
         return f"{quote}{s}{quote}"
+
+
+# DIS-2557: str(Path("")) should not return "."
+if not hasattr(pathlib.PurePath, "__old_str__"):
+    if PY_312:
+
+        def _new__str__(self) -> str:
+            return "" if "".join(self._raw_paths).strip() == "" else pathlib.PurePath.__old_str__(self)
+
+    else:
+
+        def _new_parse_parts(self, parts: list[str | pathlib.PurePath]) -> tuple(str, str, str):
+            raw_path = "".join(parts).strip()
+            self.empty = raw_path == ""
+            drv, root, parsed = pathlib._Flavour._old_parse_parts(self, parts)
+            # flavour removes . from parts, so we need to add it back otherwise path(pathlib.Path(".")) == ""
+            if raw_path == ".":
+                parsed.append(".")
+            return drv, root, parsed
+
+        def _new__str__(self) -> str:
+            return "" if self._flavour.empty else pathlib.PurePath.__old_str__(self)
+
+        pathlib._Flavour._old_parse_parts = pathlib._Flavour.parse_parts
+        pathlib._Flavour.parse_parts = _new_parse_parts
+
+    pathlib.PurePath.__old_str__ = pathlib.PurePath.__str__
+    pathlib.PurePath.__str__ = _new__str__
