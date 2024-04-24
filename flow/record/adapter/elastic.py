@@ -22,6 +22,7 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [PROTOCOL]: http or https. Defaults to https when "+[PROTOCOL]" is omitted
 
 Optional arguments:
+  [API_KEY]: base64 encoded api key to authenticate with (default: False)
   [INDEX]: name of the index to use (default: records)
   [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
   [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
@@ -39,6 +40,7 @@ class ElasticWriter(AbstractWriter):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         hash_record: Union[str, bool] = False,
+        api_key: Union[str, bool] = False,
         **kwargs,
     ) -> None:
         self.index = index
@@ -54,6 +56,7 @@ class ElasticWriter(AbstractWriter):
             uri,
             verify_certs=verify_certs,
             http_compress=http_compress,
+            api_key=api_key,
         )
 
         self.json_packer = JsonRecordPacker()
@@ -148,6 +151,7 @@ class ElasticReader(AbstractReader):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
+        api_key: Union[str, bool] = False,
         **kwargs,
     ) -> None:
         self.index = index
@@ -163,6 +167,7 @@ class ElasticReader(AbstractReader):
             uri,
             verify_certs=verify_certs,
             http_compress=http_compress,
+            api_key=api_key,
         )
 
         if not verify_certs:
