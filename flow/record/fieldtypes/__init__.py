@@ -815,4 +815,7 @@ class windows_command(command):
 
     def _split_function(self, value: str) -> tuple[str, list[str]]:
         executable, args = super()._split_function(value)
-        return executable, [" ".join(args)]
+        if args:
+            args = [" ".join(args)]
+
+        return executable, args
