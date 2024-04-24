@@ -776,6 +776,11 @@ class command(FieldType):
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, command):
+            return False
+        return self.executable == other.executable and self.args == other.args
+
     def _split_function(self, value: str) -> tuple[str, list[str]]:
         executable, *args = shlex.split(value, posix=self._posix)
         executable = executable.strip("'\" ")
