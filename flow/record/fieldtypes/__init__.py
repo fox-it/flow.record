@@ -738,8 +738,10 @@ class windows_path(pathlib.PureWindowsPath, path):
 
 
 class command(FieldType):
-    executable: str = None
+    executable: path = None
     args: list[str] = None
+
+    _path_type: type[path] = None
     _posix: bool
 
     def __new__(cls, value: str) -> command:
@@ -764,7 +766,8 @@ class command(FieldType):
 
     def __init__(self, value: str | tuple):
         if isinstance(value, tuple):
-            self.executable, self.args = value
+            executable, self.args = value
+            self.executable = self._path_type(executable)
             self.args = list(self.args)
             return
 
@@ -777,11 +780,12 @@ class command(FieldType):
         executable, *args = shlex.split(value, posix=self._posix)
         executable = executable.strip("'\" ")
 
-        return executable, args
+        return self._path_type(executable), args
 
     def _pack(self) -> tuple[tuple[str, list], str]:
         command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
-        return ((self.executable, self.args), command_type)
+        _exec, _ = self.executable._pack()
+        return ((_exec, self.args), command_type)
 
     @classmethod
     def _unpack(cls, data: tuple[tuple[str, list], int]) -> command:
@@ -802,10 +806,12 @@ class command(FieldType):
 
 class posix_command(command):
     _posix = True
+    _path_type = posix_path
 
 
 class windows_command(command):
     _posix = False
+    _path_type = windows_path
 
     def _split_function(self, value: str) -> tuple[str, list[str]]:
         executable, args = super()._split_function(value)
