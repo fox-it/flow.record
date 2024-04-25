@@ -19,6 +19,7 @@ from flow.record import (
     record_stream,
 )
 from flow.record.base import (
+    ignore_fields_for_comparison,
     merge_record_descriptors,
     normalize_fieldname,
     set_ignored_fields_for_comparison,
@@ -856,3 +857,81 @@ def test_compare_environment_variable():
         assert same_same == but_still_same
         assert same_same != but_different
         assert len(set(records)) == 2
+
+
+def test_ignore_fields_for_comparision_contextmanager():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "firstname"),
+            ("string", "lastname"),
+            ("string", "movie"),
+        ],
+    )
+    records = [
+        TestRecord("John", "Rambo", "First Blood"),
+        TestRecord("John", "Rambo", "Rambo: First Blood Part II"),
+        TestRecord("John", "Rambo", "Rambo III"),
+        TestRecord("John", "Rambo", "Rambo"),
+        TestRecord("John", "Rambo", "Rambo: Last Blood"),
+        TestRecord("Johnny", "English", "Johnny English"),
+        TestRecord("Johnny", "English", "Johnny English Strikes Again"),
+        TestRecord("John", "McClane", "Die Hard"),
+        TestRecord("John", "McClane", "Die Hard 2"),
+        TestRecord("John", "McClane", "Die Hard with a Vengeance"),
+        TestRecord("John", "McClane", "Live Free or Die Hard"),
+        TestRecord("John", "McClane", "A Good Day to Die Hard"),
+        TestRecord("John", "Wick", "John Wick"),
+        TestRecord("John", "Wick", "John Wick: Chapter 2"),
+        TestRecord("John", "Wick", "John Wick: Chapter 3 - Parabellum"),
+    ]
+
+    with ignore_fields_for_comparison({"_generated", "lastname", "movie"}):
+        # unique by firstname
+        first_name_records = set(records)
+        firstnames = [first_name.firstname for first_name in first_name_records]
+        assert len(first_name_records) == 2
+        assert firstnames.count("John") == 1
+        assert firstnames.count("Johnny") == 1
+        assert records[0] == records[1]
+
+        # test nested context manager
+        with ignore_fields_for_comparison({"_generated", "firstname", "movie"}):
+            # unique by lastname
+            last_name_records = set(records)
+            lastnames = [last_name.lastname for last_name in last_name_records]
+            assert len(lastnames) == 4
+            assert lastnames.count("Rambo") == 1
+            assert lastnames.count("English") == 1
+            assert lastnames.count("McClane") == 1
+            assert lastnames.count("Wick") == 1
+            assert records[0] == records[1]
+
+    # test if the contextmanager properly resets the ignored fields
+    with ignore_fields_for_comparison({"_generated", "movie"}):
+        # unique by firstname + lastname
+        main_character_records = set(records)
+        main_characters = [f"{r.firstname} {r.lastname}" for r in main_character_records]
+        assert len(main_characters) == 4
+        assert main_characters.count("John Rambo") == 1
+        assert main_characters.count("Johnny English") == 1
+        assert main_characters.count("John McClane") == 1
+        assert main_characters.count("John Wick") == 1
+        assert records[0] == records[1]
+
+    # test reset again
+    assert len(set(records)) == len(records)
+    assert records[0] != records[1]
+
+
+def test_list_field_type_hashing():
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("string[]", "stringlist"),
+            ("dictlist", "dictlist"),
+        ],
+    )
+
+    test_record = TestRecord(stringlist=["a", "b", "c", "d"], dictlist=[{"a": "b", "c": "d"}, {"foo": "bar"}])
+    assert isinstance(hash(test_record), int)
