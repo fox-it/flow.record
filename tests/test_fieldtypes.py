@@ -19,9 +19,6 @@ from flow.record.fieldtypes import (
     _is_posixlike_path,
     _is_windowslike_path,
     command,
-)
-from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import (
     fieldtype_for_value,
     net,
     posix_command,
@@ -29,6 +26,7 @@ from flow.record.fieldtypes import (
     windows_command,
     windows_path,
 )
+from flow.record.fieldtypes import datetime as dt
 
 UTC = timezone.utc
 
@@ -1107,7 +1105,24 @@ def test_command_posix(command_string: str, expected_executable: str, expected_a
 def test_command_equal() -> None:
     assert command("hello.so -h") == command("hello.so -h")
     assert command("hello.so -h") != command("hello.so")
+
+    # Test different types with the comparitor
+    assert command("hello.so -h") == ["hello.so", "-h"]
+    assert command("hello.so -h") == ("hello.so", "-h")
+    assert command("hello.so -h") == "hello.so -h"
+    assert command("c:\\hello.dll -h -b") == "c:\\hello.dll -h -b"
+
+    # Compare paths that contain spaces
+    assert command("'/home/some folder/file' -h") == "'/home/some folder/file' -h"
+    assert command("'c:\\Program files\\some.dll' -h -q") == "'c:\\Program files\\some.dll' -h -q"
+    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h -q"]
+    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h -q")
+
+    # Test failure conditions
     assert command("hello.so -h") != 1
+    assert command("hello.so") != "hello.so -h"
+    assert command("hello.so") != ["hello.so", ""]
+    assert command("hello.so") != ("hello.so", "")
 
 
 def test_command_failed() -> None:
