@@ -738,8 +738,8 @@ class windows_path(pathlib.PureWindowsPath, path):
 
 
 class command(FieldType):
-    executable: path = None
-    args: list[str] = None
+    executable: Optional[path] = None
+    args: Optional[list[str]] = None
 
     _path_type: type[path] = None
     _posix: bool
@@ -765,6 +765,9 @@ class command(FieldType):
         return super().__new__(cls)
 
     def __init__(self, value: str | tuple):
+        if value is None:
+            return
+
         if isinstance(value, tuple):
             executable, self.args = value
             self.executable = self._path_type(executable)
@@ -789,11 +792,14 @@ class command(FieldType):
 
     def _pack(self) -> tuple[tuple[str, list], str]:
         command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
-        _exec, _ = self.executable._pack()
-        return ((_exec, self.args), command_type)
+        if self.executable:
+            _exec, _ = self.executable._pack()
+            return ((_exec, self.args), command_type)
+        else:
+            return (None, command_type)
 
     @classmethod
-    def _unpack(cls, data: tuple[tuple[str, list], int]) -> command:
+    def _unpack(cls, data: tuple[Optional[tuple[str, list]], int]) -> command:
         _value, _type = data
         if _type == TYPE_WINDOWS:
             return windows_command(_value)

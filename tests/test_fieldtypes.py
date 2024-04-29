@@ -1046,6 +1046,23 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
             assert record.commando.args == [r"-h,help /d quiet"]
 
 
+def test_command_integration_none(tmp_path: pathlib.Path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=command.from_posix(None))
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable is None
+            assert record.commando.args is None
+
+
 @pytest.mark.parametrize(
     "command_string, expected_executable, expected_argument",
     [
@@ -1061,6 +1078,7 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
         (r"'c:\Program Files\hello.exe'", r"c:\Program Files\hello.exe", []),
         # Test an unquoted path with a path as argument
         (r"'c:\Program Files\hello.exe' c:\startmepls.exe", r"c:\Program Files\hello.exe", [r"c:\startmepls.exe"]),
+        (None, None, None),
     ],
 )
 def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
