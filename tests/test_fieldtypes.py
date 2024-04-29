@@ -19,6 +19,9 @@ from flow.record.fieldtypes import (
     _is_posixlike_path,
     _is_windowslike_path,
     command,
+)
+from flow.record.fieldtypes import datetime as dt
+from flow.record.fieldtypes import (
     fieldtype_for_value,
     net,
     posix_command,
@@ -26,7 +29,6 @@ from flow.record.fieldtypes import (
     windows_command,
     windows_path,
 )
-from flow.record.fieldtypes import datetime as dt
 
 UTC = timezone.utc
 
