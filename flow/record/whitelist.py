@@ -1,5 +1,6 @@
 WHITELIST = [
     "boolean",
+    "command",
     "dynamic",
     "datetime",
     "filesize",
