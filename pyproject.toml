@@ -49,6 +49,9 @@ geoip = [
 avro = [
     "fastavro[snappy]",
 ]
+gcs = [
+    "google-cloud-storage",
+]
 duckdb = [
     "duckdb",
     "pytz", # duckdb requires pytz for timezone support
