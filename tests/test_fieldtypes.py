@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import flow.record.fieldtypes
-from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record import RecordDescriptor, RecordReader, RecordWriter, fieldtypes
 from flow.record.fieldtypes import (
     PY_312,
     TYPE_POSIX,
@@ -617,8 +617,8 @@ def test_path():
     assert r.value is None
 
     r = TestRecord("")
-    assert str(r.value) == "."
-    assert r.value == "."
+    assert str(r.value) == ""
+    assert r.value == ""
 
     if os.name == "nt":
         native_path_str = windows_path_str
@@ -1130,6 +1130,74 @@ def test_command_equal() -> None:
 def test_command_failed() -> None:
     with pytest.raises(ValueError):
         command(b"failed")
+
+
+@pytest.mark.parametrize(
+    "path_cls",
+    [
+        fieldtypes.posix_path,
+        fieldtypes.windows_path,
+        fieldtypes.path,
+    ],
+)
+def test_empty_path(path_cls) -> None:
+    # initialize with empty string
+    p1 = path_cls("")
+    assert p1 == ""
+    assert p1._empty_path
+    assert str(p1) == ""
+
+    # initialize without any arguments
+    p2 = path_cls()
+    assert p2 == ""
+    assert p2._empty_path
+    assert str(p2) == ""
+
+    assert p1 == p2
+
+
+def test_record_empty_path() -> None:
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "value"),
+        ],
+    )
+
+    r = TestRecord()
+    assert r.value is None
+    assert repr(r) == "<test/path value=None>"
+
+    r = TestRecord("")
+    assert r.value == ""
+    assert repr(r) == "<test/path value=''>"
+
+
+def test_empty_path_serialization(tmp_path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/path",
+        [
+            ("path", "value"),
+        ],
+    )
+
+    # Test path value=None serialization
+    p_tmp_records = tmp_path / "none_path"
+    with RecordWriter(p_tmp_records) as writer:
+        record = TestRecord()
+        writer.write(record)
+    with RecordReader(p_tmp_records) as reader:
+        for record in reader:
+            assert record.value is None
+
+    # Test path value="" serialization
+    p_tmp_records = tmp_path / "empty_str"
+    with RecordWriter(p_tmp_records) as writer:
+        record = TestRecord("")
+        writer.write(record)
+    with RecordReader(p_tmp_records) as reader:
+        for record in reader:
+            assert record.value == ""
 
 
 if __name__ == "__main__":

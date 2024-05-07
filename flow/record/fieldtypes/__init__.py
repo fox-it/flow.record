@@ -686,10 +686,22 @@ class path(pathlib.PurePath, FieldType):
             obj = cls._from_parts(args)
         return obj
 
+    def __init__(self, *args):
+        self._empty_path = False
+        if not args or args == ("",):
+            self._empty_path = True
+
     def __eq__(self, other: Any) -> bool:
+        if self._empty_path:
+            return other == ""
         if isinstance(other, str):
             return str(self) == other or self == self.__class__(other)
         return super().__eq__(other)
+
+    def __str__(self) -> str:
+        if self._empty_path:
+            return ""
+        return super().__str__()
 
     def __repr__(self) -> str:
         return repr(str(self))
