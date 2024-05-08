@@ -687,6 +687,7 @@ class path(pathlib.PurePath, FieldType):
         return obj
 
     def __init__(self, *args):
+        super().__init__(*args)
         self._empty_path = False
         if not args or args == ("",):
             self._empty_path = True
