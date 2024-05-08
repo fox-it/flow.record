@@ -1146,14 +1146,20 @@ def test_empty_path(path_cls) -> None:
     assert p1 == ""
     assert p1._empty_path
     assert str(p1) == ""
+    assert p1 != path_cls(".")
 
     # initialize without any arguments
     p2 = path_cls()
     assert p2 == ""
     assert p2._empty_path
     assert str(p2) == ""
+    assert p2 != path_cls(".")
 
     assert p1 == p2
+
+
+def test_empty_path_different_types() -> None:
+    assert fieldtypes.posix_path("") != fieldtypes.windows_path("")
 
 
 def test_record_empty_path() -> None:

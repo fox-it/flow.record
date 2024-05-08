@@ -691,10 +691,10 @@ class path(pathlib.PurePath, FieldType):
         return obj
 
     def __eq__(self, other: Any) -> bool:
-        if self._empty_path:
-            return other == ""
         if isinstance(other, str):
             return str(self) == other or self == self.__class__(other)
+        if self._empty_path:
+            return isinstance(other, self.__class__) and other._empty_path
         return super().__eq__(other)
 
     def __str__(self) -> str:
