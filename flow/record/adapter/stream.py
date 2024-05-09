@@ -37,7 +37,8 @@ class StreamWriter(AbstractWriter):
         self.stream = None
 
         if self.fp and not is_stdout(self.fp):
-            self.fp.close()
+            # self.fp.close()
+            pass
         self.fp = None
 
 
