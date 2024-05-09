@@ -577,6 +577,9 @@ def test_rdump_count_list(tmp_path, capfd, record_count, count, expected_count):
     assert captured.err == ""
     assert f"Processed {expected_count} records" in captured.out
 
+    with capfd.disabled():
+        print("DEBUG", sys.stdout.closed, sys.stdout.buffer.closed)
+
 
 def test_record_adapter_windows_path(tmp_path):
     TestRecord = RecordDescriptor(
