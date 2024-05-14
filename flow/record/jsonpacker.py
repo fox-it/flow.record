@@ -72,6 +72,11 @@ class JsonRecordPacker:
             return base64.b64encode(obj).decode()
         if isinstance(obj, fieldtypes.path):
             return str(obj)
+        if isinstance(obj, fieldtypes.command):
+            return {
+                "executable": obj.executable,
+                "args": obj.args,
+            }
 
         raise Exception("Unpackable type " + str(type(obj)))
 

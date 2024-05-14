@@ -1,4 +1,5 @@
 # coding: utf-8
+from __future__ import annotations
 
 import hashlib
 import os
@@ -12,14 +13,22 @@ import pytest
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.fieldtypes import (
-    PATH_POSIX,
-    PATH_WINDOWS,
     PY_312,
+    TYPE_POSIX,
+    TYPE_WINDOWS,
     _is_posixlike_path,
     _is_windowslike_path,
+    command,
 )
 from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import fieldtype_for_value, net, uri, windows_path
+from flow.record.fieldtypes import (
+    fieldtype_for_value,
+    net,
+    posix_command,
+    uri,
+    windows_command,
+    windows_path,
+)
 
 UTC = timezone.utc
 
@@ -639,16 +648,16 @@ def test_path():
     assert isinstance(test_path, flow.record.fieldtypes.windows_path)
 
     test_path = flow.record.fieldtypes.path.from_posix(posix_path_str)
-    assert test_path._pack() == (posix_path_str, PATH_POSIX)
+    assert test_path._pack() == (posix_path_str, TYPE_POSIX)
 
-    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, PATH_POSIX))
+    test_path = flow.record.fieldtypes.path._unpack((posix_path_str, TYPE_POSIX))
     assert str(test_path) == posix_path_str
     assert isinstance(test_path, flow.record.fieldtypes.posix_path)
 
     test_path = flow.record.fieldtypes.path.from_windows(windows_path_str)
-    assert test_path._pack() == (windows_path_str, PATH_WINDOWS)
+    assert test_path._pack() == (windows_path_str, TYPE_WINDOWS)
 
-    test_path = flow.record.fieldtypes.path._unpack((windows_path_str, PATH_WINDOWS))
+    test_path = flow.record.fieldtypes.path._unpack((windows_path_str, TYPE_WINDOWS))
     assert str(test_path) == windows_path_str
     assert isinstance(test_path, flow.record.fieldtypes.windows_path)
 
@@ -996,6 +1005,131 @@ def test_datetime_comparisions():
     assert dt("2023-01-01T13:36") < datetime(2023, 1, 1, 13, 37, tzinfo=UTC)
     assert dt("2023-01-01T13:37") > datetime(2023, 1, 1, 13, 36, tzinfo=UTC)
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
+
+
+def test_command_record() -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    record = TestRecord(commando="help.exe -h")
+    assert isinstance(record.commando, posix_command)
+    assert record.commando.executable == "help.exe"
+    assert record.commando.args == ["-h"]
+
+    record = TestRecord(commando="something.so -h -q -something")
+    assert isinstance(record.commando, posix_command)
+    assert record.commando.executable == "something.so"
+    assert record.commando.args == ["-h", "-q", "-something"]
+
+
+def test_command_integration(tmp_path: pathlib.Path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=r"\\.\\?\some_command.exe -h,help /d quiet")
+        writer.write(record)
+        assert record.commando.executable == r"\\.\\?\some_command.exe"
+        assert record.commando.args == [r"-h,help /d quiet"]
+
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable == r"\\.\\?\some_command.exe"
+            assert record.commando.args == [r"-h,help /d quiet"]
+
+
+def test_command_integration_none(tmp_path: pathlib.Path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=command.from_posix(None))
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable is None
+            assert record.commando.args is None
+
+
+@pytest.mark.parametrize(
+    "command_string, expected_executable, expected_argument",
+    [
+        # Test relative windows paths
+        ("windows.exe something,or,somethingelse", "windows.exe", ["something,or,somethingelse"]),
+        # Test weird command strings for windows
+        ("windows.dll something,or,somethingelse", "windows.dll", ["something,or,somethingelse"]),
+        # Test environment variables
+        (r"%WINDIR%\\windows.dll something,or,somethingelse", r"%WINDIR%\\windows.dll", ["something,or,somethingelse"]),
+        # Test a quoted path
+        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
+        # Test a unquoted path
+        (r"'c:\Program Files\hello.exe'", r"c:\Program Files\hello.exe", []),
+        # Test an unquoted path with a path as argument
+        (r"'c:\Program Files\hello.exe' c:\startmepls.exe", r"c:\Program Files\hello.exe", [r"c:\startmepls.exe"]),
+        (None, None, None),
+    ],
+)
+def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
+    cmd = windows_command(command_string)
+
+    assert cmd.executable == expected_executable
+    assert cmd.args == expected_argument
+
+
+@pytest.mark.parametrize(
+    "command_string, expected_executable, expected_argument",
+    [
+        # Test relative posix command
+        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
+        # Test command with spaces
+        (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+    ],
+)
+def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
+    cmd = posix_command(command_string)
+
+    assert cmd.executable == expected_executable
+    assert cmd.args == expected_argument
+
+
+def test_command_equal() -> None:
+    assert command("hello.so -h") == command("hello.so -h")
+    assert command("hello.so -h") != command("hello.so")
+
+    # Test different types with the comparitor
+    assert command("hello.so -h") == ["hello.so", "-h"]
+    assert command("hello.so -h") == ("hello.so", "-h")
+    assert command("hello.so -h") == "hello.so -h"
+    assert command("c:\\hello.dll -h -b") == "c:\\hello.dll -h -b"
+
+    # Compare paths that contain spaces
+    assert command("'/home/some folder/file' -h") == "'/home/some folder/file' -h"
+    assert command("'c:\\Program files\\some.dll' -h -q") == "'c:\\Program files\\some.dll' -h -q"
+    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h -q"]
+    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h -q")
+
+    # Test failure conditions
+    assert command("hello.so -h") != 1
+    assert command("hello.so") != "hello.so -h"
+    assert command("hello.so") != ["hello.so", ""]
+    assert command("hello.so") != ("hello.so", "")
+
+
+def test_command_failed() -> None:
+    with pytest.raises(ValueError):
+        command(b"failed")
 
 
 if __name__ == "__main__":

@@ -5,13 +5,14 @@ import math
 import os
 import pathlib
 import re
+import shlex
 import sys
 import warnings
 from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 try:
@@ -34,8 +35,8 @@ UTC = timezone.utc
 PY_311 = sys.version_info >= (3, 11, 0)
 PY_312 = sys.version_info >= (3, 12, 0)
 
-PATH_POSIX = 0
-PATH_WINDOWS = 1
+TYPE_POSIX = 0
+TYPE_WINDOWS = 1
 
 string_type = str
 varint_type = int
@@ -694,15 +695,15 @@ class path(pathlib.PurePath, FieldType):
         return repr(str(self))
 
     def _pack(self):
-        path_type = PATH_WINDOWS if isinstance(self, windows_path) else PATH_POSIX
+        path_type = TYPE_WINDOWS if isinstance(self, windows_path) else TYPE_POSIX
         return (str(self), path_type)
 
     @classmethod
-    def _unpack(cls, data: Tuple[str, str]):
+    def _unpack(cls, data: tuple[str, str]):
         path_, path_type = data
-        if path_type == PATH_POSIX:
+        if path_type == TYPE_POSIX:
             return posix_path(path_)
-        elif path_type == PATH_WINDOWS:
+        elif path_type == TYPE_WINDOWS:
             return windows_path(path_)
         else:
             # Catch all: default to posix_path
@@ -734,3 +735,115 @@ class windows_path(pathlib.PureWindowsPath, path):
                 quote = '"'
 
         return f"{quote}{s}{quote}"
+
+
+class command(FieldType):
+    executable: Optional[path] = None
+    args: Optional[list[str]] = None
+
+    _path_type: type[path] = None
+    _posix: bool
+
+    def __new__(cls, value: str) -> command:
+        if cls is not command:
+            return super().__new__(cls)
+
+        if not isinstance(value, str):
+            raise ValueError(f"Expected a value of type 'str' not {type(value)}")
+
+        # pre checking for windows like paths
+        # This checks for windows like starts of a path:
+        #   an '%' for an environment variable
+        #   r'\\' for a UNC path
+        #   the strip and check for ":" on the second line is for `<drive_letter>:`
+        windows = value.startswith((r"\\", "%")) or value.lstrip("\"'")[1] == ":"
+
+        if windows:
+            cls = windows_command
+        else:
+            cls = posix_command
+        return super().__new__(cls)
+
+    def __init__(self, value: str | tuple[str, tuple[str]] | None):
+        if value is None:
+            return
+
+        if isinstance(value, str):
+            self.executable, self.args = self._split(value)
+            return
+
+        executable, self.args = value
+        self.executable = self._path_type(executable)
+        self.args = list(self.args)
+
+    def __repr__(self) -> str:
+        return f"(executable={self.executable!r}, args={self.args})"
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, command):
+            return self.executable == other.executable and self.args == other.args
+        elif isinstance(other, str):
+            return self._join() == other
+        elif isinstance(other, (tuple, list)):
+            return self.executable == other[0] and self.args == list(other[1:])
+
+        return False
+
+    def _split(self, value: str) -> tuple[str, list[str]]:
+        executable, *args = shlex.split(value, posix=self._posix)
+        executable = executable.strip("'\" ")
+
+        return self._path_type(executable), args
+
+    def _join(self) -> str:
+        return shlex.join([str(self.executable)] + self.args)
+
+    def _pack(self) -> tuple[tuple[str, list], str]:
+        command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
+        if self.executable:
+            _exec, _ = self.executable._pack()
+            return ((_exec, self.args), command_type)
+        else:
+            return (None, command_type)
+
+    @classmethod
+    def _unpack(cls, data: tuple[tuple[str, tuple] | None, int]) -> command:
+        _value, _type = data
+        if _type == TYPE_WINDOWS:
+            return windows_command(_value)
+
+        return posix_command(_value)
+
+    @classmethod
+    def from_posix(cls, value: str) -> command:
+        return posix_command(value)
+
+    @classmethod
+    def from_windows(cls, value: str) -> command:
+        return windows_command(value)
+
+
+class posix_command(command):
+    _posix = True
+    _path_type = posix_path
+
+
+class windows_command(command):
+    _posix = False
+    _path_type = windows_path
+
+    def _split(self, value: str) -> tuple[str, list[str]]:
+        executable, args = super()._split(value)
+        if args:
+            args = [" ".join(args)]
+
+        return executable, args
+
+    def _join(self) -> str:
+        arg = f" {self.args[0]}" if self.args else ""
+        executable_str = str(self.executable)
+
+        if " " in executable_str:
+            return f"'{executable_str}'{arg}"
+
+        return f"{executable_str}{arg}"
