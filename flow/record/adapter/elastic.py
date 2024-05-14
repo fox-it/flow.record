@@ -2,7 +2,7 @@ import hashlib
 import logging
 import queue
 import threading
-from typing import Iterator, Union
+from typing import Iterator, Optional, Union
 
 import elasticsearch
 import elasticsearch.helpers
@@ -40,7 +40,7 @@ class ElasticWriter(AbstractWriter):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         hash_record: Union[str, bool] = False,
-        api_key: Union[str, bool] = False,
+        api_key: Optional[str] = None,
         **kwargs,
     ) -> None:
         self.index = index
@@ -152,7 +152,7 @@ class ElasticReader(AbstractReader):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
-        api_key: Union[str] = None,
+        api_key: Optional[str] = None,
         **kwargs,
     ) -> None:
         self.index = index
