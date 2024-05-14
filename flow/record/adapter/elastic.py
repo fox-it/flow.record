@@ -97,7 +97,8 @@ class ElasticWriter(AbstractWriter):
         if self.hash_record:
             rdict_meta.pop("generated", None)
 
-        rdict["_record_metadata"] = rdict_meta | self.metadata_fields
+        rdict["_record_metadata"] = rdict_meta.copy()
+        rdict["_record_metadata"].update(self.metadata_fields)
 
         document = {
             "_index": index,
@@ -151,7 +152,7 @@ class ElasticReader(AbstractReader):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
-        api_key: Union[str, bool] = False,
+        api_key: Union[str] = None,
         **kwargs,
     ) -> None:
         self.index = index
