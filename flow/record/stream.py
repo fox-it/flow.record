@@ -73,7 +73,7 @@ class RecordStreamWriter:
     def close(self):
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
-            self.fp = None
+        self.fp = None
 
     def flush(self):
         if not self.header_written:
