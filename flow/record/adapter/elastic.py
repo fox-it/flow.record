@@ -49,7 +49,7 @@ class ElasticWriter(AbstractWriter):
         http_compress = str(http_compress).lower() in ("1", "true")
         self.hash_record = str(hash_record).lower() in ("1", "true")
 
-        if not uri.startswith("https://") and not uri.startswith("http://"):
+        if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
 
         self.es = elasticsearch.Elasticsearch(
@@ -161,7 +161,7 @@ class ElasticReader(AbstractReader):
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
 
-        if not uri.startswith("http"):
+        if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
 
         self.es = elasticsearch.Elasticsearch(
