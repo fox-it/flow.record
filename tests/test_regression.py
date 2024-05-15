@@ -433,7 +433,7 @@ def test_grouped_replace():
     excinfo.match(".*Got unexpected field names:.*non_existing_field.*")
 
 
-def test_bytes_line_adapter(capsys):
+def test_bytes_line_adapter(capfd):
     TestRecord = RecordDescriptor(
         "test/bytes_hex",
         [
@@ -444,11 +444,11 @@ def test_bytes_line_adapter(capsys):
     with RecordWriter("line://") as writer:
         writer.write(TestRecord(b"hello world"))
 
-    captured = capsys.readouterr()
+    captured = capfd.readouterr()
     assert "data = b'hello world'" in captured.out
 
 
-def test_is_stdout(tmp_path, capsysbinary):
+def test_is_stdout(tmp_path, capfdbinary):
     assert is_stdout(sys.stdout)
     assert is_stdout(sys.stdout.buffer)
 
@@ -461,7 +461,7 @@ def test_is_stdout(tmp_path, capsysbinary):
     with RecordWriter() as writer:
         assert is_stdout(writer.fp)
 
-    out, err = capsysbinary.readouterr()
+    out, err = capfdbinary.readouterr()
     assert out.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
     with RecordWriter(tmp_path / "output.records") as writer:
@@ -667,7 +667,7 @@ def test_record_reader_default_stdin(tmp_path):
                 assert record.text == "foo"
 
 
-def test_record_writer_default_stdout(capsysbinary):
+def test_record_writer_default_stdout(capfdbinary):
     """RecordWriter should default to stdout if no path is given"""
     TestRecord = RecordDescriptor(
         "test/record",
@@ -680,7 +680,7 @@ def test_record_writer_default_stdout(capsysbinary):
     with RecordWriter() as writer:
         writer.write(TestRecord("foo"))
 
-    stdout = capsysbinary.readouterr().out
+    stdout = capfdbinary.readouterr().out
     assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
 
