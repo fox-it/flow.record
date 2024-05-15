@@ -59,6 +59,7 @@ splunk = [
 test = [
     "flow.record[compression]",
     "flow.record[avro]",
+    "flow.record[elastic]",
     "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
 ]

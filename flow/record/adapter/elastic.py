@@ -2,7 +2,7 @@ import hashlib
 import logging
 import queue
 import threading
-from typing import Iterator, Union
+from typing import Iterator, Optional, Union
 
 import elasticsearch
 import elasticsearch.helpers
@@ -22,9 +22,11 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 [PROTOCOL]: http or https. Defaults to https when "+[PROTOCOL]" is omitted
 
 Optional arguments:
+  [API_KEY]: base64 encoded api key to authenticate with (default: False)
   [INDEX]: name of the index to use (default: records)
   [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
   [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
+  [_META_*]: record metadata fields (default: None)
 """
 
 log = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ class ElasticWriter(AbstractWriter):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         hash_record: Union[str, bool] = False,
+        api_key: Optional[str] = None,
         **kwargs,
     ) -> None:
         self.index = index
@@ -45,7 +48,17 @@ class ElasticWriter(AbstractWriter):
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
         self.hash_record = str(hash_record).lower() in ("1", "true")
-        self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
+
+        if not uri.lower().startswith(("http://", "https://")):
+            uri = "http://" + uri
+
+        self.es = elasticsearch.Elasticsearch(
+            uri,
+            verify_certs=verify_certs,
+            http_compress=http_compress,
+            api_key=api_key,
+        )
+
         self.json_packer = JsonRecordPacker()
         self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
         self.event = threading.Event()
@@ -58,25 +71,34 @@ class ElasticWriter(AbstractWriter):
 
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+        self.metadata_fields = {}
+        for arg_key, arg_val in kwargs.items():
+            if arg_key.startswith("_meta_"):
+                self.metadata_fields[arg_key[6:]] = arg_val
+
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
         rdict = record._asdict()
 
-        # Store record metadata under `_record_metadata`
+        # Store record metadata under `_record_metadata`.
         rdict_meta = {
             "descriptor": {
                 "name": record._desc.name,
                 "hash": record._desc.descriptor_hash,
             },
         }
+
         # Move all dunder fields to `_record_metadata` to avoid naming clash with ES.
         dunder_keys = [key for key in rdict if key.startswith("_")]
         for key in dunder_keys:
             rdict_meta[key.lstrip("_")] = rdict.pop(key)
-        # remove _generated field from metadata to ensure determinstic documents
+
+        # Remove _generated field from metadata to ensure determinstic documents.
         if self.hash_record:
             rdict_meta.pop("generated", None)
-        rdict["_record_metadata"] = rdict_meta
+
+        rdict["_record_metadata"] = rdict_meta.copy()
+        rdict["_record_metadata"].update(self.metadata_fields)
 
         document = {
             "_index": index,
@@ -106,6 +128,7 @@ class ElasticWriter(AbstractWriter):
         ):
             if not ok:
                 log.error("Failed to insert %r", item)
+
         self.event.set()
 
     def write(self, record: Record) -> None:
@@ -129,6 +152,7 @@ class ElasticReader(AbstractReader):
         verify_certs: Union[str, bool] = True,
         http_compress: Union[str, bool] = True,
         selector: Union[None, Selector, CompiledSelector] = None,
+        api_key: Optional[str] = None,
         **kwargs,
     ) -> None:
         self.index = index
@@ -136,7 +160,16 @@ class ElasticReader(AbstractReader):
         self.selector = selector
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
-        self.es = elasticsearch.Elasticsearch(uri, verify_certs=verify_certs, http_compress=http_compress)
+
+        if not uri.lower().startswith(("http://", "https://")):
+            uri = "http://" + uri
+
+        self.es = elasticsearch.Elasticsearch(
+            uri,
+            verify_certs=verify_certs,
+            http_compress=http_compress,
+            api_key=api_key,
+        )
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
