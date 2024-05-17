@@ -433,7 +433,7 @@ def test_grouped_replace():
     excinfo.match(".*Got unexpected field names:.*non_existing_field.*")
 
 
-def test_bytes_line_adapter(capfd):
+def test_bytes_line_adapter(capsys):
     TestRecord = RecordDescriptor(
         "test/bytes_hex",
         [
@@ -444,11 +444,11 @@ def test_bytes_line_adapter(capfd):
     with RecordWriter("line://") as writer:
         writer.write(TestRecord(b"hello world"))
 
-    captured = capfd.readouterr()
+    captured = capsys.readouterr()
     assert "data = b'hello world'" in captured.out
 
 
-def test_is_stdout(tmp_path, capfdbinary):
+def test_is_stdout(tmp_path, capsysbinary):
     assert is_stdout(sys.stdout)
     assert is_stdout(sys.stdout.buffer)
 
@@ -461,7 +461,7 @@ def test_is_stdout(tmp_path, capfdbinary):
     with RecordWriter() as writer:
         assert is_stdout(writer.fp)
 
-    out, err = capfdbinary.readouterr()
+    out, err = capsysbinary.readouterr()
     assert out.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
     with RecordWriter(tmp_path / "output.records") as writer:
@@ -551,7 +551,7 @@ def test_windows_path_regression(path_initializer):
         (5, 10, 5),
     ],
 )
-def test_rdump_count_list(tmp_path, capfd, record_count, count, expected_count):
+def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_count):
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -567,15 +567,15 @@ def test_rdump_count_list(tmp_path, capfd, record_count, count, expected_count):
 
     # rdump --count <count>
     rdump.main([str(record_path), "--count", str(count)])
-    captured = capfd.readouterr()
-    assert captured.err == ""
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
     assert len(captured.out.splitlines()) == expected_count
 
     # rdump --list --count <count>
     rdump.main([str(record_path), "--list", "--count", str(count)])
-    captured = capfd.readouterr()
-    assert captured.err == ""
-    assert f"Processed {expected_count} records" in captured.out
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert f"Processed {expected_count} records".encode() in captured.out
 
 
 def test_record_adapter_windows_path(tmp_path):
@@ -667,7 +667,7 @@ def test_record_reader_default_stdin(tmp_path):
                 assert record.text == "foo"
 
 
-def test_record_writer_default_stdout(capfdbinary):
+def test_record_writer_default_stdout(capsysbinary):
     """RecordWriter should default to stdout if no path is given"""
     TestRecord = RecordDescriptor(
         "test/record",
@@ -680,7 +680,7 @@ def test_record_writer_default_stdout(capfdbinary):
     with RecordWriter() as writer:
         writer.write(TestRecord("foo"))
 
-    stdout = capfdbinary.readouterr().out
+    stdout = capsysbinary.readouterr().out
     assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
 

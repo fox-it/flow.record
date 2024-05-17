@@ -387,7 +387,7 @@ def test_rdump_split_suffix_length(tmp_path):
         ("text://", b"<test/record"),
     ],
 )
-def test_rdump_split_using_uri(tmp_path, scheme, first_line, capfdbinary):
+def test_rdump_split_using_uri(tmp_path, scheme, first_line, capsysbinary):
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -403,7 +403,7 @@ def test_rdump_split_using_uri(tmp_path, scheme, first_line, capfdbinary):
 
     # test stdout: rdump --split=10 $scheme
     rdump.main([str(record_path), "--split=10", "-w", scheme])
-    captured = capfdbinary.readouterr()
+    captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert b"X-TEST-9-TEST-X" in captured.out.splitlines()[-1]
 
@@ -421,14 +421,14 @@ def test_rdump_split_using_uri(tmp_path, scheme, first_line, capfdbinary):
             assert first_line in next(f)
 
 
-def test_rdump_split_without_writer(capfdbinary):
+def test_rdump_split_without_writer(capsysbinary):
     with pytest.raises(SystemExit):
         rdump.main(["--split=10"])
-    captured = capfdbinary.readouterr()
+    captured = capsysbinary.readouterr()
     assert b"error: --split only makes sense in combination with -w/--writer" in captured.err
 
 
-def test_rdump_csv(tmp_path, capfdbinary):
+def test_rdump_csv(tmp_path, capsysbinary):
     path = tmp_path / "test.csv"
     with open(path, "w") as f:
         f.write("count,text\n")
@@ -437,7 +437,7 @@ def test_rdump_csv(tmp_path, capfdbinary):
         f.write("3,bar\n")
 
     rdump.main([str(path)])
-    captured = capfdbinary.readouterr()
+    captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert captured.out.splitlines() == [
         b"<csv/reader count='1' text='hello'>",
@@ -446,7 +446,7 @@ def test_rdump_csv(tmp_path, capfdbinary):
     ]
 
 
-def test_rdump_headerless_csv(tmp_path, capfdbinary):
+def test_rdump_headerless_csv(tmp_path, capsysbinary):
     # write out headerless CSV file
     path = tmp_path / "test.csv"
     with open(path, "w") as f:
@@ -456,7 +456,7 @@ def test_rdump_headerless_csv(tmp_path, capfdbinary):
 
     # manualy specify CSV fields
     rdump.main([f"csvfile://{path}?fields=count,text"])
-    captured = capfdbinary.readouterr()
+    captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert captured.out.splitlines() == [
         b"<csv/reader count='1' text='hello'>",
@@ -517,7 +517,7 @@ def test_rdump_stdin_peek(tmp_path: Path):
         (10, None, 10, []),
     ],
 )
-def test_rdump_count_and_skip(tmp_path, capfdbinary, total_records, count, skip, expected_numbers):
+def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip, expected_numbers):
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -540,7 +540,7 @@ def test_rdump_count_and_skip(tmp_path, capfdbinary, total_records, count, skip,
         rdump_parameters.append(f"--skip={skip}")
 
     rdump.main([str(full_set_path), "--csv", "-F", "number"] + rdump_parameters)
-    captured = capfdbinary.readouterr()
+    captured = capsysbinary.readouterr()
     assert captured.err == b""
 
     # Skip csv header
@@ -579,7 +579,7 @@ def test_rdump_count_and_skip(tmp_path, capfdbinary, total_records, count, skip,
         ["--mode=line"],
     ],
 )
-def test_flow_record_tz_output(tmp_path, capfd, date_str, tz, expected_date_str, rdump_params):
+def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str, rdump_params):
     TestRecord = RecordDescriptor(
         "test/flow_record_tz",
         [
@@ -598,7 +598,7 @@ def test_flow_record_tz_output(tmp_path, capfd, date_str, tz, expected_date_str,
         flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
         rdump.main([str(tmp_path / "test.records")] + rdump_params)
-        captured = capfd.readouterr()
+        captured = capsys.readouterr()
         assert captured.err == ""
         assert expected_date_str in captured.out
 
@@ -606,7 +606,7 @@ def test_flow_record_tz_output(tmp_path, capfd, date_str, tz, expected_date_str,
     flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
 
-def test_flow_record_invalid_tz(tmp_path, capfd):
+def test_flow_record_invalid_tz(tmp_path, capsys):
     TestRecord = RecordDescriptor(
         "test/flow_record_tz",
         [
@@ -626,7 +626,7 @@ def test_flow_record_invalid_tz(tmp_path, capfd):
             flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz()
 
         rdump.main([str(tmp_path / "test.records")])
-        captured = capfd.readouterr()
+        captured = capsys.readouterr()
         assert captured.err == ""
         assert "2023-08-16 15:46:55.390691+00:00" in captured.out
         assert flow.record.fieldtypes.DISPLAY_TZINFO == timezone.utc
@@ -646,7 +646,7 @@ def test_flow_record_invalid_tz(tmp_path, capfd):
         ["-w", "line://?verbose=True"],
     ],
 )
-def test_rdump_line_verbose(tmp_path, capfd, rdump_params):
+def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
     TestRecord = RecordDescriptor(
         "test/rdump/line_verbose",
         [
@@ -672,7 +672,7 @@ def test_rdump_line_verbose(tmp_path, capfd, rdump_params):
     assert field_types_for_record_descriptor.cache_info().hits == 2
     assert field_types_for_record_descriptor.cache_info().currsize == 1
 
-    captured = capfd.readouterr()
+    captured = capsys.readouterr()
     assert captured.err == ""
     assert "stamp (datetime) =" in captured.out
     assert "data (bytes) =" in captured.out

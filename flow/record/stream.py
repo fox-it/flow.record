@@ -12,7 +12,6 @@ from functools import lru_cache
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
 
 from .base import RecordDescriptor, RecordReader
 from .packer import RecordPacker
@@ -71,7 +70,7 @@ class RecordStreamWriter:
         self.write(descriptor)
 
     def close(self):
-        if self.fp and not is_stdout(self.fp):
+        if self.fp and self.fp != getattr(sys.stdout, "buffer", sys.stdout):
             self.fp.close()
             self.fp = None
 

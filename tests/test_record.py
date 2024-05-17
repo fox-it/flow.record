@@ -267,7 +267,7 @@ def test_record_reserved_fieldname():
         )
 
 
-def test_record_printer_stdout(capfd):
+def test_record_printer_stdout(capsys):
     Record = RecordDescriptor(
         "test/a",
         [
@@ -278,16 +278,16 @@ def test_record_printer_stdout(capfd):
     )
     record = Record("hello", "world", 10)
 
-    # fake capfd to be a tty.
+    # fake capsys to be a tty.
     def isatty():
         return True
 
-    capfd._capture.out.tmpfile.isatty = isatty
+    capsys._capture.out.tmpfile.isatty = isatty
 
     writer = RecordPrinter(getattr(sys.stdout, "buffer", sys.stdout))
     writer.write(record)
 
-    out, err = capfd.readouterr()
+    out, err = capsys.readouterr()
     modifier = "" if isinstance("", str) else "u"
     expected = "<test/a a_string={u}'hello' common={u}'world' a_count=10>\n".format(u=modifier)
     assert out == expected
