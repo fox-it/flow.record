@@ -1,26 +1,48 @@
+from __future__ import annotations
+
 import base64
 import os
 import sys
 from functools import wraps
+from typing import BinaryIO, TextIO
 
 _native = str
 _unicode = type("")
 _bytes = type(b"")
 
 
-def get_stdout(binary=False):
+def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
+    """Return the stdout stream as binary or text stream.
+
+    This function is the preferred way to get the stdout stream in flow.record.
+
+    Arguments:
+        binary: Whether to return the stream as binary stream.
+    Returns:
+        The stdout stream.
+    """
     fp = getattr(sys.stdout, "buffer", sys.stdout) if binary else sys.stdout
     fp._is_stdout = True
     return fp
 
 
-def get_stdin(binary=False):
+def get_stdin(binary: bool = False) -> TextIO | BinaryIO:
+    """Return the stdin stream as binary or text stream.
+
+    This function is the preferred way to get the stdin stream in flow.record.
+
+    Arguments:
+        binary: Whether to return the stream as binary stream.
+    Returns:
+        The stdin stream.
+    """
     fp = getattr(sys.stdin, "buffer", sys.stdin) if binary else sys.stdin
     fp._is_stdin = True
     return fp
 
 
-def is_stdout(fp):
+def is_stdout(fp: TextIO | BinaryIO) -> bool:
+    """Returns True if `fp` is the stdout stream."""
     return fp in (sys.stdout, sys.stdout.buffer) or hasattr(fp, "_is_stdout")
 
 
