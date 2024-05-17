@@ -663,7 +663,7 @@ class path(pathlib.PurePath, FieldType):
                         #
                         # This construction works around that by converting all path parts
                         # to strings first.
-                        args = (str(arg) for arg in args)
+                        args = tuple(str(arg) for arg in args)
                 elif isinstance(path_part, pathlib.PurePosixPath):
                     cls = posix_path
                 elif _is_windowslike_path(path_part):
@@ -671,7 +671,7 @@ class path(pathlib.PurePath, FieldType):
                     # like path separator (\).
                     cls = windows_path
                     if not PY_312:
-                        args = (str(arg) for arg in args)
+                        args = tuple(str(arg) for arg in args)
                 elif _is_posixlike_path(path_part):
                     # This handles any custom PurePath based implementations that don't have a
                     # windows like path separator (\).
@@ -684,12 +684,23 @@ class path(pathlib.PurePath, FieldType):
             obj = super().__new__(cls)
         else:
             obj = cls._from_parts(args)
+
+        obj._empty_path = False
+        if not args or args == ("",):
+            obj._empty_path = True
         return obj
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, str):
             return str(self) == other or self == self.__class__(other)
+        if self._empty_path:
+            return isinstance(other, self.__class__) and other._empty_path
         return super().__eq__(other)
+
+    def __str__(self) -> str:
+        if self._empty_path:
+            return ""
+        return super().__str__()
 
     def __repr__(self) -> str:
         return repr(str(self))
