@@ -8,8 +8,20 @@ _unicode = type("")
 _bytes = type(b"")
 
 
+def get_stdout(binary=False):
+    fp = getattr(sys.stdout, "buffer", sys.stdout) if binary else sys.stdout
+    fp._is_stdout = True
+    return fp
+
+
+def get_stdin(binary=False):
+    fp = getattr(sys.stdin, "buffer", sys.stdin) if binary else sys.stdin
+    fp._is_stdin = True
+    return fp
+
+
 def is_stdout(fp):
-    return fp in (sys.stdout, sys.stdout.buffer)
+    return fp in (sys.stdout, sys.stdout.buffer) or hasattr(fp, "_is_stdout")
 
 
 def to_bytes(value):
