@@ -18,6 +18,7 @@ def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
 
     Arguments:
         binary: Whether to return the stream as binary stream.
+
     Returns:
         The stdout stream.
     """
@@ -33,6 +34,7 @@ def get_stdin(binary: bool = False) -> TextIO | BinaryIO:
 
     Arguments:
         binary: Whether to return the stream as binary stream.
+
     Returns:
         The stdin stream.
     """
@@ -42,7 +44,7 @@ def get_stdin(binary: bool = False) -> TextIO | BinaryIO:
 
 
 def is_stdout(fp: TextIO | BinaryIO) -> bool:
-    """Returns True if `fp` is the stdout stream."""
+    """Returns True if ``fp`` is the stdout stream."""
     return fp in (sys.stdout, sys.stdout.buffer) or hasattr(fp, "_is_stdout")
 
 
