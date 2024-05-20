@@ -31,6 +31,7 @@ from urllib.parse import parse_qsl, urlparse
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.exceptions import RecordAdapterNotFound, RecordDescriptorError
+from flow.record.utils import get_stdin, get_stdout
 
 try:
     import lz4.frame as lz4
@@ -812,10 +813,7 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
     # normal file or stdio for reading or writing
     if not fp:
         if is_stdio:
-            if binary:
-                fp = getattr(sys.stdout, "buffer", sys.stdout) if out else getattr(sys.stdin, "buffer", sys.stdin)
-            else:
-                fp = sys.stdout if out else sys.stdin
+            fp = get_stdout(binary=binary) if out else get_stdin(binary=binary)
         else:
             fp = io.open(path, mode)
         # check if we are reading a compressed stream
@@ -867,7 +865,7 @@ def RecordAdapter(
         if url in ("-", "", None) and fileobj is None:
             # For reading stdin, we cannot rely on an extension to know what sort of stream is incoming. Thus, we will
             # treat it as a 'fileobj', where we can peek into the stream and try to select the appropriate adapter.
-            fileobj = getattr(sys.stdin, "buffer", sys.stdin)
+            fileobj = get_stdin(binary=True)
         if fileobj is not None:
             # This record adapter has received a file-like object for record reading
             # We just need to find the right adapter by peeking into the first few bytes.
