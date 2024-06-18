@@ -9,23 +9,29 @@ import pytest
 import flow.record.adapter.splunk
 from flow.record import RecordDescriptor
 from flow.record.adapter.splunk import (
+    ESCAPE,
+    RESERVED_FIELDS,
     Protocol,
+    SourceType,
     SplunkWriter,
-    splunkify_json,
-    splunkify_key_value,
+    escape_field_name,
+    record_to_splunk_http_api_json,
+    record_to_splunk_kv_line,
+    record_to_splunk_tcp_api_json,
 )
 from flow.record.jsonpacker import JsonRecordPacker
 
-BASE_FIELD_VALUES = {
-    "rd__source": None,
-    "rd__classification": None,
-    "rd__generated": ANY,
+# These base fields are always part of the splunk output. As they are ordered
+# and ordered last in the record fields we can append them to any check of the
+# splunk output values.
+BASE_FIELD_JSON_VALUES = {
+    f"{ESCAPE}_source": None,
+    f"{ESCAPE}_classification": None,
+    f"{ESCAPE}_generated": ANY,
 }
+BASE_FIELDS_KV_SUFFIX = f'{ESCAPE}_source=None {ESCAPE}_classification=None {ESCAPE}_generated="'
 
 JSON_PACKER = JsonRecordPacker(pack_descriptors=False)
-
-# Reserved fields is an ordered dict so we can make assertions with a static order of reserved fields.
-RESERVED_FIELDS_KEY_VALUE_SUFFIX = 'rd__source=None rd__classification=None rd__generated="'
 
 
 @pytest.fixture
@@ -37,246 +43,237 @@ def mock_httpx_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
         yield mock_httpx
 
 
+escaped_fields = list(
+    RESERVED_FIELDS.union(
+        set(["_underscore_field"]),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "field, escaped", list(zip(escaped_fields, [True] * len(escaped_fields))) + [("not_escaped", False)]
+)
+def test_escape_field_name(field, escaped):
+    if escaped:
+        assert escape_field_name(field) == f"{ESCAPE}{field}"
+    else:
+        assert escape_field_name(field) == field
+
+
 def test_splunkify_reserved_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "PREFIX_WITH_RD",
-        set(["foo", "_generated", "_classification", "_source"]),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("string", "foo")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("string", "rdtag")],
+    )
 
-        test_record = test_record_descriptor(foo="bar")
+    test_record = test_record_descriptor(rdtag="bar")
 
-        output_key_value = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
+    output_key_value = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
 
-        assert output_key_value.startswith(
-            f'rdtype="test/record" rdtag=None rd_foo="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
-        )
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            f"{ESCAPE}rdtag": "bar",
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
 
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "rd_foo": "bar",
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    assert output_key_value.startswith(f'rdtype="test/record" rdtag=None {ESCAPE}rdtag="bar" {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_normal_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("string", "foo")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("string", "foo")],
+    )
 
-        test_record = test_record_descriptor(foo="bar")
+    test_record = test_record_descriptor(foo="bar")
 
-        output_key_value = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value.startswith(
-            f'rdtype="test/record" rdtag=None foo="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
-        )
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "foo": "bar",
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    output_key_value = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
+
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            "foo": "bar",
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
+
+    assert output_key_value.startswith(f'rdtype="test/record" rdtag=None foo="bar" {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_source_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("string", "source")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("string", "source")],
+    )
 
-        test_record = test_record_descriptor(source="file_on_target")
-        test_record._source = "path_of_target"
+    test_record = test_record_descriptor(source="file_on_target")
+    test_record._source = "path_of_target"
 
-        output_key_value = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value.startswith(
-            'rdtype="test/record" rdtag=None rd_source="file_on_target" rd__source="path_of_target"'
-        )
+    output_key_value = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
 
-        expected_base_field_values = BASE_FIELD_VALUES.copy()
-        expected_base_field_values["rd__source"] = "path_of_target"
+    base_fields_kv_suffix = BASE_FIELDS_KV_SUFFIX.replace(
+        f"{ESCAPE}_source=None",
+        f'{ESCAPE}_source="{test_record._source}"',
+    )
 
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "rd_source": "file_on_target",
-                    "rd__source": "path_of_target",
-                    "rd__generated": ANY,
-                    "rd__classification": None,
-                },
-            ),
-        }
+    base_field_json_values = BASE_FIELD_JSON_VALUES.copy()
+    base_field_json_values[f"{ESCAPE}_source"] = test_record._source
+
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            f"{ESCAPE}source": "file_on_target",
+        },
+        **base_field_json_values,
+    )
+
+    assert output_key_value.startswith(
+        f'rdtype="test/record" rdtag=None {ESCAPE}source="file_on_target" {base_fields_kv_suffix}'
+    )
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_rdtag_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor("test/record", [])
+    test_record_descriptor = RecordDescriptor("test/record", [])
 
-        test_record = test_record_descriptor()
+    test_record = test_record_descriptor()
 
-        output_key_value = splunkify_key_value(test_record, tag="bar")
-        output_json = splunkify_json(JSON_PACKER, test_record, tag="bar")
-        assert output_key_value.startswith(f'rdtype="test/record" rdtag="bar" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}')
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": "bar",
-                    "rdtype": "test/record",
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    output_key_value = record_to_splunk_kv_line(test_record, tag="bar")
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record, tag="bar")
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record, tag="bar")
+
+    json_dict = dict(
+        {
+            "rdtag": "bar",
+            "rdtype": "test/record",
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
+
+    assert output_key_value.startswith(f'rdtype="test/record" rdtag="bar" {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_none_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("string", "foo")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("string", "foo")],
+    )
 
-        test_record = test_record_descriptor()
+    test_record = test_record_descriptor()
 
-        output_key_value = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value.startswith(
-            f'rdtype="test/record" rdtag=None foo=None {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
-        )
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "foo": None,
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    output_key_value = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
+
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            "foo": None,
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
+
+    assert output_key_value.startswith(f'rdtype="test/record" rdtag=None foo=None {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_byte_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("bytes", "foo")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("bytes", "foo")],
+    )
 
-        test_record = test_record_descriptor(foo=b"bar")
+    test_record = test_record_descriptor(foo=b"bar")
 
-        output_key_value = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output_key_value.startswith(
-            f'rdtype="test/record" rdtag=None foo="YmFy" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}'
-        )
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "foo": "YmFy",
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    output_key_value = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
+
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            "foo": "YmFy",
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
+
+    assert output_key_value.startswith(f'rdtype="test/record" rdtag=None foo="YmFy" {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
 def test_splunkify_backslash_quote_field():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [("string", "foo")],
-        )
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [("string", "foo")],
+    )
 
-        test_record = test_record_descriptor(foo=b'\\"')
+    test_record = test_record_descriptor(foo=b'\\"')
 
-        output = splunkify_key_value(test_record)
-        output_json = splunkify_json(JSON_PACKER, test_record)
-        assert output.startswith(f'rdtype="test/record" rdtag=None foo="\\\\\\"" {RESERVED_FIELDS_KEY_VALUE_SUFFIX}')
-        assert json.loads(output_json) == {
-            "event": dict(
-                {
-                    "rdtag": None,
-                    "rdtype": "test/record",
-                    "foo": '\\"',
-                },
-                **BASE_FIELD_VALUES,
-            )
-        }
+    output = record_to_splunk_kv_line(test_record)
+    output_http_json = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    output_tcp_json = record_to_splunk_tcp_api_json(JSON_PACKER, test_record)
+
+    json_dict = dict(
+        {
+            "rdtag": None,
+            "rdtype": "test/record",
+            "foo": '\\"',
+        },
+        **BASE_FIELD_JSON_VALUES,
+    )
+
+    assert output.startswith(f'rdtype="test/record" rdtag=None foo="\\\\\\"" {BASE_FIELDS_KV_SUFFIX}')
+    assert json.loads(output_http_json) == {"event": json_dict}
+    assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_json_special_fields():
-    with patch.object(
-        flow.record.adapter.splunk,
-        "RESERVED_SPLUNK_FIELDS",
-        set(),
-    ):
-        test_record_descriptor = RecordDescriptor(
-            "test/record",
-            [
-                ("datetime", "ts"),
-                ("string", "hostname"),
-                ("string", "foo"),
-            ],
-        )
+def test_record_to_splunk_http_api_json_special_fields():
+    test_record_descriptor = RecordDescriptor(
+        "test/record",
+        [
+            ("datetime", "ts"),
+            ("string", "hostname"),
+            ("string", "foo"),
+        ],
+    )
 
-        # Datetimes should be converted to epoch
-        test_record = test_record_descriptor(ts=datetime.datetime(1970, 1, 1, 4, 0), hostname="RECYCLOPS", foo="bar")
+    # Datetimes should be converted to epoch
+    test_record = test_record_descriptor(ts=datetime.datetime(1970, 1, 1, 4, 0), hostname="RECYCLOPS", foo="bar")
 
-        output = splunkify_json(JSON_PACKER, test_record)
-        assert '"time": 14400.0,' in output
-        assert '"host": "RECYCLOPS"' in output
+    output = record_to_splunk_http_api_json(JSON_PACKER, test_record)
+    assert '"time": 14400.0,' in output
+    assert '"host": "RECYCLOPS"' in output
 
 
-def test_tcp_protocol():
+def test_tcp_protocol_records_sourcetype():
     with patch("socket.socket") as mock_socket:
         tcp_writer = SplunkWriter("splunk:1337")
         assert tcp_writer.host == "splunk"
         assert tcp_writer.port == 1337
         assert tcp_writer.protocol == Protocol.TCP
+        assert tcp_writer.sourcetype == SourceType.RECORDS
 
         mock_socket.assert_called()
         mock_socket.return_value.connect.assert_called_with(("splunk", 1337))
@@ -293,9 +290,44 @@ def test_tcp_protocol():
         written_to_splunk = args[0]
 
         assert written_to_splunk.startswith(
-            b'rdtype="test/record" rdtag=None foo="bar" ' + RESERVED_FIELDS_KEY_VALUE_SUFFIX.encode()
+            b'rdtype="test/record" rdtag=None foo="bar" ' + BASE_FIELDS_KV_SUFFIX.encode()
         )
         assert written_to_splunk.endswith(b'"\n')
+
+
+def test_tcp_protocol_json_sourcetype():
+    with patch("socket.socket") as mock_socket:
+        tcp_writer = SplunkWriter("splunk:1337", sourcetype="json")
+        assert tcp_writer.host == "splunk"
+        assert tcp_writer.port == 1337
+        assert tcp_writer.protocol == Protocol.TCP
+        assert tcp_writer.sourcetype == SourceType.JSON
+
+        mock_socket.assert_called()
+        mock_socket.return_value.connect.assert_called_with(("splunk", 1337))
+
+        test_record_descriptor = RecordDescriptor(
+            "test/record",
+            [("string", "foo")],
+        )
+
+        test_record = test_record_descriptor(foo="bar")
+        tcp_writer.write(test_record)
+
+        args, _ = mock_socket.return_value.sendall.call_args
+        written_to_splunk = args[0]
+
+        json_dict = dict(
+            {
+                "rdtag": None,
+                "rdtype": "test/record",
+                "foo": "bar",
+            },
+            **BASE_FIELD_JSON_VALUES,
+        )
+
+        assert json.loads(written_to_splunk) == json_dict
+        assert written_to_splunk.endswith(b"\n")
 
 
 def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock):
@@ -342,9 +374,7 @@ def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock):
         )
         _, kwargs = mock_httpx_package.Client.return_value.post.call_args
         sent_data = kwargs["data"]
-        assert sent_data.startswith(
-            b'rdtype="test/record" rdtag=None foo="bar" ' + RESERVED_FIELDS_KEY_VALUE_SUFFIX.encode()
-        )
+        assert sent_data.startswith(b'rdtype="test/record" rdtag=None foo="bar" ' + BASE_FIELDS_KV_SUFFIX.encode())
         assert sent_data.endswith(b'"\n')
 
 
@@ -388,7 +418,7 @@ def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock):
                     "rdtype": "test/record",
                     "foo": "bar",
                 },
-                **BASE_FIELD_VALUES,
+                **BASE_FIELD_JSON_VALUES,
             )
         }
         assert json.loads(second_record_json) == {
@@ -398,6 +428,6 @@ def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock):
                     "rdtype": "test/record",
                     "foo": "baz",
                 },
-                **BASE_FIELD_VALUES,
+                **BASE_FIELD_JSON_VALUES,
             )
         }
