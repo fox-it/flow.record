@@ -767,7 +767,8 @@ class command(FieldType):
         #   an '%' for an environment variable
         #   r'\\' for a UNC path
         #   the strip and check for ":" on the second line is for `<drive_letter>:`
-        windows = value.startswith((r"\\", "%")) or value.lstrip("\"'")[1] == ":"
+        stripped_value = value.lstrip("\"'")
+        windows = value.startswith((r"\\", "%")) or (len(stripped_value) >= 2 and stripped_value[1] == ":")
 
         if windows:
             cls = windows_command

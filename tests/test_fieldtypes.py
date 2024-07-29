@@ -1075,9 +1075,16 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         # Test a quoted path
         (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
         # Test a unquoted path
-        (r"'c:\Program Files\hello.exe'", r"c:\Program Files\hello.exe", []),
+        (r"\Users\test\hello.exe", r"\Users\test\hello.exe", []),
         # Test an unquoted path with a path as argument
-        (r"'c:\Program Files\hello.exe' c:\startmepls.exe", r"c:\Program Files\hello.exe", [r"c:\startmepls.exe"]),
+        (r"\Users\test\hello.exe c:\startmepls.exe", r"\Users\test\hello.exe", [r"c:\startmepls.exe"]),
+        # Test a quoted UNC path
+        (r"'\\192.168.1.2\Program Files\hello.exe'", r"\\192.168.1.2\Program Files\hello.exe", []),
+        # Test an unquoted UNC path
+        (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", [r"/d /a"]),
+        # Test an empty command string
+        (r"''", r"", []),
+        # Test None
         (None, None, None),
     ],
 )
