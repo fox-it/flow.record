@@ -51,7 +51,7 @@ class JsonRecordPacker:
                 if field_type == "bytes" and isinstance(serial[field_name], str):
                     serial[field_name] = base64.b64encode(serial[field_name]).decode()
 
-                # Boolean field types should be case to a bool instead of staying ints
+                # Boolean field types should be cast to a bool instead of staying ints
                 elif field_type == "boolean" and isinstance(serial[field_name], int):
                     serial[field_name] = bool(serial[field_name])
 
