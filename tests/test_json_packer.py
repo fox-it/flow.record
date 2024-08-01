@@ -81,6 +81,12 @@ def test_record_pack_bool_regression() -> None:
         ],
     )
 
+    record = TestRecord(some_varint=1, some_uint=0, some_boolean=False)
     packer = JsonRecordPacker()
-    data = packer.pack(TestRecord(some_varint=1, some_uint=0, some_boolean=False))
+
+    # pack to json string and check if some_boolean is false instead of 0
+    data = packer.pack(record)
     assert data.startswith('{"some_varint": 1, "some_uint": 0, "some_boolean": false, ')
+
+    # pack the json string back to a record and make sure it is the same as before
+    assert packer.unpack(data) == record
