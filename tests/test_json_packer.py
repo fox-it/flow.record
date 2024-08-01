@@ -69,3 +69,24 @@ def test_record_descriptor_not_found():
     packer = JsonRecordPacker()
     with pytest.raises(RecordDescriptorNotFound, match="No RecordDescriptor found for: .*test/descriptor_not_found"):
         packer.unpack(data)
+
+
+def test_record_pack_bool_regression() -> None:
+    TestRecord = RecordDescriptor(
+        "test/record_pack_bool",
+        [
+            ("varint", "some_varint"),
+            ("uint16", "some_uint"),
+            ("boolean", "some_boolean"),
+        ],
+    )
+
+    record = TestRecord(some_varint=1, some_uint=0, some_boolean=False)
+    packer = JsonRecordPacker()
+
+    # pack to json string and check if some_boolean is false instead of 0
+    data = packer.pack(record)
+    assert data.startswith('{"some_varint": 1, "some_uint": 0, "some_boolean": false, ')
+
+    # pack the json string back to a record and make sure it is the same as before
+    assert packer.unpack(data) == record

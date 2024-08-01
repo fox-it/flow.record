@@ -41,14 +41,19 @@ class JsonRecordPacker:
             if obj._desc.identifier not in self.descriptors:
                 self.register(obj._desc, True)
             serial = obj._asdict()
+
             if self.pack_descriptors:
                 serial["_type"] = "record"
                 serial["_recorddescriptor"] = obj._desc.identifier
 
-            # PYTHON2: Because "bytes" are also "str" we have to handle this here
             for field_type, field_name in obj._desc.get_field_tuples():
+                # PYTHON2: Because "bytes" are also "str" we have to handle this here
                 if field_type == "bytes" and isinstance(serial[field_name], str):
                     serial[field_name] = base64.b64encode(serial[field_name]).decode()
+
+                # Boolean field types should be cast to a bool instead of staying ints
+                elif field_type == "boolean" and isinstance(serial[field_name], int):
+                    serial[field_name] = bool(serial[field_name])
 
             return serial
         if isinstance(obj, RecordDescriptor):
