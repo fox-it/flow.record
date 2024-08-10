@@ -32,8 +32,8 @@ NATIVE_UNICODE = isinstance("", str)
 
 UTC = timezone.utc
 
-PY_311 = sys.version_info >= (3, 11, 0)
-PY_312 = sys.version_info >= (3, 12, 0)
+PY_311_OR_HIGHER = sys.version_info >= (3, 11, 0)
+PY_312_OR_HIGHER = sys.version_info >= (3, 12, 0)
 
 TYPE_POSIX = 0
 TYPE_WINDOWS = 1
@@ -288,7 +288,7 @@ class datetime(_dt, FieldType):
                 # - Python 3.10 and older requires "T" between date and time in fromisoformat()
                 #
                 # There are other incompatibilities, but we don't care about those for now.
-                if not PY_311:
+                if not PY_311_OR_HIGHER:
                     # Convert Z to +00:00 so that fromisoformat() works correctly on Python 3.10 and older
                     if arg[-1] == "Z":
                         arg = arg[:-1] + "+00:00"
@@ -633,6 +633,8 @@ def _is_windowslike_path(path: Any):
 
 
 class path(pathlib.PurePath, FieldType):
+    _empty_path = False
+
     def __new__(cls, *args):
         # This is modelled after pathlib.PurePath's __new__(), which means you
         # will never get an instance of path, only instances of either
@@ -647,7 +649,7 @@ class path(pathlib.PurePath, FieldType):
             for path_part in args:
                 if isinstance(path_part, pathlib.PureWindowsPath):
                     cls = windows_path
-                    if not PY_312:
+                    if not PY_312_OR_HIGHER:
                         # For Python < 3.12, the (string) representation of a
                         # pathlib.PureWindowsPath is not round trip equivalent if a path
                         # starts with a \ or / followed by a drive letter, e.g.: \C:\...
@@ -670,7 +672,7 @@ class path(pathlib.PurePath, FieldType):
                     # This handles any custom PurePath based implementations that have a windows
                     # like path separator (\).
                     cls = windows_path
-                    if not PY_312:
+                    if not PY_312_OR_HIGHER:
                         args = tuple(str(arg) for arg in args)
                 elif _is_posixlike_path(path_part):
                     # This handles any custom PurePath based implementations that don't have a
@@ -680,7 +682,7 @@ class path(pathlib.PurePath, FieldType):
                     continue
                 break
 
-        if PY_312:
+        if PY_312_OR_HIGHER:
             obj = super().__new__(cls)
         else:
             obj = cls._from_parts(args)
@@ -693,8 +695,8 @@ class path(pathlib.PurePath, FieldType):
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, str):
             return str(self) == other or self == self.__class__(other)
-        if self._empty_path:
-            return isinstance(other, self.__class__) and other._empty_path
+        elif isinstance(other, self.__class__) and (self._empty_path or other._empty_path):
+            return self._empty_path == other._empty_path
         return super().__eq__(other)
 
     def __str__(self) -> str:
@@ -704,6 +706,12 @@ class path(pathlib.PurePath, FieldType):
 
     def __repr__(self) -> str:
         return repr(str(self))
+
+    @property
+    def parent(self):
+        if self._empty_path:
+            return self
+        return super().parent
 
     def _pack(self):
         path_type = TYPE_WINDOWS if isinstance(self, windows_path) else TYPE_POSIX
