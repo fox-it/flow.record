@@ -13,7 +13,7 @@ import pytest
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter, fieldtypes
 from flow.record.fieldtypes import (
-    PY_312,
+    PY_312_OR_HIGHER,
     TYPE_POSIX,
     TYPE_WINDOWS,
     _is_posixlike_path,
@@ -543,7 +543,7 @@ def custom_pure_path(sep, altsep):
     # The flavour property of Path's is replaced by a link to e.g.
     # posixpath or ntpath.
     # See also: https://github.com/python/cpython/issues/88302
-    if PY_312:
+    if PY_312_OR_HIGHER:
 
         class CustomFlavour:
             def __new__(cls, *args, **kwargs):
@@ -1154,6 +1154,7 @@ def test_empty_path(path_cls) -> None:
     assert p1._empty_path
     assert str(p1) == ""
     assert p1 != path_cls(".")
+    assert path_cls(".") != p1
 
     # initialize without any arguments
     p2 = path_cls()
@@ -1161,6 +1162,7 @@ def test_empty_path(path_cls) -> None:
     assert p2._empty_path
     assert str(p2) == ""
     assert p2 != path_cls(".")
+    assert path_cls(".") != p2
 
     assert p1 == p2
 
@@ -1211,6 +1213,42 @@ def test_empty_path_serialization(tmp_path) -> None:
     with RecordReader(p_tmp_records) as reader:
         for record in reader:
             assert record.value == ""
+
+
+def test_empty_windows_path_parent() -> None:
+    # test that the parent of an empty path is also an empty path
+    path = fieldtypes.windows_path("")
+    assert path.parent == ""
+    assert path.parent.parent == ""
+    assert path._empty_path
+    assert path.parent._empty_path
+    assert list(path.parents) == []
+
+    path = fieldtypes.windows_path("c:/windows/temp")
+    assert path.parent == "c:/windows"
+    assert path.parent.parent == "c:/"
+    assert path.parent.parent.parent == "c:/"
+    assert not path.parent._empty_path
+    assert not path._empty_path
+    assert list(path.parents) == ["c:/windows", "c:/"]
+
+
+def test_empty_posix_path_parent() -> None:
+    # test that the parent of an empty path is also an empty path
+    path = fieldtypes.posix_path("")
+    assert path.parent == ""
+    assert path.parent.parent == ""
+    assert path._empty_path
+    assert path.parent._empty_path
+    assert list(path.parents) == []
+
+    path = fieldtypes.posix_path("/var/log")
+    assert path.parent == "/var"
+    assert path.parent.parent == "/"
+    assert path.parent.parent.parent == "/"
+    assert not path.parent._empty_path
+    assert not path._empty_path
+    assert list(path.parents) == ["/var", "/"]
 
 
 if __name__ == "__main__":
