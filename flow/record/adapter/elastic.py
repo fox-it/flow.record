@@ -59,7 +59,7 @@ class ElasticWriter(AbstractWriter):
             api_key=api_key,
         )
 
-        self.json_packer = JsonRecordPacker()
+        self.json_packer = JsonRecordPacker(pack_descriptors=False)
         self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
         self.event = threading.Event()
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
@@ -78,7 +78,7 @@ class ElasticWriter(AbstractWriter):
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
-        rdict = record._asdict()
+        rdict = self.json_packer.pack_obj(record)
 
         # Store record metadata under `_record_metadata`.
         rdict_meta = {
