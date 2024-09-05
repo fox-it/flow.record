@@ -17,25 +17,6 @@ except ImportError:
 
 string_types = (str, type(""))
 
-AST_NODE_S_TYPES = tuple(
-    filter(
-        None,
-        [
-            getattr(ast, "Str", None),
-            getattr(ast, "Bytes", None),
-        ],
-    ),
-)
-
-AST_NODE_VALUE_TYPES = tuple(
-    filter(
-        None,
-        [
-            getattr(ast, "NameConstant", None),
-            getattr(ast, "Constant", None),
-        ],
-    ),
-)
 
 AST_OPERATORS = {
     ast.Add: operator.add,
@@ -581,11 +562,7 @@ class RecordContextMatcher:
         return r
 
     def _eval(self, node):
-        if isinstance(node, ast.Num):
-            return node.n
-        elif isinstance(node, AST_NODE_S_TYPES):
-            return node.s
-        elif isinstance(node, AST_NODE_VALUE_TYPES):
+        if isinstance(node, ast.Constant):
             return node.value
         elif isinstance(node, ast.List):
             return list(map(self.eval, node.elts))
