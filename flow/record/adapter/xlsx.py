@@ -1,7 +1,14 @@
-import openpyxl
+from base64 import b64decode, b64encode
+from datetime import datetime
+from typing import Any, Iterator
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 from flow import record
+from flow.record import fieldtypes
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.fieldtypes.net import ipaddress
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
 
@@ -9,9 +16,39 @@ __usage__ = """
 Microsoft Excel spreadsheet adapter
 ---
 Write usage: rdump -w xlsx://[PATH]
-Read usage: rdump xlsx://[PATH]
+Read usage:  rdump xlsx://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 """
+
+
+def sanitize_fieldvalues(values: Iterator[Any]) -> Iterator[Any]:
+    """Sanitize field values so openpyxl will accept them."""
+
+    for value in values:
+        # openpyxl doesn't support timezone-aware datetime instances,
+        # so we convert to UTC and then remove the timezone info.
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            utc_offset = value.utcoffset()
+            value += utc_offset
+            value = value.replace(tzinfo=None)
+
+        elif type(value) in [ipaddress, list, fieldtypes.posix_path, fieldtypes.windows_path]:
+            value = str(value)
+
+        elif isinstance(value, bytes):
+            base64_encode = False
+            try:
+                new_value = 'b"' + value.decode() + '"'
+                if ILLEGAL_CHARACTERS_RE.search(new_value):
+                    base64_encode = True
+                else:
+                    value = new_value
+            except UnicodeDecodeError:
+                base64_encode = True
+            if base64_encode:
+                value = "base64:" + b64encode(value).decode()
+
+        yield value
 
 
 class XlsxWriter(AbstractWriter):
@@ -20,17 +57,38 @@ class XlsxWriter(AbstractWriter):
 
     def __init__(self, path, **kwargs):
         self.fp = record.open_path_or_stream(path, "wb")
-        self.wb = openpyxl.Workbook()
+        self.wb = Workbook()
         self.ws = self.wb.active
-        self.desc = None
-        # self.ws.title = "Records"
+
+        # Remove the active work sheet, every Record Descriptor will have its own sheet.
+        self.wb.remove(self.ws)
+        self.descs = []
+        self._last_dec = None
 
     def write(self, r):
-        if not self.desc:
-            self.desc = r._desc
-            self.ws.append(r._desc.fields)
+        if r._desc not in self.descs:
+            self.descs.append(r._desc)
+            ws = self.wb.create_sheet(r._desc.name.strip().replace("/", "-"))
+            field_types = []
+            field_names = []
 
-        self.ws.append(r._asdict().values())
+            for field_name, field in r._desc.get_all_fields().items():
+                field_types.append(field.typename)
+                field_names.append(field_name)
+
+            ws.append(field_types)
+            ws.append(field_names)
+
+        if r._desc != self._last_dec:
+            self._last_dec = r._desc
+            self.ws = self.wb[r._desc.name.strip().replace("/", "-")]
+
+        values = list(sanitize_fieldvalues(value for value in r._asdict().values()))
+
+        try:
+            self.ws.append(values)
+        except ValueError as e:
+            raise ValueError(f"Unable to write values to workbook: {str(e)}")
 
     def flush(self):
         if self.wb:
@@ -53,7 +111,7 @@ class XlsxReader(AbstractReader):
         self.selector = make_selector(selector)
         self.fp = record.open_path_or_stream(path, "rb")
         self.desc = None
-        self.wb = openpyxl.load_workbook(self.fp)
+        self.wb = load_workbook(self.fp)
         self.ws = self.wb.active
 
     def close(self):
@@ -62,12 +120,35 @@ class XlsxReader(AbstractReader):
         self.fp = None
 
     def __iter__(self):
-        desc = None
-        for row in self.ws.rows:
-            if not desc:
-                desc = record.RecordDescriptor([col.value.replace(" ", "_").lower() for col in row])
-                continue
+        for worksheet in self.wb.worksheets:
+            desc = None
+            desc_name = worksheet.title.replace("-", "/")
+            field_names = None
+            field_types = None
+            for row in worksheet:
+                if field_types is None:
+                    field_types = [col.value for col in row if col.value]
+                    continue
+                if field_names is None:
+                    field_names = [
+                        col.value.replace(" ", "_").lower()
+                        for col in row
+                        if col.value and not col.value.startswith("_")
+                    ]
+                    desc = record.RecordDescriptor(desc_name, list(zip(field_types, field_names)))
+                    continue
 
-            obj = desc(*[col.value for col in row])
-            if not self.selector or self.selector.match(obj):
-                yield obj
+                record_values = []
+                for idx, col in enumerate(row):
+                    value = col.value
+                    if field_types[idx] == "bytes":
+                        if value[1] == '"':  # If so, we know this is b""
+                            # Cut of the b" at the start and the trailing "
+                            value = value[2:-1].encode()
+                        else:
+                            # If not, we know it is base64 encoded (so we cut of the starting 'base64:')
+                            value = b64decode(value[7:])
+                    record_values.append(value)
+                obj = desc(*record_values)
+                if not self.selector or self.selector.match(obj):
+                    yield obj
