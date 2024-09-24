@@ -67,7 +67,8 @@ def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
     try:
         return ZoneInfo(tz)
     except ZoneInfoNotFoundError as exc:
-        warnings.warn(f"{exc!r}, falling back to timezone.utc")
+        if tz != "UTC":
+            warnings.warn(f"{exc!r}, falling back to timezone.utc")
         return UTC
 
 
