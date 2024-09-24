@@ -42,7 +42,7 @@ def test_sanitize_field_values(mock_openpyxl_package):
         )
     ) == [
         7,
-        datetime(1920, 11, 11, 15, 37, 0),  # UTC normalization
+        datetime(1920, 11, 11, 11, 37, 0),  # UTC normalization
         "James",
         'b"Bond"',  # When possible, encode bytes in a printable way
         "base64:AAc=",  # If not, base64 encode

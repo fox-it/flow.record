@@ -1,5 +1,5 @@
 from base64 import b64decode, b64encode
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Iterator
 
 from openpyxl import Workbook, load_workbook
@@ -16,7 +16,7 @@ __usage__ = """
 Microsoft Excel spreadsheet adapter
 ---
 Write usage: rdump -w xlsx://[PATH]
-Read usage:  rdump xlsx://[PATH]
+Read usage: rdump xlsx://[PATH]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 """
 
@@ -28,9 +28,7 @@ def sanitize_fieldvalues(values: Iterator[Any]) -> Iterator[Any]:
         # openpyxl doesn't support timezone-aware datetime instances,
         # so we convert to UTC and then remove the timezone info.
         if isinstance(value, datetime) and value.tzinfo is not None:
-            utc_offset = value.utcoffset()
-            value += utc_offset
-            value = value.replace(tzinfo=None)
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
 
         elif type(value) in [ipaddress, list, fieldtypes.posix_path, fieldtypes.windows_path]:
             value = str(value)
