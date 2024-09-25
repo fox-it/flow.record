@@ -540,10 +540,12 @@ class RecordDescriptor:
         """
         Get fields mapping (without required fields). eg:
 
-        {
-            "foo": RecordField("foo", "string"),
-            "bar": RecordField("bar", "varint"),
-        }
+        .. code-block::
+
+            {
+                "foo": RecordField("foo", "string"),
+                "bar": RecordField("bar", "varint"),
+            }
 
         Returns:
             Mapping of Record fields
