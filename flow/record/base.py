@@ -523,7 +523,7 @@ class RecordDescriptor:
         """
         Get required fields mapping. eg:
 
-        .. code-block::
+        .. code-block:: text
 
             {
                 "_source": RecordField("_source", "string"),
@@ -542,7 +542,7 @@ class RecordDescriptor:
         """
         Get fields mapping (without required fields). eg:
 
-        .. code-block::
+        .. code-block:: text
 
             {
                 "foo": RecordField("foo", "string"),
@@ -560,7 +560,7 @@ class RecordDescriptor:
         """
         Get all fields including required meta fields. eg:
 
-        .. code-block::
+        .. code-block:: text
 
             {
                 "ts": RecordField("ts", "datetime"),
@@ -639,7 +639,7 @@ class RecordDescriptor:
     def get_field_tuples(self) -> tuple[tuple[str, str]]:
         """Returns a tuple containing the (typename, name) tuples, eg:
 
-        .. code-block::
+        .. code-block:: text
 
             (('boolean', 'foo'), ('string', 'bar'))
 
@@ -1048,7 +1048,7 @@ def normalize_fieldname(field_name: str) -> str:
     This normalizes the name so it can still be used in flow.record.
     Reserved field_names are not normalized.
 
-    .. code-block::
+    .. code-block:: text
 
         >>> normalize_fieldname("my-variable-name-with-dashes")
         'my_variable_name_with_dashes'
