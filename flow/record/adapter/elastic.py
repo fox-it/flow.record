@@ -106,7 +106,7 @@ class ElasticWriter(AbstractWriter):
         }
 
         if self.hash_record:
-            document["_id"] = hashlib.md5(document["_source"].encode()).hexdigest()
+            document["_id"] = hashlib.md5(document["_source"].encode(errors="surrogateescape")).hexdigest()
 
         return document
 
