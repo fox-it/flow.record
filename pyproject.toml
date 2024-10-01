@@ -47,6 +47,7 @@ geoip = [
     "maxminddb",
 ]
 avro = [
+    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'",
     "fastavro[snappy]",
 ]
 duckdb = [
