@@ -11,8 +11,6 @@ on:
 jobs:
   ci:
     uses: fox-it/dissect-workflow-templates/.github/workflows/dissect-ci-template.yml@main
-    with:
-      deb-packages: nasm
     secrets: inherit
 
   publish:
