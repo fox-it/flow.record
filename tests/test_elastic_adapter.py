@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 
 import pytest
@@ -10,18 +12,50 @@ MyRecord = RecordDescriptor(
     [
         ("string", "field_one"),
         ("string", "field_two"),
+        ("string", "field_three"),
+    ],
+)
+
+AnotherRecord = RecordDescriptor(
+    "my/record",
+    [
+        ("command", "field_one"),
+        ("boolean", "field_two"),
+        ("bytes", "field_three"),
     ],
 )
 
 
 @pytest.mark.parametrize(
-    "record",
+    "record, expected_output",
     [
-        MyRecord("first", "record"),
-        MyRecord("second", "record"),
+        (
+            MyRecord("first", "record", "!"),
+            {
+                "field_one": "first",
+                "field_two": "record",
+                "field_three": "!",
+            },
+        ),
+        (
+            MyRecord("second", "record", "!"),
+            {
+                "field_one": "second",
+                "field_two": "record",
+                "field_three": "!",
+            },
+        ),
+        (
+            AnotherRecord("/bin/bash -c 'echo hello'", False, b"\x01\x02\x03\x04"),
+            {
+                "field_one": "/bin/bash -c 'echo hello'",
+                "field_two": False,
+                "field_three": "AQIDBA==",
+            },
+        ),
     ],
 )
-def test_elastic_writer_metadata(record):
+def test_elastic_writer_metadata(record: MyRecord | AnotherRecord, expected_output: dict) -> None:
     options = {
         "_meta_foo": "some value",
         "_meta_bar": "another value",
@@ -34,8 +68,7 @@ def test_elastic_writer_metadata(record):
             "_index": "some-index",
             "_source": json.dumps(
                 {
-                    "field_one": record.field_one,
-                    "field_two": record.field_two,
+                    **expected_output,
                     "_record_metadata": {
                         "descriptor": {
                             "name": "my/record",

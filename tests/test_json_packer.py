@@ -90,3 +90,20 @@ def test_record_pack_bool_regression() -> None:
 
     # pack the json string back to a record and make sure it is the same as before
     assert packer.unpack(data) == record
+
+
+def test_record_pack_command_type() -> None:
+    TestRecord = RecordDescriptor(
+        "test/record_with_commands",
+        [
+            ("command", "win_command"),
+            ("command", "nix_command"),
+        ],
+    )
+
+    record = TestRecord(win_command="foo.exe /H /E /L /O", nix_command="/bin/bash -c 'echo hello'")
+    packer = JsonRecordPacker()
+    data = packer.pack(record)
+
+    assert data.startswith('{"win_command": "foo.exe /H /E /L /O", "nix_command": "/bin/bash -c \'echo hello\'", ')
+    assert packer.unpack(data) == record
