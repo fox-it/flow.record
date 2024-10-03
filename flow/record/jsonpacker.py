@@ -47,12 +47,8 @@ class JsonRecordPacker:
                 serial["_recorddescriptor"] = obj._desc.identifier
 
             for field_type, field_name in obj._desc.get_field_tuples():
-                # PYTHON2: Because "bytes" are also "str" we have to handle this here
-                if field_type == "bytes" and isinstance(serial[field_name], str):
-                    serial[field_name] = base64.b64encode(serial[field_name]).decode()
-
                 # Boolean field types should be cast to a bool instead of staying ints
-                elif field_type == "boolean" and isinstance(serial[field_name], int):
+                if field_type == "boolean" and isinstance(serial[field_name], int):
                     serial[field_name] = bool(serial[field_name])
 
             return serial

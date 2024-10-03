@@ -3,7 +3,6 @@ import struct
 import warnings
 
 from flow.record import FieldType
-from flow.record.utils import to_native_str
 
 
 def addr_long(s):
@@ -45,9 +44,6 @@ class subnet(FieldType):
             DeprecationWarning,
             stacklevel=5,
         )
-        if isinstance(addr, type("")):
-            addr = to_native_str(addr)
-
         if not isinstance(addr, str):
             raise TypeError("Subnet() argument 1 must be string, not {}".format(type(addr).__name__))
 
@@ -66,9 +62,6 @@ class subnet(FieldType):
     def __contains__(self, addr):
         if addr is None:
             return False
-
-        if isinstance(addr, type("")):
-            addr = to_native_str(addr)
 
         if isinstance(addr, str):
             addr = addr_long(addr)

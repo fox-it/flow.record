@@ -3,12 +3,9 @@ from __future__ import annotations
 import base64
 import os
 import sys
+import warnings
 from functools import wraps
 from typing import BinaryIO, TextIO
-
-_native = str
-_unicode = type("")
-_bytes = type(b"")
 
 
 def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
@@ -50,33 +47,32 @@ def is_stdout(fp: TextIO | BinaryIO) -> bool:
 
 def to_bytes(value):
     """Convert a value to a byte string."""
-    if value is None or isinstance(value, _bytes):
+    if value is None or isinstance(value, bytes):
         return value
-    if isinstance(value, _unicode):
-        return value.encode("utf-8")
-    return _bytes(value)
+    if isinstance(value, str):
+        return value.encode(errors="surrogateescape")
+    return bytes(value)
 
 
 def to_str(value):
     """Convert a value to a unicode string."""
-    if value is None or isinstance(value, _unicode):
+    if value is None or isinstance(value, str):
         return value
-    if isinstance(value, _bytes):
-        return value.decode("utf-8")
-    return _unicode(value)
+    if isinstance(value, bytes):
+        return value.decode(errors="surrogateescape")
+    return str(value)
 
 
 def to_native_str(value):
-    """Convert a value to a native `str`."""
-    if value is None or isinstance(value, _native):
-        return value
-    if isinstance(value, _unicode):
-        # Python 2: unicode -> str
-        return value.encode("utf-8")
-    if isinstance(value, _bytes):
-        # Python 3: bytes -> str
-        return value.decode("utf-8")
-    return _native(value)
+    warnings.warn(
+        (
+            "The to_native_str() function is deprecated, "
+            "this function will be removed in flow.record 3.20, "
+            "use to_str() instead"
+        ),
+        DeprecationWarning,
+    )
+    return to_str(value)
 
 
 def to_base64(value):

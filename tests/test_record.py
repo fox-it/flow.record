@@ -1,4 +1,5 @@
 import importlib
+import inspect
 import os
 import sys
 from unittest.mock import patch
@@ -26,8 +27,6 @@ from flow.record.base import (
 )
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
-
-from . import utils_inspect as inspect
 
 
 def test_record_creation():
@@ -288,8 +287,30 @@ def test_record_printer_stdout(capsys):
     writer.write(record)
 
     out, err = capsys.readouterr()
-    modifier = "" if isinstance("", str) else "u"
-    expected = "<test/a a_string={u}'hello' common={u}'world' a_count=10>\n".format(u=modifier)
+    expected = "<test/a a_string='hello' common='world' a_count=10>\n"
+    assert out == expected
+
+
+def test_record_printer_stdout_surrogateescape(capsys):
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "name"),
+        ],
+    )
+    record = Record(b"R\xc3\xa9\xeamy")
+
+    # fake capsys to be a tty.
+    def isatty():
+        return True
+
+    capsys._capture.out.tmpfile.isatty = isatty
+
+    writer = RecordPrinter(getattr(sys.stdout, "buffer", sys.stdout))
+    writer.write(record)
+
+    out, err = capsys.readouterr()
+    expected = "<test/a name='Ré\\udceamy'>\n"
     assert out == expected
 
 

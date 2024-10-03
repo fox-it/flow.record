@@ -213,15 +213,8 @@ def test_string():
     assert r.name == "Rémy"
 
     # construct from 'bytes' but with invalid unicode bytes
-    if isinstance("", str):
-        # Python 3
-        with pytest.raises(UnicodeDecodeError):
-            TestRecord(b"R\xc3\xa9\xeamy")
-    else:
-        # Python 2
-        with pytest.warns(RuntimeWarning):
-            r = TestRecord(b"R\xc3\xa9\xeamy")
-            assert r.name
+    r = TestRecord(b"R\xc3\xa9\xeamy")
+    assert r.name == "Ré\udceamy"
 
 
 def test_wstring():

@@ -61,7 +61,7 @@ except ImportError:
 
 from collections import OrderedDict
 
-from .utils import to_native_str, to_str
+from .utils import to_str
 from .whitelist import WHITELIST, WHITELIST_TREE
 
 log = logging.getLogger(__package__)
@@ -513,7 +513,7 @@ class RecordDescriptor:
             name, fields = parse_def(name)
 
         self.name = name
-        self._field_tuples = tuple([(to_native_str(k), to_str(v)) for k, v in fields])
+        self._field_tuples = tuple([(to_str(k), to_str(v)) for k, v in fields])
         self.recordType = _generate_record_class(name, self._field_tuples)
         self.recordType._desc = self
 
