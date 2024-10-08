@@ -27,7 +27,7 @@ class ipaddress(FieldType):
         return str(self.val)
 
     def __repr__(self) -> str:
-        return "{}({!r})".format(self._type, str(self))
+        return f"{self._type}({str(self)!r})"
 
     def __format__(self, spec: str) -> str:
         if spec == "defang":
@@ -78,7 +78,7 @@ class ipnetwork(FieldType):
         return str(self.val)
 
     def __repr__(self) -> str:
-        return "{}({!r})".format(self._type, str(self))
+        return f"{self._type}({str(self)!r})"
 
     def _pack(self) -> str:
         return self.val.compressed
