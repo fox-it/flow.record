@@ -25,6 +25,7 @@ from flow.record.fieldtypes import (
     fieldtype_for_value,
     net,
     posix_command,
+    posix_path,
     uri,
     windows_command,
     windows_path,
@@ -42,7 +43,7 @@ UINT32_MAX = (1 << 32) - 1
 UINT16_MAX = (1 << 16) - 1
 
 
-def test_uint16():
+def test_uint16() -> None:
     desc = RecordDescriptor(
         "test/uint16",
         [
@@ -66,7 +67,7 @@ def test_uint16():
         desc.recordType(UINT128_MAX)
 
 
-def test_uint32():
+def test_uint32() -> None:
     TestRecord = RecordDescriptor(
         "test/uint32",
         [
@@ -91,7 +92,7 @@ def test_uint32():
         TestRecord(UINT128_MAX)
 
 
-def test_net_ipv4_address():
+def test_net_ipv4_address() -> None:
     TestRecord = RecordDescriptor(
         "test/net/ipv4/address",
         [
@@ -119,7 +120,7 @@ def test_net_ipv4_address():
     assert r.ip is None
 
 
-def test_net_ipv4_subnet():
+def test_net_ipv4_subnet() -> None:
     TestRecord = RecordDescriptor(
         "test/net/ipv4/subnet",
         [
@@ -162,7 +163,7 @@ def test_net_ipv4_subnet():
     excinfo.match(r"Not a valid subnet '192\.168\.0\.106/28', did you mean '192\.168\.0\.96/28' ?")
 
 
-def test_bytes():
+def test_bytes() -> None:
     TestRecord = RecordDescriptor(
         "test/string",
         [
@@ -194,7 +195,7 @@ def test_bytes():
     assert r.body == b"HTTP/1.1 500 Error\r\n\r\nError"
 
 
-def test_string():
+def test_string() -> None:
     TestRecord = RecordDescriptor(
         "test/string",
         [
@@ -217,7 +218,7 @@ def test_string():
     assert r.name == "Ré\udceamy"
 
 
-def test_wstring():
+def test_wstring() -> None:
     # Behaves the same as test/string, only available for backwards compatibility purposes
     TestRecord = RecordDescriptor(
         "test/wstring",
@@ -230,7 +231,7 @@ def test_wstring():
     assert r.name == "Fox-IT"
 
 
-def test_typedlist():
+def test_typedlist() -> None:
     TestRecord = RecordDescriptor(
         "test/typedlist",
         [
@@ -261,7 +262,7 @@ def test_typedlist():
         r = TestRecord(uint32_value=["a", "b", "c"])
 
 
-def test_stringlist():
+def test_stringlist() -> None:
     TestRecord = RecordDescriptor(
         "test/string",
         [
@@ -277,7 +278,7 @@ def test_stringlist():
     assert r.value[0]
 
 
-def test_dictlist():
+def test_dictlist() -> None:
     TestRecord = RecordDescriptor(
         "test/dictlist",
         [
@@ -294,7 +295,7 @@ def test_dictlist():
     assert r.hits[1]["b"] == 4
 
 
-def test_boolean():
+def test_boolean() -> None:
     TestRecord = RecordDescriptor(
         "test/boolean",
         [
@@ -324,7 +325,7 @@ def test_boolean():
         r = TestRecord("True", "False")
 
 
-def test_float():
+def test_float() -> None:
     TestRecord = RecordDescriptor(
         "test/float",
         [
@@ -353,7 +354,7 @@ def test_float():
         r = TestRecord("abc")
 
 
-def test_uri_type():
+def test_uri_type() -> None:
     TestRecord = RecordDescriptor(
         "test/uri",
         [
@@ -396,7 +397,7 @@ def test_uri_type():
     assert r.path.dirname == "/usr/local/bin"
 
 
-def test_datetime():
+def test_datetime() -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -452,7 +453,7 @@ def test_datetime():
         ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
-def test_datetime_formats(tmp_path, value, expected_dt):
+def test_datetime_formats(tmp_path, value, expected_dt) -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -473,7 +474,7 @@ def test_datetime_formats(tmp_path, value, expected_dt):
         assert record.dt == expected_dt
 
 
-def test_digest():
+def test_digest() -> None:
     TestRecord = RecordDescriptor(
         "test/digest",
         [
@@ -572,7 +573,7 @@ def custom_pure_path(sep, altsep):
         ("/foo/bar", False),
     ],
 )
-def test__is_posixlike_path(path_, is_posix):
+def test__is_posixlike_path(path_, is_posix) -> None:
     assert _is_posixlike_path(path_) == is_posix
 
 
@@ -587,11 +588,11 @@ def test__is_posixlike_path(path_, is_posix):
         ("/foo/bar", False),
     ],
 )
-def test__is_windowslike_path(path_, is_windows):
+def test__is_windowslike_path(path_, is_windows) -> None:
     assert _is_windowslike_path(path_) == is_windows
 
 
-def test_path():
+def test_path() -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -688,7 +689,7 @@ def test_path():
         ),
     ],
 )
-def test_path_multiple_parts(path_parts, expected_instance):
+def test_path_multiple_parts(path_parts, expected_instance) -> None:
     assert isinstance(flow.record.fieldtypes.path(*path_parts), expected_instance)
 
 
@@ -708,7 +709,7 @@ def test_path_multiple_parts(path_parts, expected_instance):
         ("user/.bash_history", "user/.bash_history"),
     ],
 )
-def test_path_posix(path_initializer, path, expected_repr):
+def test_path_posix(path_initializer, path, expected_repr) -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -754,7 +755,7 @@ def test_path_posix(path_initializer, path, expected_repr):
         ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
     ],
 )
-def test_path_windows(path_initializer, path, expected_repr, expected_str):
+def test_path_windows(path_initializer, path, expected_repr, expected_str) -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -767,16 +768,28 @@ def test_path_windows(path_initializer, path, expected_repr, expected_str):
     assert str(record.path) == expected_str
 
 
-def test_windows_path_eq():
+def test_windows_path_eq() -> None:
     path = windows_path("c:\\windows\\test.exe")
     assert path == "c:\\windows\\test.exe"
     assert path == "c:/windows/test.exe"
     assert path == "c:/windows\\test.exe"
     assert path == "c:\\WINDOWS\\tEsT.ExE"
     assert path != "c:/windows\\test2.exe"
+    assert path == windows_path("c:\\windows\\test.exe")
+    assert path != posix_path("c:\\windows\\test.exe")
 
 
-def test_fieldtype_for_value():
+def test_posix_path_eq() -> None:
+    path = posix_path("/usr/local/bin/test")
+    assert path == "/usr/local/bin/test"
+    assert path != "\\usr\\local\\bin\\test"
+    assert path != "/usr/local/bin/test2"
+    assert path != "/uSr/lOcAl/bIn/tEst"
+    assert path == posix_path("/usr/local/bin/test")
+    assert path != windows_path("/usr/local/bin/test2")
+
+
+def test_fieldtype_for_value() -> None:
     assert fieldtype_for_value(True) == "boolean"
     assert fieldtype_for_value(False) == "boolean"
     assert fieldtype_for_value(1337) == "varint"
@@ -790,7 +803,7 @@ def test_fieldtype_for_value():
     assert fieldtype_for_value(pathlib.PurePosixPath("/foo/bar.py")) == "path"
 
 
-def test_dynamic():
+def test_dynamic() -> None:
     TestRecord = RecordDescriptor(
         "test/dynamic",
         [
@@ -852,7 +865,7 @@ def test_dynamic():
         ),
     ],
 )
-def test_format_defang(record_type, value, expected):
+def test_format_defang(record_type, value, expected) -> None:
     TestRecord = RecordDescriptor(
         "test/format/defang",
         [
@@ -877,7 +890,7 @@ def test_format_defang(record_type, value, expected):
         ("x", b"", ""),
     ],
 )
-def test_format_hex(spec, value, expected):
+def test_format_hex(spec, value, expected) -> None:
     TestRecord = RecordDescriptor(
         "test/format/hex",
         [
@@ -907,7 +920,7 @@ def test_format_hex(spec, value, expected):
         (b"hello \xa7 world", "ignore", "hello  world"),
     ],
 )
-def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, expected_str):
+def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, expected_str) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -929,7 +942,7 @@ def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, exp
         assert record.str_value == expected_str
 
 
-def test_datetime_strip_nanoseconds():
+def test_datetime_strip_nanoseconds() -> None:
     d1 = dt("1984-01-01T08:10:12.123456789Z")
     d2 = dt("1984-01-01T08:10:12.123456Z")
     assert isinstance(d1, dt)
@@ -937,7 +950,7 @@ def test_datetime_strip_nanoseconds():
     assert d1 == d2
 
 
-def test_datetime_handle_nanoseconds_without_timezone():
+def test_datetime_handle_nanoseconds_without_timezone() -> None:
     d1 = dt("2006-11-10T14:29:55.5851926")
     d2 = dt("2006-11-10T14:29:55")
     assert isinstance(d1, dt)
@@ -957,7 +970,7 @@ def test_datetime_handle_nanoseconds_without_timezone():
         "out.jsonl",
     ],
 )
-def test_datetime_timezone_aware(tmp_path, record_filename):
+def test_datetime_timezone_aware(tmp_path, record_filename) -> None:
     TestRecord = RecordDescriptor(
         "test/tz",
         [
@@ -981,7 +994,7 @@ def test_datetime_timezone_aware(tmp_path, record_filename):
             assert record._generated.tzinfo == UTC
 
 
-def test_datetime_comparisions():
+def test_datetime_comparisions() -> None:
     with pytest.raises(TypeError, match=".* compare .*naive"):
         assert dt("2023-01-01") > datetime(2022, 1, 1)
 
