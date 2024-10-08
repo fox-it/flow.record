@@ -7,6 +7,7 @@ import pytest
 
 from flow.record import RecordDescriptor, RecordPacker, RecordReader, RecordWriter
 from flow.record.fieldtypes import net
+from flow.record.fieldtypes.net.ip import ipnetwork
 from flow.record.selector import CompiledSelector, Selector
 
 
@@ -48,7 +49,7 @@ def test_record_ipaddress():
     assert TestRecord("0.0.0.0").ip == "0.0.0.0"
     assert TestRecord("192.168.0.1").ip == "192.168.0.1"
     assert TestRecord("255.255.255.255").ip == "255.255.255.255"
-
+    assert hash(TestRecord("192.168.0.1").ip) == hash(net.ipaddress("192.168.0.1"))
     # ipv6
     assert TestRecord("::1").ip == "::1"
     assert TestRecord("2001:4860:4860::8888").ip == "2001:4860:4860::8888"
@@ -90,6 +91,7 @@ def test_record_ipnetwork():
     assert "192.168.1.1" not in r.subnet
     assert isinstance(r.subnet, net.ipnetwork)
     assert repr(r.subnet) == "net.ipnetwork('192.168.0.0/24')"
+    assert hash(r.subnet) == hash(net.ipnetwork("192.168.0.0/24"))
 
     r = TestRecord("192.168.1.1/32")
     assert r.subnet == "192.168.1.1"
