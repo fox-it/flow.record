@@ -7,7 +7,6 @@ import pytest
 
 from flow.record import RecordDescriptor, RecordPacker, RecordReader, RecordWriter
 from flow.record.fieldtypes import net
-from flow.record.fieldtypes.net.ip import ipnetwork
 from flow.record.selector import CompiledSelector, Selector
 
 
