@@ -7,7 +7,7 @@ import pathlib
 import posixpath
 import types
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Tuple, Type
+from typing import Callable, Tuple
 
 import pytest
 
@@ -691,7 +691,7 @@ def test_path() -> None:
     ],
 )
 def test_path_multiple_parts(
-    path_parts: Tuple[str | pathlib.PurePath, ...], expected_instance: Type[pathlib.PurePath]
+    path_parts: Tuple[str | pathlib.PurePath, ...], expected_instance: type[pathlib.PurePath]
 ) -> None:
     assert isinstance(flow.record.fieldtypes.path(*path_parts), expected_instance)
 
@@ -1160,7 +1160,7 @@ def test_command_failed() -> None:
         fieldtypes.path,
     ],
 )
-def test_empty_path(path_cls: Type[pathlib.PurePath]) -> None:
+def test_empty_path(path_cls: type[pathlib.PurePath]) -> None:
     # initialize with empty string
     p1 = path_cls("")
     assert p1 == ""
