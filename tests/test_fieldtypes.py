@@ -7,6 +7,7 @@ import pathlib
 import posixpath
 import types
 from datetime import datetime, timedelta, timezone
+from typing import Callable, Tuple, Type
 
 import pytest
 
@@ -453,7 +454,7 @@ def test_datetime() -> None:
         ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
-def test_datetime_formats(tmp_path, value, expected_dt) -> None:
+def test_datetime_formats(tmp_path: pathlib.Path, value: str, expected_dt: datetime) -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -531,7 +532,7 @@ def test_digest() -> None:
         excinfo.match(r".*Invalid MD5.*")
 
 
-def custom_pure_path(sep, altsep):
+def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
     # Starting from Python 3.12, pathlib._Flavours are removed as you can
     # now properly subclass pathlib.Path
     # The flavour property of Path's is replaced by a link to e.g.
@@ -573,7 +574,7 @@ def custom_pure_path(sep, altsep):
         ("/foo/bar", False),
     ],
 )
-def test__is_posixlike_path(path_, is_posix) -> None:
+def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> None:
     assert _is_posixlike_path(path_) == is_posix
 
 
@@ -588,7 +589,7 @@ def test__is_posixlike_path(path_, is_posix) -> None:
         ("/foo/bar", False),
     ],
 )
-def test__is_windowslike_path(path_, is_windows) -> None:
+def test__is_windowslike_path(path_: pathlib.PurePath, is_windows: bool) -> None:
     assert _is_windowslike_path(path_) == is_windows
 
 
@@ -689,7 +690,9 @@ def test_path() -> None:
         ),
     ],
 )
-def test_path_multiple_parts(path_parts, expected_instance) -> None:
+def test_path_multiple_parts(
+    path_parts: Tuple[str | pathlib.PurePath, ...], expected_instance: Type[pathlib.PurePath]
+) -> None:
     assert isinstance(flow.record.fieldtypes.path(*path_parts), expected_instance)
 
 
@@ -709,7 +712,7 @@ def test_path_multiple_parts(path_parts, expected_instance) -> None:
         ("user/.bash_history", "user/.bash_history"),
     ],
 )
-def test_path_posix(path_initializer, path, expected_repr) -> None:
+def test_path_posix(path_initializer: Callable[[str], pathlib.PurePath], path: str, expected_repr: str) -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -755,7 +758,9 @@ def test_path_posix(path_initializer, path, expected_repr) -> None:
         ("c:\\my'quotes\".txt", "'c:\\my\\'quotes\".txt'", "c:\\my'quotes\".txt"),
     ],
 )
-def test_path_windows(path_initializer, path, expected_repr, expected_str) -> None:
+def test_path_windows(
+    path_initializer: Callable[[str], pathlib.PurePath], path: str, expected_repr: str, expected_str: str
+) -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
@@ -865,7 +870,7 @@ def test_dynamic() -> None:
         ),
     ],
 )
-def test_format_defang(record_type, value, expected) -> None:
+def test_format_defang(record_type: str, value: str, expected: str) -> None:
     TestRecord = RecordDescriptor(
         "test/format/defang",
         [
@@ -890,7 +895,7 @@ def test_format_defang(record_type, value, expected) -> None:
         ("x", b"", ""),
     ],
 )
-def test_format_hex(spec, value, expected) -> None:
+def test_format_hex(spec: str, value: bytes, expected: str) -> None:
     TestRecord = RecordDescriptor(
         "test/format/hex",
         [
@@ -920,7 +925,9 @@ def test_format_hex(spec, value, expected) -> None:
         (b"hello \xa7 world", "ignore", "hello  world"),
     ],
 )
-def test_string_serialization(tmp_path, filename, str_bytes, unicode_errors, expected_str) -> None:
+def test_string_serialization(
+    tmp_path: pathlib.Path, filename: str, str_bytes: bytes, unicode_errors: str, expected_str: str
+) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -970,7 +977,7 @@ def test_datetime_handle_nanoseconds_without_timezone() -> None:
         "out.jsonl",
     ],
 )
-def test_datetime_timezone_aware(tmp_path, record_filename) -> None:
+def test_datetime_timezone_aware(tmp_path: pathlib.Path, record_filename: str) -> None:
     TestRecord = RecordDescriptor(
         "test/tz",
         [
@@ -1153,7 +1160,7 @@ def test_command_failed() -> None:
         fieldtypes.path,
     ],
 )
-def test_empty_path(path_cls) -> None:
+def test_empty_path(path_cls: Type[pathlib.PurePath]) -> None:
     # initialize with empty string
     p1 = path_cls("")
     assert p1 == ""
@@ -1194,7 +1201,7 @@ def test_record_empty_path() -> None:
     assert repr(r) == "<test/path value=''>"
 
 
-def test_empty_path_serialization(tmp_path) -> None:
+def test_empty_path_serialization(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "test/path",
         [
