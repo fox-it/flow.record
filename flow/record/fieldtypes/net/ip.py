@@ -24,7 +24,7 @@ class ipaddress(FieldType):
     def __init__(self, addr: str | int | bytes):
         self.val = ip_address(addr)
 
-    def __eq__(self, b: str | int | bytes) -> bool:
+    def __eq__(self, b: str | int | bytes | _IPAddress) -> bool:
         try:
             return self.val == ip_address(b)
         except ValueError:
@@ -59,7 +59,7 @@ class ipnetwork(FieldType):
     def __init__(self, addr: str | int | bytes):
         self.val = ip_network(addr)
 
-    def __eq__(self, b: str | int | bytes) -> bool:
+    def __eq__(self, b: str | int | bytes | _IPNetwork) -> bool:
         try:
             return self.val == ip_network(b)
         except ValueError:
