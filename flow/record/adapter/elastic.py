@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import queue
 import threading
-from typing import Iterator, Optional, Union
+from typing import Iterator
 
 import elasticsearch
 import elasticsearch.helpers
@@ -37,10 +39,10 @@ class ElasticWriter(AbstractWriter):
         self,
         uri: str,
         index: str = "records",
-        verify_certs: Union[str, bool] = True,
-        http_compress: Union[str, bool] = True,
-        hash_record: Union[str, bool] = False,
-        api_key: Optional[str] = None,
+        verify_certs: str | bool = True,
+        http_compress: str | bool = True,
+        hash_record: str | bool = False,
+        api_key: str | None = None,
         **kwargs,
     ) -> None:
         self.index = index
@@ -60,10 +62,12 @@ class ElasticWriter(AbstractWriter):
         )
 
         self.json_packer = JsonRecordPacker()
-        self.queue: queue.Queue[Union[Record, StopIteration]] = queue.Queue()
+        self.queue: queue.Queue[Record | StopIteration] = queue.Queue()
         self.event = threading.Event()
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
+        self.exception: Exception | None = None
+        threading.excepthook = self.excepthook
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
@@ -75,6 +79,12 @@ class ElasticWriter(AbstractWriter):
         for arg_key, arg_val in kwargs.items():
             if arg_key.startswith("_meta_"):
                 self.metadata_fields[arg_key[6:]] = arg_val
+
+    def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
+        log.error("Exception in thread: %s", exc.exc_value.message)
+        self.exception = exc.exc_value
+        self.event.set()
+        self.close()
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
@@ -120,6 +130,7 @@ class ElasticWriter(AbstractWriter):
 
     def streaming_bulk_thread(self) -> None:
         """Thread that streams the documents to ES via the bulk api"""
+
         for ok, item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),
@@ -138,10 +149,13 @@ class ElasticWriter(AbstractWriter):
         pass
 
     def close(self) -> None:
+        self.queue.put(StopIteration)
+        self.event.wait()
         if hasattr(self, "es"):
-            self.queue.put(StopIteration)
-            self.event.wait()
             self.es.close()
+
+        if self.exception:
+            raise self.exception
 
 
 class ElasticReader(AbstractReader):
@@ -149,10 +163,10 @@ class ElasticReader(AbstractReader):
         self,
         uri: str,
         index: str = "records",
-        verify_certs: Union[str, bool] = True,
-        http_compress: Union[str, bool] = True,
-        selector: Union[None, Selector, CompiledSelector] = None,
-        api_key: Optional[str] = None,
+        verify_certs: str | bool = True,
+        http_compress: str | bool = True,
+        selector: None | Selector | CompiledSelector = None,
+        api_key: str | None = None,
         **kwargs,
     ) -> None:
         self.index = index
