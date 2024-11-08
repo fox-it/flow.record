@@ -89,7 +89,7 @@ AVRO_MAGIC = b"Obj"
 RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
 RECORDSTREAM_MAGIC_DEPTH = 4 + 2 + len(RECORDSTREAM_MAGIC)
 
-RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*(?:\[\])?$")
+RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*$")
 RE_VALID_RECORD_TYPE_NAME = re.compile("^[a-zA-Z][a-zA-Z0-9_]*(/[a-zA-Z][a-zA-Z0-9_]*)*$")
 
 RECORD_CLASS_TEMPLATE = """
