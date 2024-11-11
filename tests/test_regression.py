@@ -316,6 +316,8 @@ def test_mixed_case_name():
     assert is_valid_field_name("Test")
     assert is_valid_field_name("test")
     assert is_valid_field_name("TEST")
+    assert not is_valid_field_name("test[]")
+    assert not is_valid_field_name("_test")
 
     TestRecord = RecordDescriptor(
         "Test/Record",
