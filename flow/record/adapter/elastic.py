@@ -54,6 +54,9 @@ class ElasticWriter(AbstractWriter):
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
 
+        self.queue: queue.Queue[Record | StopIteration] = queue.Queue()
+        self.event = threading.Event()
+
         self.es = elasticsearch.Elasticsearch(
             uri,
             verify_certs=verify_certs,
@@ -62,8 +65,7 @@ class ElasticWriter(AbstractWriter):
         )
 
         self.json_packer = JsonRecordPacker()
-        self.queue: queue.Queue[Record | StopIteration] = queue.Queue()
-        self.event = threading.Event()
+
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
         self.exception: Exception | None = None
@@ -151,6 +153,7 @@ class ElasticWriter(AbstractWriter):
     def close(self) -> None:
         self.queue.put(StopIteration)
         self.event.wait()
+
         if hasattr(self, "es"):
             self.es.close()
 
