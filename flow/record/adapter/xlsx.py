@@ -36,7 +36,7 @@ def sanitize_fieldvalues(values: Iterator[Any]) -> Iterator[Any]:
         elif isinstance(value, bytes):
             base64_encode = False
             try:
-                new_value = 'b"' + value.decode() + '"'
+                new_value = 'b"' + value.decode(errors="surrogateescape") + '"'
                 if ILLEGAL_CHARACTERS_RE.search(new_value):
                     base64_encode = True
                 else:
@@ -142,7 +142,7 @@ class XlsxReader(AbstractReader):
                     if field_types[idx] == "bytes":
                         if value[1] == '"':  # If so, we know this is b""
                             # Cut of the b" at the start and the trailing "
-                            value = value[2:-1].encode()
+                            value = value[2:-1].encode(errors="surrogateescape")
                         else:
                             # If not, we know it is base64 encoded (so we cut of the starting 'base64:')
                             value = b64decode(value[7:])

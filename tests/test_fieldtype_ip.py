@@ -48,11 +48,18 @@ def test_record_ipaddress():
     assert TestRecord("0.0.0.0").ip == "0.0.0.0"
     assert TestRecord("192.168.0.1").ip == "192.168.0.1"
     assert TestRecord("255.255.255.255").ip == "255.255.255.255"
+    assert hash(TestRecord("192.168.0.1").ip) == hash(net.ipaddress("192.168.0.1"))
 
     # ipv6
     assert TestRecord("::1").ip == "::1"
     assert TestRecord("2001:4860:4860::8888").ip == "2001:4860:4860::8888"
     assert TestRecord("2001:4860:4860::4444").ip == "2001:4860:4860::4444"
+
+    # Test whether it functions in a set
+    data = {TestRecord(ip).ip for ip in ["192.168.0.1", "192.168.0.1", "::1", "::1"]}
+    assert len(data) == 2
+    assert net.ipaddress("::1") in data
+    assert net.ipaddress("192.168.0.1") in data
 
     # instantiate from different types
     assert TestRecord(1).ip == "0.0.0.1"
@@ -90,6 +97,7 @@ def test_record_ipnetwork():
     assert "192.168.1.1" not in r.subnet
     assert isinstance(r.subnet, net.ipnetwork)
     assert repr(r.subnet) == "net.ipnetwork('192.168.0.0/24')"
+    assert hash(r.subnet) == hash(net.ipnetwork("192.168.0.0/24"))
 
     r = TestRecord("192.168.1.1/32")
     assert r.subnet == "192.168.1.1"
@@ -110,6 +118,13 @@ def test_record_ipnetwork():
     r = TestRecord("64:ff9b::/96")
     assert "64:ff9b::0.0.0.0" in r.subnet
     assert "64:ff9b::255.255.255.255" in r.subnet
+
+    # Test whether it functions in a set
+    data = {TestRecord(x).subnet for x in ["192.168.0.0/24", "192.168.0.0/24", "::1", "::1"]}
+    assert len(data) == 2
+    assert net.ipnetwork("::1") in data
+    assert net.ipnetwork("192.168.0.0/24") in data
+    assert "::1" not in data
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])

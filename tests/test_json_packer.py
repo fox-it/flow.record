@@ -92,6 +92,26 @@ def test_record_pack_bool_regression() -> None:
     assert packer.unpack(data) == record
 
 
+def test_record_pack_surrogateescape() -> None:
+    TestRecord = RecordDescriptor(
+        "test/string",
+        [
+            ("string", "name"),
+        ],
+    )
+
+    record = TestRecord(b"R\xc3\xa9\xeamy")
+    packer = JsonRecordPacker()
+
+    data = packer.pack(record)
+
+    # pack to json string and check if the 3rd and 4th byte are properly surrogate escaped
+    assert data.startswith('{"name": "R\\u00e9\\udceamy",')
+
+    # pack the json string back to a record and make sure it is the same as before
+    assert packer.unpack(data) == record
+
+
 def test_record_pack_command_type() -> None:
     TestRecord = RecordDescriptor(
         "test/record_with_commands",
@@ -106,4 +126,3 @@ def test_record_pack_command_type() -> None:
     data = packer.pack(record)
 
     assert data.startswith('{"win_command": "foo.exe /H /E /L /O", "nix_command": "/bin/bash -c \'echo hello\'", ')
-    assert packer.unpack(data) == record

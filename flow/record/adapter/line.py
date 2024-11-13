@@ -69,7 +69,7 @@ class LineWriter(AbstractWriter):
         for key, value in rdict.items():
             if rdict_types:
                 key = f"{key} ({rdict_types[key]})"
-            self.fp.write(fmt.format(key, value).encode())
+            self.fp.write(fmt.format(key, value).encode(errors="surrogateescape"))
 
     def flush(self) -> None:
         if self.fp:

@@ -28,7 +28,6 @@ except ImportError:
 from flow.record.base import FieldType
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
-NATIVE_UNICODE = isinstance("", str)
 
 UTC = timezone.utc
 
@@ -207,10 +206,7 @@ class stringlist(list, FieldType):
 class string(string_type, FieldType):
     def __new__(cls, value):
         if isinstance(value, bytes_type):
-            value = cls._decode(value, "utf-8")
-            if isinstance(value, bytes_type):
-                # Still bytes, so decoding failed (Python 2)
-                return bytes(value)
+            value = value.decode(errors="surrogateescape")
         return super().__new__(cls, value)
 
     def _pack(self):
@@ -220,27 +216,6 @@ class string(string_type, FieldType):
         if spec == "defang":
             return defang(self)
         return str.__format__(self, spec)
-
-    @classmethod
-    def _decode(cls, data, encoding):
-        """Decode a byte-string into a unicode-string.
-
-        Python 3: When `data` contains invalid unicode characters a `UnicodeDecodeError` is raised.
-        Python 2: When `data` contains invalid unicode characters the original byte-string is returned.
-        """
-        if NATIVE_UNICODE:
-            # Raises exception on decode error
-            return data.decode(encoding)
-        try:
-            return data.decode(encoding)
-        except UnicodeDecodeError:
-            # Fallback to bytes (Python 2 only)
-            preview = data[:16].encode("hex_codec") + (".." if len(data) > 16 else "")
-            warnings.warn(
-                "Got binary data in string field (hex: {}). Compatibility is not guaranteed.".format(preview),
-                RuntimeWarning,
-            )
-            return data
 
 
 # Alias for backwards compatibility
@@ -278,7 +253,7 @@ class datetime(_dt, FieldType):
         if len(args) == 1 and not kwargs:
             arg = args[0]
             if isinstance(arg, bytes_type):
-                arg = arg.decode("utf-8")
+                arg = arg.decode(errors="surrogateescape")
             if isinstance(arg, string_type):
                 # If we are on Python 3.11 or newer, we can use fromisoformat() to parse the string (fast path)
                 #

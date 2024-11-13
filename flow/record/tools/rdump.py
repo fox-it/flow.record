@@ -218,7 +218,9 @@ def main(argv=None):
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
     count = 0
-    with RecordWriter(uri) as record_writer:
+
+    try:
+        record_writer = RecordWriter(uri)
         for count, rec in enumerate(record_iterator, start=1):
             if args.record_source is not None:
                 rec._source = args.record_source
@@ -242,6 +244,9 @@ def main(argv=None):
                         record_writer.write(record)
                 else:
                     record_writer.write(rec)
+
+    finally:
+        record_writer.__exit__()
 
     if args.list:
         print("Processed {} records".format(count))

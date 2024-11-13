@@ -187,7 +187,7 @@ class SqliteReader(AbstractReader):
                         if value == 0:
                             row[idx] = None
                         elif isinstance(value, str):
-                            row[idx] = value.encode("utf-8")
+                            row[idx] = value.encode(errors="surrogateescape")
                 yield descriptor_cls.init_from_dict(dict(zip(fnames, row)))
 
     def __iter__(self) -> Iterator[Record]:

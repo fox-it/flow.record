@@ -41,7 +41,7 @@ class TextWriter(AbstractWriter):
             buf = self.format_spec.format_map(DefaultMissing(rec._asdict()))
         else:
             buf = repr(rec)
-        self.fp.write(buf.encode() + b"\n")
+        self.fp.write(buf.encode(errors="surrogateescape") + b"\n")
 
         # because stdout is usually line buffered we force flush here if wanted
         if self.auto_flush:
