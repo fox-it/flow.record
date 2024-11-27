@@ -83,7 +83,7 @@ class ElasticWriter(AbstractWriter):
                 self.metadata_fields[arg_key[6:]] = arg_val
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
-        log.error("Exception in thread: %s", str(exc))
+        log.error("Exception in thread: %s", exc)
         self.exception = getattr(exc, "exc_value", exc)
         self.event.set()
         self.close()
