@@ -84,7 +84,7 @@ class ElasticWriter(AbstractWriter):
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
         log.error("Exception in thread: %s", str(exc))
-        self.exception = exc.exc_value if hasattr(exc, "exc_value") else exc
+        self.exception = getattr(exc, "exc_value", exc)
         self.event.set()
         self.close()
 
