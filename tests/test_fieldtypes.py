@@ -15,6 +15,7 @@ import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter, fieldtypes
 from flow.record.fieldtypes import (
     PY_312_OR_HIGHER,
+    PY_313_OR_HIGHER,
     TYPE_POSIX,
     TYPE_WINDOWS,
     _is_posixlike_path,
@@ -557,8 +558,15 @@ def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
                 instance.altsep = altsep
                 return instance
 
-    class PureCustomPath(pathlib.PurePath):
-        _flavour = CustomFlavour()
+    if PY_313_OR_HIGHER:
+
+        class PureCustomPath(pathlib.PurePath):
+            parser = CustomFlavour()
+
+    else:
+
+        class PureCustomPath(pathlib.PurePath):
+            _flavour = CustomFlavour()
 
     return PureCustomPath
 
