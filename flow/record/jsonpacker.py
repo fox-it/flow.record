@@ -51,6 +51,10 @@ class JsonRecordPacker:
                 if field_type == "boolean" and isinstance(serial[field_name], int):
                     serial[field_name] = bool(serial[field_name])
 
+                # Flatten command type
+                elif field_type == "command" and isinstance(serial[field_name], fieldtypes.command):
+                    serial[field_name] = serial[field_name]._join()
+
             return serial
         if isinstance(obj, RecordDescriptor):
             serial = {
