@@ -128,6 +128,8 @@ class ElasticWriter(AbstractWriter):
             record = self.queue.get()
             if record is StopIteration:
                 break
+            if not record:
+                continue
             yield self.record_to_document(record, index=self.index)
 
     def streaming_bulk_thread(self) -> None:
