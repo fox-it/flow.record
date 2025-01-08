@@ -54,7 +54,7 @@ class ElasticWriter(AbstractWriter):
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
 
-        self.queue: queue.Queue[Record | StopIteration] = queue.Queue()
+        self.queue: queue.Queue[Record | StopIteration] = queue.Queue(maxsize=100000)
         self.event = threading.Event()
 
         self.es = elasticsearch.Elasticsearch(
@@ -147,7 +147,7 @@ class ElasticWriter(AbstractWriter):
         self.event.set()
 
     def write(self, record: Record) -> None:
-        self.queue.put_nowait(record)
+        self.queue.put(record)
 
     def flush(self) -> None:
         pass
