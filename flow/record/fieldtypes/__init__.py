@@ -33,6 +33,7 @@ UTC = timezone.utc
 
 PY_311_OR_HIGHER = sys.version_info >= (3, 11, 0)
 PY_312_OR_HIGHER = sys.version_info >= (3, 12, 0)
+PY_313_OR_HIGHER = sys.version_info >= (3, 13, 0)
 
 TYPE_POSIX = 0
 TYPE_WINDOWS = 1
@@ -600,12 +601,18 @@ class record(FieldType):
         return data
 
 
-def _is_posixlike_path(path: Any):
-    return isinstance(path, pathlib.PurePath) and "\\" not in (path._flavour.sep, path._flavour.altsep)
+def _is_posixlike_path(path: Any) -> bool:
+    if isinstance(path, pathlib.PurePath):
+        obj = getattr(path, "parser", None) or path._flavour
+        return "\\" not in (obj.sep, obj.altsep)
+    return False
 
 
-def _is_windowslike_path(path: Any):
-    return isinstance(path, pathlib.PurePath) and "\\" in (path._flavour.sep, path._flavour.altsep)
+def _is_windowslike_path(path: Any) -> bool:
+    if isinstance(path, pathlib.PurePath):
+        obj = getattr(path, "parser", None) or path._flavour
+        return "\\" in (obj.sep, obj.altsep)
+    return False
 
 
 class path(pathlib.PurePath, FieldType):
@@ -684,17 +691,17 @@ class path(pathlib.PurePath, FieldType):
         return repr(str(self))
 
     @property
-    def parent(self):
+    def parent(self) -> path:
         if self._empty_path:
             return self
         return super().parent
 
-    def _pack(self):
+    def _pack(self) -> tuple[str, int]:
         path_type = TYPE_WINDOWS if isinstance(self, windows_path) else TYPE_POSIX
         return (str(self), path_type)
 
     @classmethod
-    def _unpack(cls, data: tuple[str, str]):
+    def _unpack(cls, data: tuple[str, str]) -> posix_path | windows_path:
         path_, path_type = data
         if path_type == TYPE_POSIX:
             return posix_path(path_)
@@ -705,12 +712,12 @@ class path(pathlib.PurePath, FieldType):
             return posix_path(path_)
 
     @classmethod
-    def from_posix(cls, path_: str):
+    def from_posix(cls, path_: str) -> posix_path:
         """Initialize a path instance from a posix path string using / as a separator."""
         return posix_path(path_)
 
     @classmethod
-    def from_windows(cls, path_: str):
+    def from_windows(cls, path_: str) -> windows_path:
         """Initialize a path instance from a windows path string using \\ or / as a separator."""
         return windows_path(path_)
 

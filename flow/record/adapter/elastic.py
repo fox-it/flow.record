@@ -82,8 +82,8 @@ class ElasticWriter(AbstractWriter):
                 self.metadata_fields[arg_key[6:]] = arg_val
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
-        log.error("Exception in thread: %s", exc.exc_value.message)
-        self.exception = exc.exc_value
+        log.error("Exception in thread: %s", exc)
+        self.exception = getattr(exc, "exc_value", exc)
         self.event.set()
         self.close()
 
@@ -127,6 +127,8 @@ class ElasticWriter(AbstractWriter):
             record = self.queue.get()
             if record is StopIteration:
                 break
+            if not record:
+                continue
             yield self.record_to_document(record, index=self.index)
 
     def streaming_bulk_thread(self) -> None:
