@@ -25,6 +25,7 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 
 Optional arguments:
   [API_KEY]: base64 encoded api key to authenticate with (default: False)
+  [QUEUE_SIZE]: maximum queue size for writing records; limits memory usage (default: 100000)
   [INDEX]: name of the index to use (default: records)
   [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
   [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
@@ -43,6 +44,7 @@ class ElasticWriter(AbstractWriter):
         http_compress: str | bool = True,
         hash_record: str | bool = False,
         api_key: str | None = None,
+        queue_size: int = 100000,
         **kwargs,
     ) -> None:
         self.index = index
@@ -50,11 +52,12 @@ class ElasticWriter(AbstractWriter):
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
         self.hash_record = str(hash_record).lower() in ("1", "true")
+        queue_size = int(queue_size)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
 
-        self.queue: queue.Queue[Record | StopIteration] = queue.Queue()
+        self.queue: queue.Queue[Record | StopIteration] = queue.Queue(maxsize=queue_size)
         self.event = threading.Event()
 
         self.es = elasticsearch.Elasticsearch(
@@ -147,7 +150,7 @@ class ElasticWriter(AbstractWriter):
         self.event.set()
 
     def write(self, record: Record) -> None:
-        self.queue.put_nowait(record)
+        self.queue.put(record)
 
     def flush(self) -> None:
         pass
