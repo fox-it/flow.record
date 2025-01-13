@@ -25,7 +25,7 @@ Read usage: rdump elastic+[PROTOCOL]://[IP]:[PORT]?index=[INDEX]
 
 Optional arguments:
   [API_KEY]: base64 encoded api key to authenticate with (default: False)
-  [QUEUE_SIZE]: integer that sets the limit on the maximum number of records in the queue. Limits memory usage (default: 100000)
+  [QUEUE_SIZE]: maximum queue size for writing records; limits memory usage (default: 100000)
   [INDEX]: name of the index to use (default: records)
   [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
   [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
