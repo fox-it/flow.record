@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from base64 import b64decode, b64encode
 from datetime import datetime, timezone
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
@@ -11,6 +13,12 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.fieldtypes.net import ipaddress
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
+
+    from flow.record.base import Record
 
 __usage__ = """
 Microsoft Excel spreadsheet adapter
@@ -53,7 +61,7 @@ class XlsxWriter(AbstractWriter):
     fp = None
     wb = None
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, path: str | Path | BinaryIO, **kwargs):
         self.fp = record.open_path_or_stream(path, "wb")
         self.wb = Workbook()
         self.ws = self.wb.active
@@ -63,7 +71,7 @@ class XlsxWriter(AbstractWriter):
         self.descs = []
         self._last_dec = None
 
-    def write(self, r):
+    def write(self, r: Record) -> None:
         if r._desc not in self.descs:
             self.descs.append(r._desc)
             ws = self.wb.create_sheet(r._desc.name.strip().replace("/", "-"))
@@ -86,13 +94,13 @@ class XlsxWriter(AbstractWriter):
         try:
             self.ws.append(values)
         except ValueError as e:
-            raise ValueError(f"Unable to write values to workbook: {str(e)}")
+            raise ValueError(f"Unable to write values to workbook: {e!s}")
 
-    def flush(self):
+    def flush(self) -> None:
         if self.wb:
             self.wb.save(self.fp)
 
-    def close(self):
+    def close(self) -> None:
         if self.wb:
             self.wb.close()
         self.wb = None
@@ -105,19 +113,19 @@ class XlsxWriter(AbstractWriter):
 class XlsxReader(AbstractReader):
     fp = None
 
-    def __init__(self, path, selector=None, **kwargs):
+    def __init__(self, path: str | Path | BinaryIO, selector: str | None = None, **kwargs):
         self.selector = make_selector(selector)
         self.fp = record.open_path_or_stream(path, "rb")
         self.desc = None
         self.wb = load_workbook(self.fp)
         self.ws = self.wb.active
 
-    def close(self):
+    def close(self) -> None:
         if self.fp:
             self.fp.close()
         self.fp = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         for worksheet in self.wb.worksheets:
             desc = None
             desc_name = worksheet.title.replace("-", "/")

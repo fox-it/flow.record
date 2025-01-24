@@ -1,12 +1,13 @@
-from flow.record.fieldtypes import string
+from __future__ import annotations
 
-from .ip import IPAddress, IPNetwork, ipaddress, ipnetwork
+from flow.record.fieldtypes import string
+from flow.record.fieldtypes.net.ip import IPAddress, IPNetwork, ipaddress, ipnetwork
 
 __all__ = [
-    "ipaddress",
-    "ipnetwork",
     "IPAddress",
     "IPNetwork",
+    "ipaddress",
+    "ipnetwork",
 ]
 
 

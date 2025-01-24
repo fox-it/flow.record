@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import struct
 
@@ -7,7 +9,7 @@ from flow.record import RecordDescriptor, RecordField
 from flow.record.exceptions import RecordDescriptorError
 
 
-def test_record_descriptor():
+def test_record_descriptor() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -34,7 +36,7 @@ def test_record_descriptor():
     assert fields[0][1] == "url"
 
 
-def test_record_descriptor_clone():
+def test_record_descriptor_clone() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -54,7 +56,7 @@ def test_record_descriptor_clone():
     assert TestRecord.get_field_tuples() == OtherRecord.get_field_tuples()
 
 
-def test_record_descriptor_extend():
+def test_record_descriptor_extend() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -73,7 +75,7 @@ def test_record_descriptor_extend():
     assert len(ExtendedRecord.get_field_tuples()) == 3
 
 
-def test_record_descriptor_hash_cache():
+def test_record_descriptor_hash_cache() -> None:
     # Get initial cache stats
     TestRecord1 = RecordDescriptor(
         "test/record",
@@ -115,7 +117,7 @@ def test_record_descriptor_hash_cache():
     assert TestRecord2.descriptor_hash != TestRecord3.descriptor_hash
 
 
-def test_record_descriptor_hashing():
+def test_record_descriptor_hashing() -> None:
     """Test if hashing is still consistent to keep compatibility"""
     TestRecord = RecordDescriptor(
         "test/hash",
@@ -137,7 +139,7 @@ def test_record_descriptor_hashing():
     assert TestRecord.descriptor_hash == hash_digest
 
 
-def test_record_descriptor_hash_eq():
+def test_record_descriptor_hash_eq() -> None:
     """Tests __hash__() on RecordDescriptor"""
     TestRecordSame1 = RecordDescriptor(
         "test/same",
@@ -181,12 +183,12 @@ def test_record_descriptor_hash_eq():
     assert TestRecordDifferentName != TestRecordDifferentFields
 
 
-def test_record_descriptor_empty_fields():
+def test_record_descriptor_empty_fields() -> None:
     TestRecord = RecordDescriptor("test/empty", [])
     assert TestRecord()
 
 
-def test_record_descriptor_empty_name():
+def test_record_descriptor_empty_name() -> None:
     with pytest.raises(RecordDescriptorError, match="Record name is required"):
         RecordDescriptor(None, [])
 

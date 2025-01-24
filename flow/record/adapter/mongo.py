@@ -1,9 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import bson
 from pymongo import MongoClient
 
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import make_selector
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flow.record.base import Record
 
 __usage__ = """
 MongoDB adapter
@@ -16,7 +25,7 @@ Read usage: rdump mongo://[IP]:[PORT]/[DBNAME]/[COLLECTION]
 """
 
 
-def parse_path(path):
+def parse_path(path: str) -> tuple[str, str, str]:
     elements = path.strip("/").split("/", 2)  # max 3 elements
     if len(elements) == 2:
         return "localhost", elements[0], elements[1]
@@ -28,7 +37,7 @@ def parse_path(path):
 class MongoWriter(AbstractWriter):
     client = None
 
-    def __init__(self, path, key=None, **kwargs):
+    def __init__(self, path: str, key: str | None = None, **kwargs):
         dbhost, dbname, collection = parse_path(path)
 
         self.key = key
@@ -38,7 +47,7 @@ class MongoWriter(AbstractWriter):
         self.coll_descriptors = self.db["_descriptors"]
         self.descriptors = {}
 
-    def write(self, r):
+    def write(self, r: Record) -> None:
         d = r._packdict()
         d["_type"] = r._desc.identifier
 
@@ -53,10 +62,10 @@ class MongoWriter(AbstractWriter):
         else:
             self.collection.insert(d)
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         if self.client:
             self.client.close()
         self.client = None
@@ -65,7 +74,7 @@ class MongoWriter(AbstractWriter):
 class MongoReader(AbstractReader):
     client = None
 
-    def __init__(self, path, selector=None, **kwargs):
+    def __init__(self, path: str, selector: str | None = None, **kwargs):
         dbhost, dbname, collection = parse_path(path)
 
         self.selector = make_selector(selector)
@@ -75,12 +84,12 @@ class MongoReader(AbstractReader):
         self.coll_descriptors = self.db["_descriptors"]
         self.descriptors = {}
 
-    def close(self):
+    def close(self) -> None:
         if self.client:
             self.client.close()
         self.client = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         desc = None
         for r in self.collection.find():
             if r["_type"] not in self.descriptors:

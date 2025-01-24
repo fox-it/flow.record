@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import pytest
 
 from flow.record import RecordDescriptor
 from flow.record.base import parse_def
 
 
-def test_deprecate_ipv4_address():
+def test_deprecate_ipv4_address() -> None:
     TestRecord = RecordDescriptor(
         "test/net/ipv4/Address",
         [
@@ -16,7 +18,7 @@ def test_deprecate_ipv4_address():
         TestRecord("127.0.0.1")
 
 
-def test_deprecate_ipv4_subnet():
+def test_deprecate_ipv4_subnet() -> None:
     TestRecord = RecordDescriptor(
         "test/net/ipv4/Subnet",
         [
@@ -28,12 +30,12 @@ def test_deprecate_ipv4_subnet():
         TestRecord("192.168.0.0/24")
 
 
-def test_deprecate_parse_def():
+def test_deprecate_parse_def() -> None:
     with pytest.deprecated_call():
         parse_def("test/record")
 
 
-def test_deprecate_recorddescriptor_init():
+def test_deprecate_recorddescriptor_init() -> None:
     # Test deprecated RecordDescriptor init with string def
     with pytest.deprecated_call():
         TestRecord = RecordDescriptor("test/record", None)

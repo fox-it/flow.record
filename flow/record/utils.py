@@ -5,7 +5,7 @@ import os
 import sys
 import warnings
 from functools import wraps
-from typing import BinaryIO, TextIO
+from typing import Any, BinaryIO, Callable, TextIO
 
 
 def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
@@ -45,7 +45,7 @@ def is_stdout(fp: TextIO | BinaryIO) -> bool:
     return fp in (sys.stdout, sys.stdout.buffer) or hasattr(fp, "_is_stdout")
 
 
-def to_bytes(value):
+def to_bytes(value: Any) -> bytes:
     """Convert a value to a byte string."""
     if value is None or isinstance(value, bytes):
         return value
@@ -54,7 +54,7 @@ def to_bytes(value):
     return bytes(value)
 
 
-def to_str(value):
+def to_str(value: Any) -> str:
     """Convert a value to a unicode string."""
     if value is None or isinstance(value, str):
         return value
@@ -63,7 +63,7 @@ def to_str(value):
     return str(value)
 
 
-def to_native_str(value):
+def to_native_str(value: str) -> str:
     warnings.warn(
         (
             "The to_native_str() function is deprecated, "
@@ -71,20 +71,21 @@ def to_native_str(value):
             "use to_str() instead"
         ),
         DeprecationWarning,
+        stacklevel=2,
     )
     return to_str(value)
 
 
-def to_base64(value):
+def to_base64(value: str) -> str:
     """Convert a value to a base64 string."""
     return base64.b64encode(value).decode()
 
 
-def catch_sigpipe(func):
+def catch_sigpipe(func: Callable[..., int]) -> Callable[..., int]:
     """Catches KeyboardInterrupt and BrokenPipeError (OSError 22 on Windows)."""
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> int:
         try:
             return func(*args, **kwargs)
         except KeyboardInterrupt:
@@ -107,12 +108,12 @@ class EventHandler:
     def __init__(self):
         self.handlers = []
 
-    def add_handler(self, callback):
+    def add_handler(self, callback: Callable[..., None]) -> None:
         self.handlers.append(callback)
 
-    def remove_handler(self, callback):
+    def remove_handler(self, callback: Callable[..., None]) -> None:
         self.handlers.remove(callback)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> None:
         for h in self.handlers:
             h(*args, **kwargs)

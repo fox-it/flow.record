@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 
 from flow.record import RecordDescriptor, iter_timestamped_records
@@ -6,7 +8,7 @@ from flow.record.base import merge_record_descriptors
 UTC = timezone.utc
 
 
-def test_multi_timestamp():
+def test_multi_timestamp() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -17,8 +19,8 @@ def test_multi_timestamp():
     )
 
     test_record = TestRecord(
-        ctime=datetime(2020, 1, 1, 1, 1, 1),
-        atime=datetime(2022, 11, 22, 13, 37, 37),
+        ctime=datetime(2020, 1, 1, 1, 1, 1),  # noqa: DTZ001
+        atime=datetime(2022, 11, 22, 13, 37, 37),  # noqa: DTZ001
         data="test",
     )
 
@@ -36,7 +38,7 @@ def test_multi_timestamp():
     assert ts_records[1].ts_description == "atime"
 
 
-def test_multi_timestamp_no_datetime():
+def test_multi_timestamp_no_datetime() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -50,7 +52,7 @@ def test_multi_timestamp_no_datetime():
     assert ts_records[0].data == "test"
 
 
-def test_multi_timestamp_single_datetime():
+def test_multi_timestamp_single_datetime() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -60,7 +62,7 @@ def test_multi_timestamp_single_datetime():
     )
 
     test_record = TestRecord(
-        ctime=datetime(2020, 1, 1, 1, 1, 1),
+        ctime=datetime(2020, 1, 1, 1, 1, 1),  # noqa: DTZ001
         data="test",
     )
     ts_records = list(iter_timestamped_records(test_record))
@@ -69,7 +71,7 @@ def test_multi_timestamp_single_datetime():
     assert ts_records[0].ts_description == "ctime"
 
 
-def test_multi_timestamp_ts_fieldname():
+def test_multi_timestamp_ts_fieldname() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -79,7 +81,7 @@ def test_multi_timestamp_ts_fieldname():
     )
 
     test_record = TestRecord(
-        ts=datetime(2020, 1, 1, 1, 1, 1),
+        ts=datetime(2020, 1, 1, 1, 1, 1),  # noqa: DTZ001
         data="test",
     )
     ts_records = list(iter_timestamped_records(test_record))
@@ -88,7 +90,7 @@ def test_multi_timestamp_ts_fieldname():
     assert ts_records[0].ts_description == "ts"
 
 
-def test_multi_timestamp_timezone():
+def test_multi_timestamp_timezone() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -107,7 +109,7 @@ def test_multi_timestamp_timezone():
     for i, ts_notation in enumerate(ts_notations):
         test_record = TestRecord(
             ts=ts_notation,
-            data=f"record with timezone ({str(i)})",
+            data=f"record with timezone ({i!s})",
         )
         ts_records = list(iter_timestamped_records(test_record))
         assert len(ts_records) == 1
@@ -115,7 +117,7 @@ def test_multi_timestamp_timezone():
         assert ts_records[0].ts_description == "ts"
 
 
-def test_multi_timestamp_descriptor_cache():
+def test_multi_timestamp_descriptor_cache() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [

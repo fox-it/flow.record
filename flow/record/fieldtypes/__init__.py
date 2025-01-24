@@ -12,7 +12,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 try:
@@ -25,7 +25,7 @@ except ImportError:
     HAS_ZONE_INFO = False
 
 
-from flow.record.base import FieldType
+from flow.record.base import FieldType, Record
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 
@@ -38,14 +38,11 @@ PY_313_OR_HIGHER = sys.version_info >= (3, 13, 0)
 TYPE_POSIX = 0
 TYPE_WINDOWS = 1
 
-string_type = str
-varint_type = int
-bytes_type = bytes
-float_type = float
-path_type = pathlib.PurePath
+_bytes = bytes
+_float = float
 
 
-def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
+def flow_record_tz(*, default_tz: str = "UTC") -> ZoneInfo | UTC | None:
     """Return a ``ZoneInfo`` object based on the ``FLOW_RECORD_TZ`` environment variable.
 
     Args:
@@ -61,14 +58,16 @@ def flow_record_tz(*, default_tz: str = "UTC") -> Optional[ZoneInfo | UTC]:
 
     if not HAS_ZONE_INFO:
         if tz != "UTC":
-            warnings.warn("Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.")
+            warnings.warn(
+                "Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.", stacklevel=2
+            )
         return UTC
 
     try:
         return ZoneInfo(tz)
     except ZoneInfoNotFoundError as exc:
         if tz != "UTC":
-            warnings.warn(f"{exc!r}, falling back to timezone.utc")
+            warnings.warn(f"{exc!r}, falling back to timezone.utc", stacklevel=2)
         return UTC
 
 
@@ -87,11 +86,10 @@ def defang(value: str) -> str:
     value = re.sub("^ldap://", "ldxp://", value, flags=re.IGNORECASE)
     value = re.sub("^ldaps://", "ldxps://", value, flags=re.IGNORECASE)
     value = re.sub(r"(\w+)\.(\w+)($|/|:)", r"\1[.]\2\3", value, flags=re.IGNORECASE)
-    value = re.sub(r"(\d+)\.(\d+)\.(\d+)\.(\d+)", r"\1.\2.\3[.]\4", value, flags=re.IGNORECASE)
-    return value
+    return re.sub(r"(\d+)\.(\d+)\.(\d+)\.(\d+)", r"\1.\2.\3[.]\4", value, flags=re.IGNORECASE)
 
 
-def fieldtype_for_value(value, default="string"):
+def fieldtype_for_value(value: object, default: str = "string") -> str:
     """Returns fieldtype name derived from the value. Returns `default` if it cannot be derived.
 
     Args:
@@ -108,75 +106,75 @@ def fieldtype_for_value(value, default="string"):
         >>> fieldtype_for_value(object(), None)
         None
     """
-    if isinstance(value, bytes_type):
+    if isinstance(value, _bytes):
         return "bytes"
-    elif isinstance(value, string_type):
+    if isinstance(value, str):
         return "string"
-    elif isinstance(value, float_type):
+    if isinstance(value, _float):
         return "float"
-    elif isinstance(value, bool):
+    if isinstance(value, bool):
         return "boolean"
-    elif isinstance(value, (varint_type, int)):
+    if isinstance(value, int):
         return "varint"
-    elif isinstance(value, _dt):
+    if isinstance(value, _dt):
         return "datetime"
-    elif isinstance(value, path_type):
+    if isinstance(value, pathlib.PurePath):
         return "path"
     return default
 
 
 class dynamic(FieldType):
-    def __new__(cls, obj):
+    def __new__(cls, obj: object):
         if isinstance(obj, FieldType):
             # Already a flow field type
             return obj
 
-        elif isinstance(obj, bytes_type):
+        if isinstance(obj, _bytes):
             return bytes(obj)
 
-        elif isinstance(obj, string_type):
+        if isinstance(obj, str):
             return string(obj)
 
-        elif isinstance(obj, bool):
+        if isinstance(obj, bool):
             # Must appear before int, because bool is a subclass of int
             return boolean(obj)
 
-        elif isinstance(obj, (varint_type, int)):
+        if isinstance(obj, int):
             return varint(obj)
 
-        elif isinstance(obj, _dt):
+        if isinstance(obj, _float):
+            return float(obj)
+
+        if isinstance(obj, _dt):
             return datetime(obj)
 
-        elif isinstance(obj, (list, tuple)):
+        if isinstance(obj, (list, tuple)):
             return stringlist(obj)
 
-        elif isinstance(obj, path_type):
+        if isinstance(obj, pathlib.PurePath):
             return path(obj)
 
-        raise NotImplementedError("Unsupported type for dynamic fieldtype: {}".format(type(obj)))
+        raise NotImplementedError(f"Unsupported type for dynamic fieldtype: {type(obj)}")
 
 
 class typedlist(list, FieldType):
     __type__ = None
 
-    def __init__(self, values=None):
+    def __init__(self, values: list[Any] | None = None):
         if not values:
             values = []
         super(self.__class__, self).__init__(self._convert(values))
 
-    def _convert(self, values):
+    def _convert(self, values: list[Any]) -> list[Any]:
         return [self.__type__(f) if not isinstance(f, self.__type__) else f for f in values]
 
-    def _pack(self):
+    def _pack(self) -> list[Any]:
         result = []
         for f in self:
             if not isinstance(f, self.__type__):
                 # Dont pack records already, it's the job of RecordPacker to pack record fields.
                 # Otherwise unpacking will yield unexpected results (records that are not unpacked).
-                if self.__type__ == record:
-                    r = f
-                else:
-                    r = self.__type__(f)._pack()
+                r = f if self.__type__ == record else self.__type__(f)._pack()
                 result.append(r)
             else:
                 r = f._pack()
@@ -184,36 +182,38 @@ class typedlist(list, FieldType):
         return result
 
     @classmethod
-    def _unpack(cls, data):
+    def _unpack(cls, data: Any) -> typedlist:
         data = map(cls.__type__._unpack, data)
         return cls(data)
 
     @classmethod
-    def default(cls):
+    def default(cls) -> typedlist:
         """Override default so the field is always an empty list."""
         return cls()
 
 
 class dictlist(list, FieldType):
-    def _pack(self):
+    def _pack(self) -> dictlist:
         return self
 
 
 class stringlist(list, FieldType):
-    def _pack(self):
+    def _pack(self) -> stringlist:
         return self
 
 
-class string(string_type, FieldType):
-    def __new__(cls, value):
-        if isinstance(value, bytes_type):
+class string(str, FieldType):
+    __slots__ = ()
+
+    def __new__(cls, value: str | _bytes):
+        if isinstance(value, _bytes):
             value = value.decode(errors="surrogateescape")
         return super().__new__(cls, value)
 
-    def _pack(self):
+    def _pack(self) -> string:
         return self
 
-    def __format__(self, spec):
+    def __format__(self, spec: str) -> str:
         if spec == "defang":
             return defang(self)
         return str.__format__(self, spec)
@@ -223,39 +223,34 @@ class string(string_type, FieldType):
 wstring = string
 
 
-class bytes(bytes_type, FieldType):
-    value = None
-
-    def __init__(self, value):
-        if not isinstance(value, bytes_type):
+class bytes(_bytes, FieldType):
+    def __new__(cls, value: _bytes):
+        if not isinstance(value, _bytes):
             raise TypeError("Value not of bytes type")
-        self.value = value
+        return super().__new__(cls, value)
 
-    def _pack(self):
-        return self.value
+    def _pack(self) -> _bytes:
+        return self
 
-    def __repr__(self):
-        return repr(self.value)
-
-    def __format__(self, spec):
+    def __format__(self, spec: str) -> str:
         if spec in ("hex", "x"):
             return self.hex()
-        elif spec in ("HEX", "X"):
+        if spec in ("HEX", "X"):
             return self.hex().upper()
-        elif spec == "#x":
+        if spec == "#x":
             return "0x" + self.hex()
-        elif spec == "#X":
+        if spec == "#X":
             return "0x" + self.hex().upper()
-        return bytes_type.__format__(self, spec)
+        return _bytes.__format__(self, spec)
 
 
 class datetime(_dt, FieldType):
     def __new__(cls, *args, **kwargs):
         if len(args) == 1 and not kwargs:
             arg = args[0]
-            if isinstance(arg, bytes_type):
+            if isinstance(arg, _bytes):
                 arg = arg.decode(errors="surrogateescape")
-            if isinstance(arg, string_type):
+            if isinstance(arg, str):
                 # If we are on Python 3.11 or newer, we can use fromisoformat() to parse the string (fast path)
                 #
                 # Else we need to do some manual parsing to fix some issues with the string format:
@@ -298,7 +293,7 @@ class datetime(_dt, FieldType):
                         arg = tstr + tzstr
 
                 obj = cls.fromisoformat(arg)
-            elif isinstance(arg, (int, float_type)):
+            elif isinstance(arg, (int, _float)):
                 obj = cls.fromtimestamp(arg, UTC)
             elif isinstance(arg, (_dt,)):
                 tzinfo = arg.tzinfo or UTC
@@ -321,78 +316,78 @@ class datetime(_dt, FieldType):
             obj = obj.replace(tzinfo=UTC)
         return obj
 
-    def _pack(self):
+    def _pack(self) -> datetime:
         return self
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.astimezone(DISPLAY_TZINFO).isoformat(" ") if DISPLAY_TZINFO else self.isoformat(" ")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return _dt.__hash__(self)
 
 
-class varint(varint_type, FieldType):
-    def _pack(self):
+class varint(int, FieldType):
+    def _pack(self) -> varint:
         return self
 
 
-class float(float, FieldType):
-    def _pack(self):
+class float(_float, FieldType):
+    def _pack(self) -> float:
         return self
 
 
 class uint16(int, FieldType):
     value = None
 
-    def __init__(self, value):
+    def __init__(self, value: int):
         if value < 0 or value > 0xFFFF:
-            raise ValueError("Value not within (0x0, 0xffff), got: {}".format(value))
+            raise ValueError(f"Value not within (0x0, 0xffff), got: {value}")
 
         self.value = value
 
-    def _pack(self):
+    def _pack(self) -> int:
         return self.value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.value)
 
 
 class uint32(int, FieldType):
     value = None
 
-    def __init__(self, value):
+    def __init__(self, value: int):
         if value < 0 or value > 0xFFFFFFFF:
-            raise ValueError("Value not within (0x0, 0xffffffff), got {}".format(value))
+            raise ValueError(f"Value not within (0x0, 0xffffffff), got {value}")
 
         self.value = value
 
-    def _pack(self):
+    def _pack(self) -> int:
         return self.value
 
 
 class boolean(int, FieldType):
     value = None
 
-    def __init__(self, value):
+    def __init__(self, value: bool):
         if value < 0 or value > 1:
             raise ValueError("Value not a valid boolean value")
 
         self.value = bool(value)
 
-    def _pack(self):
+    def _pack(self) -> bool:
         return self.value
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.value)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.value)
 
 
-def human_readable_size(x):
+def human_readable_size(x: int) -> str:
     # hybrid of http://stackoverflow.com/a/10171475/2595465
     #     with http://stackoverflow.com/a/5414105/2595465
     if x == 0:
@@ -409,12 +404,12 @@ def human_readable_size(x):
 
 
 class filesize(varint):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return human_readable_size(self)
 
 
 class unix_file_mode(varint):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return oct(self).rstrip("L")
 
 
@@ -423,7 +418,7 @@ class digest(FieldType):
     __sha1 = __sha1_bin = None
     __sha256 = __sha256_bin = None
 
-    def __init__(self, value=None, **kwargs):
+    def __init__(self, value: tuple[str, str, str] | list[str] | dict[str, str] | None = None, **kwargs):
         if isinstance(value, (tuple, list)):
             self.md5, self.sha1, self.sha256 = value
         elif isinstance(value, dict):
@@ -432,27 +427,27 @@ class digest(FieldType):
             self.sha256 = value.get("sha256", self.sha256)
 
     @classmethod
-    def default(cls):
+    def default(cls) -> digest:
         """Override default so the field is always a digest() instance."""
         return cls()
 
-    def __repr__(self):
-        return "(md5={d.md5}, sha1={d.sha1}, sha256={d.sha256})".format(d=self)
+    def __repr__(self) -> str:
+        return f"(md5={self.md5}, sha1={self.sha1}, sha256={self.sha256})"
 
     @property
-    def md5(self):
+    def md5(self) -> str | None:
         return self.__md5
 
     @property
-    def sha1(self):
+    def sha1(self) -> str | None:
         return self.__sha1
 
     @property
-    def sha256(self):
+    def sha256(self) -> str | None:
         return self.__sha256
 
     @md5.setter
-    def md5(self, val):
+    def md5(self, val: str | None) -> None:
         if val is None:
             self.__md5 = self.__md5_bin = None
             return
@@ -460,12 +455,12 @@ class digest(FieldType):
             self.__md5_bin = a2b_hex(val)
             self.__md5 = val
             if len(self.__md5_bin) != 16:
-                raise TypeError("Incorrect hash length")
-        except binascii.Error as e:
-            raise TypeError("Invalid MD5 value {!r}, {}".format(val, e))
+                raise TypeError("Incorrect hash length")  # noqa: TRY301
+        except (binascii.Error, TypeError) as e:
+            raise TypeError(f"Invalid MD5 value {val!r}, {e}")
 
     @sha1.setter
-    def sha1(self, val):
+    def sha1(self, val: str | None) -> None:
         if val is None:
             self.__sha1 = self.__sha1_bin = None
             return
@@ -473,12 +468,12 @@ class digest(FieldType):
             self.__sha1_bin = a2b_hex(val)
             self.__sha1 = val
             if len(self.__sha1_bin) != 20:
-                raise TypeError("Incorrect hash length")
-        except binascii.Error as e:
-            raise TypeError("Invalid SHA-1 value {!r}, {}".format(val, e))
+                raise TypeError("Incorrect hash length")  # noqa: TRY301
+        except (binascii.Error, TypeError) as e:
+            raise TypeError(f"Invalid SHA-1 value {val!r}, {e}")
 
     @sha256.setter
-    def sha256(self, val):
+    def sha256(self, val: str | None) -> None:
         if val is None:
             self.__sha256 = self.__sha256_bin = None
             return
@@ -486,11 +481,11 @@ class digest(FieldType):
             self.__sha256_bin = a2b_hex(val)
             self.__sha256 = val
             if len(self.__sha256_bin) != 32:
-                raise TypeError("Incorrect hash length")
-        except binascii.Error as e:
-            raise TypeError("Invalid SHA-256 value {!r}, {}".format(val, e))
+                raise TypeError("Incorrect hash length")  # noqa: TRY301
+        except (binascii.Error, TypeError) as e:
+            raise TypeError(f"Invalid SHA-256 value {val!r}, {e}")
 
-    def _pack(self):
+    def _pack(self) -> tuple[_bytes | None, _bytes | None, _bytes | None]:
         return (
             self.__md5_bin,
             self.__sha1_bin,
@@ -498,7 +493,7 @@ class digest(FieldType):
         )
 
     @classmethod
-    def _unpack(cls, data):
+    def _unpack(cls, data: tuple[_bytes | None, _bytes | None, _bytes | None]) -> digest:
         value = (
             b2a_hex(data[0]).decode() if data[0] else None,
             b2a_hex(data[1]).decode() if data[1] else None,
@@ -508,11 +503,11 @@ class digest(FieldType):
 
 
 class uri(string, FieldType):
-    def __init__(self, value):
+    def __init__(self, value: str):
         self._parsed = urlparse(value)
 
     @staticmethod
-    def normalize(path):
+    def normalize(path: str) -> str:
         r"""Normalize Windows paths to posix.
 
         c:\windows\system32\cmd.exe -> c:/windows/system32/cmd.exe
@@ -520,84 +515,86 @@ class uri(string, FieldType):
         warnings.warn(
             "Do not use class uri(...) for filesystem paths, use class path(...)",
             DeprecationWarning,
+            stacklevel=2,
         )
         return RE_NORMALIZE_PATH.sub("/", path)
 
     @classmethod
-    def from_windows(cls, path):
+    def from_windows(cls, path: str) -> uri:
         """Initialize a uri instance from a windows path."""
         warnings.warn(
             "Do not use class uri(...) for filesystem paths, use class path(...)",
             DeprecationWarning,
+            stacklevel=2,
         )
         return cls(uri.normalize(path))
 
     @property
-    def scheme(self):
+    def scheme(self) -> str:
         return self._parsed.scheme
 
     @property
-    def protocol(self):
+    def protocol(self) -> str:
         return self.scheme
 
     @property
-    def netloc(self):
+    def netloc(self) -> str:
         return self._parsed.netloc
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._parsed.path
 
     @property
-    def params(self):
+    def params(self) -> str:
         return self._parsed.params
 
     @property
-    def query(self):
+    def query(self) -> str:
         return self._parsed.query
 
     @property
-    def args(self):
+    def args(self) -> str:
         return self.query
 
     @property
-    def fragment(self):
+    def fragment(self) -> str:
         return self._parsed.fragment
 
     @property
-    def username(self):
+    def username(self) -> str | None:
         return self._parsed.username
 
     @property
-    def password(self):
+    def password(self) -> str | None:
         return self._parsed.password
 
     @property
-    def hostname(self):
+    def hostname(self) -> str | None:
         return self._parsed.hostname
 
     @property
-    def port(self):
+    def port(self) -> int | None:
         return self._parsed.port
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         return basename(self.path)
 
     @property
-    def dirname(self):
+    def dirname(self) -> str:
         return dirname(self.path)
 
 
 class record(FieldType):
-    def __new__(cls, record_value):
+    def __new__(cls, record_value: Record):
         return record_value
 
-    def _pack(self):
+    def _pack(self) -> Record:
         return self.value
 
     @classmethod
-    def _unpack(cls, data):
+    def _unpack(cls, data: Record) -> Record:
         return data
 
 
@@ -665,20 +662,17 @@ class path(pathlib.PurePath, FieldType):
                     continue
                 break
 
-        if PY_312_OR_HIGHER:
-            obj = super().__new__(cls)
-        else:
-            obj = cls._from_parts(args)
+        obj = super().__new__(cls) if PY_312_OR_HIGHER else cls._from_parts(args)
 
         obj._empty_path = False
         if not args or args == ("",):
             obj._empty_path = True
         return obj
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, str):
             return str(self) == other or self == self.__class__(other)
-        elif isinstance(other, self.__class__) and (self._empty_path or other._empty_path):
+        if isinstance(other, self.__class__) and (self._empty_path or other._empty_path):
             return self._empty_path == other._empty_path
         return super().__eq__(other)
 
@@ -705,11 +699,10 @@ class path(pathlib.PurePath, FieldType):
         path_, path_type = data
         if path_type == TYPE_POSIX:
             return posix_path(path_)
-        elif path_type == TYPE_WINDOWS:
+        if path_type == TYPE_WINDOWS:
             return windows_path(path_)
-        else:
-            # Catch all: default to posix_path
-            return posix_path(path_)
+        # Catch all: default to posix_path
+        return posix_path(path_)
 
     @classmethod
     def from_posix(cls, path_: str) -> posix_path:
@@ -740,18 +733,18 @@ class windows_path(pathlib.PureWindowsPath, path):
 
 
 class command(FieldType):
-    executable: Optional[path] = None
-    args: Optional[list[str]] = None
+    executable: path | None = None
+    args: list[str] | None = None
 
     _path_type: type[path] = None
     _posix: bool
 
-    def __new__(cls, value: str) -> command:
+    def __new__(cls, value: str):
         if cls is not command:
             return super().__new__(cls)
 
         if not isinstance(value, str):
-            raise ValueError(f"Expected a value of type 'str' not {type(value)}")
+            raise TypeError(f"Expected a value of type 'str' not {type(value)}")
 
         # pre checking for windows like paths
         # This checks for windows like starts of a path:
@@ -761,10 +754,7 @@ class command(FieldType):
         stripped_value = value.lstrip("\"'")
         windows = value.startswith((r"\\", "%")) or (len(stripped_value) >= 2 and stripped_value[1] == ":")
 
-        if windows:
-            cls = windows_command
-        else:
-            cls = posix_command
+        cls = windows_command if windows else posix_command
         return super().__new__(cls)
 
     def __init__(self, value: str | tuple[str, tuple[str]] | None):
@@ -782,12 +772,12 @@ class command(FieldType):
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, command):
             return self.executable == other.executable and self.args == other.args
-        elif isinstance(other, str):
+        if isinstance(other, str):
             return self._join() == other
-        elif isinstance(other, (tuple, list)):
+        if isinstance(other, (tuple, list)):
             return self.executable == other[0] and self.args == list(other[1:])
 
         return False
@@ -799,15 +789,14 @@ class command(FieldType):
         return self._path_type(executable), args
 
     def _join(self) -> str:
-        return shlex.join([str(self.executable)] + self.args)
+        return shlex.join([str(self.executable), *self.args])
 
     def _pack(self) -> tuple[tuple[str, list], str]:
         command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
         if self.executable:
             _exec, _ = self.executable._pack()
             return ((_exec, self.args), command_type)
-        else:
-            return (None, command_type)
+        return (None, command_type)
 
     @classmethod
     def _unpack(cls, data: tuple[tuple[str, tuple] | None, int]) -> command:

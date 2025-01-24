@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from flow.record.fieldtypes import uint16
 
 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from flow.record import RecordDescriptor
 from flow.record.selector import CompiledSelector as Selector
 
 
-def test_selector_func_name():
+def test_selector_func_name() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -14,7 +16,7 @@ def test_selector_func_name():
     assert TestRecord(None, None) in Selector("name(r) == 'test/record'")
 
 
-def test_selector():
+def test_selector() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -28,7 +30,7 @@ def test_selector():
     assert TestRecord(None, None) not in Selector("name(r.query) == 'XX'")
 
 
-def test_non_existing_field():
+def test_non_existing_field() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [

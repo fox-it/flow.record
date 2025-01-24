@@ -1,13 +1,18 @@
-from __future__ import absolute_import
+from __future__ import annotations
 
 import csv
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.base import normalize_fieldname
+from flow.record.base import Record, normalize_fieldname
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 __usage__ = """
 Comma-separated values (CSV) adapter
@@ -23,13 +28,20 @@ Optional parameters:
 
 
 class CsvfileWriter(AbstractWriter):
-    def __init__(self, path, fields=None, exclude=None, lineterminator=None, **kwargs):
+    def __init__(
+        self,
+        path: str | Path | None,
+        fields: str | list[str] | None = None,
+        exclude: str | list[str] | None = None,
+        lineterminator: str = "\r\n",
+        **kwargs,
+    ):
         self.fp = None
         if path in (None, "", "-"):
             self.fp = sys.stdout
         else:
-            self.fp = open(path, "w", newline="")
-        self.lineterminator = lineterminator or "\r\n"
+            self.fp = Path(path).open("w", newline="")  # noqa: SIM115
+        self.lineterminator = lineterminator
         for r, n in ((r"\r", "\r"), (r"\n", "\n"), (r"\t", "\t")):
             self.lineterminator = self.lineterminator.replace(r, n)
         self.desc = None
@@ -41,7 +53,7 @@ class CsvfileWriter(AbstractWriter):
         if isinstance(self.exclude, str):
             self.exclude = self.exclude.split(",")
 
-    def write(self, r):
+    def write(self, r: Record) -> None:
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)
         if not self.desc or self.desc != r._desc:
             self.desc = r._desc
@@ -49,24 +61,26 @@ class CsvfileWriter(AbstractWriter):
             self.writer.writeheader()
         self.writer.writerow(rdict)
 
-    def flush(self):
+    def flush(self) -> None:
         if self.fp:
             self.fp.flush()
 
-    def close(self):
+    def close(self) -> None:
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
         self.fp = None
 
 
 class CsvfileReader(AbstractReader):
-    def __init__(self, path, selector=None, fields=None, **kwargs):
+    def __init__(
+        self, path: str | Path | None, selector: str | None = None, fields: str | list[str] | None = None, **kwargs
+    ):
         self.fp = None
         self.selector = make_selector(selector)
         if path in (None, "", "-"):
             self.fp = sys.stdin
         else:
-            self.fp = open(path, "r", newline="")
+            self.fp = Path(path).open("r", newline="")  # noqa: SIM115
 
         self.dialect = "excel"
         if self.fp.seekable():
@@ -87,12 +101,12 @@ class CsvfileReader(AbstractReader):
         # Create RecordDescriptor from fields, skipping fields starting with "_" (reserved for internal use)
         self.desc = RecordDescriptor("csv/reader", [("string", col) for col in self.fields if not col.startswith("_")])
 
-    def close(self):
+    def close(self) -> None:
         if self.fp:
             self.fp.close()
         self.fp = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         for row in self.reader:
             rdict = dict(zip(self.fields, row))
             record = self.desc.init_from_dict(rdict)

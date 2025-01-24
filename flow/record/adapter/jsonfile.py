@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import json
+from typing import TYPE_CHECKING, BinaryIO
 
 from flow import record
 from flow.record import JsonRecordPacker
@@ -6,6 +9,12 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
+
+    from flow.record.base import Record, RecordDescriptor
 
 __usage__ = """
 JSON adapter
@@ -21,7 +30,9 @@ Read usage: rdump jsonfile://[PATH]
 class JsonfileWriter(AbstractWriter):
     fp = None
 
-    def __init__(self, path, indent=None, descriptors=True, **kwargs):
+    def __init__(
+        self, path: str | Path | BinaryIO, indent: str | int | None = None, descriptors: bool = True, **kwargs
+    ):
         self.descriptors = str(descriptors).lower() in ("true", "1")
         self.fp = record.open_path_or_stream(path, "w")
         if isinstance(indent, str):
@@ -30,21 +41,21 @@ class JsonfileWriter(AbstractWriter):
         if self.descriptors:
             self.packer.on_descriptor.add_handler(self.packer_on_new_descriptor)
 
-    def packer_on_new_descriptor(self, descriptor):
+    def packer_on_new_descriptor(self, descriptor: RecordDescriptor) -> None:
         self._write(descriptor)
 
-    def _write(self, obj):
+    def _write(self, obj: Record | RecordDescriptor) -> None:
         record_json = self.packer.pack(obj)
         self.fp.write(record_json + "\n")
 
-    def write(self, r):
+    def write(self, r: Record) -> None:
         self._write(r)
 
-    def flush(self):
+    def flush(self) -> None:
         if self.fp:
             self.fp.flush()
 
-    def close(self):
+    def close(self) -> None:
         if self.fp and not is_stdout(self.fp):
             self.fp.close()
         self.fp = None
@@ -53,17 +64,17 @@ class JsonfileWriter(AbstractWriter):
 class JsonfileReader(AbstractReader):
     fp = None
 
-    def __init__(self, path, selector=None, **kwargs):
+    def __init__(self, path: str | Path | BinaryIO, selector: str | None = None, **kwargs):
         self.selector = make_selector(selector)
         self.fp = record.open_path_or_stream(path, "r")
         self.packer = JsonRecordPacker()
 
-    def close(self):
+    def close(self) -> None:
         if self.fp:
             self.fp.close()
         self.fp = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         for line in self.fp:
             obj = self.packer.unpack(line)
             if isinstance(obj, record.Record):

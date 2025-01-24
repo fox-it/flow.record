@@ -1,11 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from flow.record import RecordReader, RecordWriter
 
 from ._utils import generate_plain_records
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_avro_adapter(tmpdir):
+
+def test_avro_adapter(tmpdir: Path) -> None:
     json_file = tmpdir.join("records.avro")
-    record_adapter_path = "avro://{}".format(json_file)
+    record_adapter_path = f"avro://{json_file}"
     writer = RecordWriter(record_adapter_path)
     nr_records = 1337
 
@@ -21,9 +28,9 @@ def test_avro_adapter(tmpdir):
     assert nr_records == nr_received_records
 
 
-def test_avro_adapter_contextmanager(tmpdir):
+def test_avro_adapter_contextmanager(tmpdir: Path) -> None:
     json_file = tmpdir.join("records.avro")
-    record_adapter_path = "avro://{}".format(json_file)
+    record_adapter_path = f"avro://{json_file}"
     with RecordWriter(record_adapter_path) as writer:
         nr_records = 1337
         for record in generate_plain_records(nr_records):
@@ -37,9 +44,9 @@ def test_avro_adapter_contextmanager(tmpdir):
         assert nr_records == nr_received_records
 
 
-def test_avro_adapter_empty(tmpdir):
+def test_avro_adapter_empty(tmpdir: Path) -> None:
     json_file = tmpdir.join("records.avro")
-    record_adapter_path = "avro://{}".format(json_file)
+    record_adapter_path = f"avro://{json_file}"
     with RecordWriter(record_adapter_path):
         pass
 

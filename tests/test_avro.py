@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -6,8 +9,14 @@ from flow.record import RecordDescriptor, RecordReader
 from flow.record.adapter.avro import AvroReader, AvroWriter
 from flow.record.base import HAS_AVRO
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
-def generate_records(amount):
+    from flow.record.base import Record
+
+
+def generate_records(amount: int) -> Iterator[Record]:
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
         [
@@ -20,7 +29,7 @@ def generate_records(amount):
         yield TestRecordWithFooBar(name=f"record{i}", foo="bar", bar="baz")
 
 
-def test_writing_reading_avrofile(tmp_path):
+def test_writing_reading_avrofile(tmp_path: Path) -> None:
     if not HAS_AVRO:
         pytest.skip("fastavro module not installed")
     avro_path = tmp_path / "test.avro"
@@ -37,7 +46,7 @@ def test_writing_reading_avrofile(tmp_path):
         assert rec.bar == "baz"
 
 
-def test_avrostream_filelike_object(tmp_path):
+def test_avrostream_filelike_object(tmp_path: Path) -> None:
     if not HAS_AVRO:
         pytest.skip("fastavro module not installed")
     avro_path = tmp_path / "test.avro"
@@ -47,10 +56,7 @@ def test_avrostream_filelike_object(tmp_path):
         out.write(rec)
     out.close()
 
-    with open(avro_path, "rb") as avro_file:
-        avro_buffer = avro_file.read()
-
-    avro_io = BytesIO(avro_buffer)
+    avro_io = BytesIO(avro_path.read_bytes())
 
     reader = RecordReader(fileobj=avro_io)
 

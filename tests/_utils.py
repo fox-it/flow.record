@@ -1,9 +1,17 @@
+from __future__ import annotations
+
 import datetime
+from typing import TYPE_CHECKING
 
 from flow.record import RecordDescriptor
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
-def generate_records(count=100):
+    from flow.record.base import Record
+
+
+def generate_records(count: int = 100) -> Iterator[Record]:
     TestRecordEmbedded = RecordDescriptor(
         "test/embedded_record",
         [
@@ -23,7 +31,7 @@ def generate_records(count=100):
         yield TestRecord(number=i, record=embedded)
 
 
-def generate_plain_records(count=100):
+def generate_plain_records(count: int = 100) -> Iterator[Record]:
     TestRecord = RecordDescriptor(
         "test/adapter/plain",
         [

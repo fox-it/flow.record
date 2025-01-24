@@ -60,12 +60,9 @@ class LineWriter(AbstractWriter):
         self.count += 1
         self.fp.write(f"--[ RECORD {self.count} ]--\n".encode())
         if rdict:
-            if rdict_types:
-                # also account for extra characters for fieldtype and whitespace + parenthesis
-                width = max(len(k + rdict_types[k]) for k in rdict) + 3
-            else:
-                width = max(len(k) for k in rdict)
-            fmt = "{{:>{width}}} = {{}}\n".format(width=width)
+            # also account for extra characters for fieldtype and whitespace + parenthesis
+            width = max(len(k + rdict_types[k]) for k in rdict) + 3 if rdict_types else max(len(k) for k in rdict)
+            fmt = f"{{:>{width}}} = {{}}\n"
         for key, value in rdict.items():
             if rdict_types:
                 key = f"{key} ({rdict_types[key]})"

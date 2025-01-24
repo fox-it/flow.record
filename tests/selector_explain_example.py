@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from flow.record import RecordDescriptor
 from flow.record.selector import Selector
 
@@ -10,9 +12,9 @@ desc = RecordDescriptor(
 )
 
 
-def main():
+def main() -> None:
     s_str = "r.x == u'\\u2018Test\\u2019' or r.value == 17 or (r.value == 1337 and r.x == 'YOLO')"
-    print("Evaluating selector.... \n{}".format(s_str))
+    print(f"Evaluating selector.... \n{s_str}")
     print("\n")
     s = Selector(s_str)
     obj = desc(0, "Test")
