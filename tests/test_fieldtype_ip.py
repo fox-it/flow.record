@@ -1,7 +1,8 @@
-from __future__ import unicode_literals
+from __future__ import annotations
 
 import ipaddress
 import random
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -9,27 +10,28 @@ from flow.record import RecordDescriptor, RecordPacker, RecordReader, RecordWrit
 from flow.record.fieldtypes import net
 from flow.record.selector import CompiledSelector, Selector
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_field_ipaddress():
+
+def test_field_ipaddress() -> None:
     a = net.IPAddress("192.168.1.1")
     assert a == "192.168.1.1"
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match=".* does not appear to be an IPv4 or IPv6 address"):
         net.IPAddress("a.a.a.a")
-    excinfo.match(".* does not appear to be an IPv4 or IPv6 address")
 
 
-def test_field_ipnetwork():
+def test_field_ipnetwork() -> None:
     a = net.IPNetwork("192.168.1.0/24")
     assert a == "192.168.1.0/24"
 
     # Host bits set
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match=".* has host bits set"):
         net.IPNetwork("192.168.1.10/24")
-    excinfo.match(".* has host bits set")
 
 
-def test_record_ipaddress():
+def test_record_ipaddress() -> None:
     TestRecord = RecordDescriptor(
         "test/ipaddress",
         [
@@ -69,15 +71,14 @@ def test_record_ipaddress():
 
     # invalid ip addresses
     for invalid in ["1.1.1.256", "192.168.0.1/24", "a.b.c.d", ":::::1"]:
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(Exception, match=r".*does not appear to be an IPv4 or IPv6 address*"):
             TestRecord(invalid)
-        excinfo.match(r".*does not appear to be an IPv4 or IPv6 address*")
 
     r = TestRecord()
     assert r.ip is None
 
 
-def test_record_ipnetwork():
+def test_record_ipnetwork() -> None:
     TestRecord = RecordDescriptor(
         "test/ipnetwork",
         [
@@ -128,7 +129,7 @@ def test_record_ipnetwork():
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_ipaddress(PSelector):
+def test_selector_ipaddress(PSelector: type[Selector]) -> None:
     TestRecord = RecordDescriptor(
         "test/ipaddress",
         [
@@ -160,7 +161,7 @@ def test_selector_ipaddress(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_ipnetwork(PSelector):
+def test_selector_ipnetwork(PSelector: type[Selector]) -> None:
     TestRecord = RecordDescriptor(
         "test/ipnetwork",
         [
@@ -207,7 +208,7 @@ def test_selector_ipnetwork(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_ipaddress_in_ipnetwork(PSelector):
+def test_selector_ipaddress_in_ipnetwork(PSelector: type[Selector]) -> None:
     TestRecord = RecordDescriptor(
         "test/scandata",
         [
@@ -238,7 +239,7 @@ def test_selector_ipaddress_in_ipnetwork(PSelector):
             assert record.ip == "2620:00fe:0:0:0:0:0:0009"
 
 
-def test_pack_ipaddress():
+def test_pack_ipaddress() -> None:
     packer = RecordPacker()
 
     TestRecord = RecordDescriptor(
@@ -262,7 +263,7 @@ def test_pack_ipaddress():
 
 
 @pytest.mark.parametrize("ip_bits", [32, 128])
-def test_record_writer_reader_ipaddress(tmpdir, ip_bits):
+def test_record_writer_reader_ipaddress(tmpdir: Path, ip_bits: int) -> None:
     TestRecord = RecordDescriptor(
         "test/ipaddress",
         [
@@ -280,7 +281,7 @@ def test_record_writer_reader_ipaddress(tmpdir, ip_bits):
             assert r.ip == ips[i]
 
 
-def test_pack_ipnetwork():
+def test_pack_ipnetwork() -> None:
     packer = RecordPacker()
 
     TestRecord = RecordDescriptor(

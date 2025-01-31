@@ -1,63 +1,53 @@
+from __future__ import annotations
+
 __path__ = __import__("pkgutil").extend_path(__path__, __name__)  # make this namespace extensible from other packages
 import abc
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flow.record.base import Record
 
 
-def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass. Python 2 and 3 compatible."""
-
-    # This requires a bit of explanation: the basic idea is to make a dummy
-    # metaclass for one level of class instantiation that replaces itself with
-    # the actual metaclass.
-    class metaclass(type):
-        def __new__(cls, name, this_bases, d):
-            return meta(name, bases, d)
-
-        @classmethod
-        def __prepare__(cls, name, this_bases):
-            return meta.__prepare__(name, bases)
-
-    return type.__new__(metaclass, "temporary_class", (), {})
-
-
-class AbstractWriter(with_metaclass(abc.ABCMeta, object)):
+class AbstractWriter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def write(self, rec):
+    def write(self, rec: Record) -> None:
         """Write a record."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def flush(self):
+    def flush(self) -> None:
         """Flush any buffered writes."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Close the Writer, no more writes will be possible."""
         raise NotImplementedError
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def __enter__(self):
+    def __enter__(self) -> AbstractWriter:  # noqa: PYI034
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.flush()
         self.close()
 
 
-class AbstractReader(with_metaclass(abc.ABCMeta, object)):
+class AbstractReader(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Record]:
         """Return a record iterator."""
         raise NotImplementedError
 
-    def close(self):
+    def close(self) -> None:  # noqa: B027
         """Close the Reader, can be overriden to properly free resources."""
-        pass
 
-    def __enter__(self):
+    def __enter__(self) -> AbstractReader:  # noqa: PYI034
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.close()

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import datetime
 import json
 import sys
-from typing import Iterator
+from typing import TYPE_CHECKING
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -20,6 +22,9 @@ from flow.record.adapter.splunk import (
     record_to_splunk_tcp_api_json,
 )
 from flow.record.jsonpacker import JsonRecordPacker
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 # These base fields are always part of the splunk output. As they are ordered
 # and ordered last in the record fields we can append them to any check of the
@@ -45,22 +50,22 @@ def mock_httpx_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock]:
 
 escaped_fields = list(
     RESERVED_FIELDS.union(
-        set(["_underscore_field"]),
+        {"_underscore_field"},
     ),
 )
 
 
 @pytest.mark.parametrize(
-    "field, escaped", list(zip(escaped_fields, [True] * len(escaped_fields))) + [("not_escaped", False)]
+    ("field", "escaped"), [*list(zip(escaped_fields, [True] * len(escaped_fields))), ("not_escaped", False)]
 )
-def test_escape_field_name(field, escaped):
+def test_escape_field_name(field: str, escaped: bool) -> None:
     if escaped:
         assert escape_field_name(field) == f"{ESCAPE}{field}"
     else:
         assert escape_field_name(field) == field
 
 
-def test_splunkify_reserved_field():
+def test_splunkify_reserved_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("string", "rdtag")],
@@ -86,7 +91,7 @@ def test_splunkify_reserved_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_normal_field():
+def test_splunkify_normal_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("string", "foo")],
@@ -112,7 +117,7 @@ def test_splunkify_normal_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_source_field():
+def test_splunkify_source_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("string", "source")],
@@ -149,7 +154,7 @@ def test_splunkify_source_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_rdtag_field():
+def test_splunkify_rdtag_field() -> None:
     test_record_descriptor = RecordDescriptor("test/record", [])
 
     test_record = test_record_descriptor()
@@ -171,7 +176,7 @@ def test_splunkify_rdtag_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_none_field():
+def test_splunkify_none_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("string", "foo")],
@@ -197,7 +202,7 @@ def test_splunkify_none_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_byte_field():
+def test_splunkify_byte_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("bytes", "foo")],
@@ -223,7 +228,7 @@ def test_splunkify_byte_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_splunkify_backslash_quote_field():
+def test_splunkify_backslash_quote_field() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [("string", "foo")],
@@ -249,7 +254,7 @@ def test_splunkify_backslash_quote_field():
     assert json.loads(output_tcp_json) == json_dict
 
 
-def test_record_to_splunk_http_api_json_special_fields():
+def test_record_to_splunk_http_api_json_special_fields() -> None:
     test_record_descriptor = RecordDescriptor(
         "test/record",
         [
@@ -260,14 +265,14 @@ def test_record_to_splunk_http_api_json_special_fields():
     )
 
     # Datetimes should be converted to epoch
-    test_record = test_record_descriptor(ts=datetime.datetime(1970, 1, 1, 4, 0), hostname="RECYCLOPS", foo="bar")
+    test_record = test_record_descriptor(ts=datetime.datetime(1970, 1, 1, 4, 0), hostname="RECYCLOPS", foo="bar")  # noqa: DTZ001
 
     output = record_to_splunk_http_api_json(JSON_PACKER, test_record)
     assert '"time": 14400.0,' in output
     assert '"host": "RECYCLOPS"' in output
 
 
-def test_tcp_protocol_records_sourcetype():
+def test_tcp_protocol_records_sourcetype() -> None:
     with patch("socket.socket") as mock_socket:
         tcp_writer = SplunkWriter("splunk:1337")
         assert tcp_writer.host == "splunk"
@@ -295,7 +300,7 @@ def test_tcp_protocol_records_sourcetype():
         assert written_to_splunk.endswith(b'"\n')
 
 
-def test_tcp_protocol_json_sourcetype():
+def test_tcp_protocol_json_sourcetype() -> None:
     with patch("socket.socket") as mock_socket:
         tcp_writer = SplunkWriter("splunk:1337", sourcetype="json")
         assert tcp_writer.host == "splunk"
@@ -330,7 +335,7 @@ def test_tcp_protocol_json_sourcetype():
         assert written_to_splunk.endswith(b"\n")
 
 
-def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock):
+def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock) -> None:
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
 
@@ -378,7 +383,7 @@ def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock):
         assert sent_data.endswith(b'"\n')
 
 
-def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock):
+def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock) -> None:
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
 

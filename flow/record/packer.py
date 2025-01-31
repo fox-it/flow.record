@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import functools
 import warnings
 from datetime import datetime, timezone
+from typing import Any
 
 import msgpack
 
-from . import fieldtypes
-from .base import (
+from flow.record import fieldtypes
+from flow.record.base import (
     RECORD_VERSION,
     RESERVED_FIELDS,
     FieldType,
@@ -13,8 +16,8 @@ from .base import (
     Record,
     RecordDescriptor,
 )
-from .exceptions import RecordDescriptorNotFound
-from .utils import EventHandler, to_str
+from flow.record.exceptions import RecordDescriptorNotFound
+from flow.record.utils import EventHandler, to_str
 
 # Override defaults for msgpack packb/unpackb
 packb = functools.partial(msgpack.packb, use_bin_type=True, unicode_errors="surrogateescape")
@@ -32,24 +35,24 @@ RECORD_PACK_TYPE_GROUPEDRECORD = 0x12
 UTC = timezone.utc
 
 
-def identifier_to_str(identifier):
+def identifier_to_str(identifier: tuple[str, int] | str) -> tuple[str, int] | str:
     if isinstance(identifier, tuple) and len(identifier) == 2:
         return (to_str(identifier[0]), identifier[1])
-    else:
-        return to_str(identifier)
+
+    return to_str(identifier)
 
 
 class RecordPacker:
     EXT_TYPE = RECORD_PACK_EXT_TYPE
-    TYPES = [FieldType, Record, RecordDescriptor]
+    TYPES = (FieldType, Record, RecordDescriptor)
 
     def __init__(self):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
 
-    def register(self, desc, notify=False):
+    def register(self, desc: RecordDescriptor, notify: bool = False) -> None:
         if not isinstance(desc, RecordDescriptor):
-            raise Exception("Expected Record Descriptor")
+            raise TypeError("Expected Record Descriptor")
 
         # versioned record descriptor
         self.descriptors[desc.identifier] = desc
@@ -60,7 +63,7 @@ class RecordPacker:
         if notify and self.on_descriptor:
             self.on_descriptor(desc)
 
-    def pack_obj(self, obj, unversioned=False):
+    def pack_obj(self, obj: Any, unversioned: bool = False) -> msgpack.ExtType:
         packed = None
 
         if isinstance(obj, datetime):
@@ -92,16 +95,16 @@ class RecordPacker:
             packed = RECORD_PACK_TYPE_DESCRIPTOR, obj._pack()
 
         if not packed:
-            raise Exception("Unpackable type " + str(type(obj)))
+            raise TypeError("Unpackable type " + str(type(obj)))
 
         return msgpack.ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
 
-    def pack(self, obj):
+    def pack(self, obj: Any) -> bytes:
         return packb(obj, default=self.pack_obj)
 
-    def unpack_obj(self, t, data):
+    def unpack_obj(self, t: int, data: bytes) -> Any:
         if t != RECORD_PACK_EXT_TYPE:
-            raise Exception("Unknown ExtType")
+            raise TypeError("Unknown ExtType")
 
         subtype, value = self.unpack(data)
 
@@ -137,17 +140,18 @@ class RecordPacker:
             if not isinstance(version, int) or version < 1 or version > 255:
                 warnings.warn(
                     (
-                        "Got old style record with no version information (expected {:d}). "
+                        f"Got old style record with no version information (expected {RECORD_VERSION:d}). "
                         "Compatibility is not guaranteed."
-                    ).format(RECORD_VERSION),
+                    ),
                     RuntimeWarning,
+                    stacklevel=2,
                 )
             elif version != RECORD_VERSION:
                 warnings.warn(
-                    "Got other version record (expected {:d}, got {:d}). Compatibility is not guaranteed.".format(
-                        RECORD_VERSION, version
-                    ),
+                    f"Got other version record (expected {RECORD_VERSION:d}, got {version:d}). "
+                    "Compatibility is not guaranteed.",
                     RuntimeWarning,
+                    stacklevel=2,
                 )
                 # Optionally add compatibility code here later
 
@@ -178,7 +182,7 @@ class RecordPacker:
             name = to_str(name)
             return RecordDescriptor._unpack(name, fields)
 
-        raise Exception("Unknown subtype: %x" % subtype)
+        raise TypeError(f"Unknown subtype: {subtype:x}")
 
-    def unpack(self, d):
+    def unpack(self, d: bytes) -> Any:
         return unpackb(d, ext_hook=self.unpack_obj, use_list=False)

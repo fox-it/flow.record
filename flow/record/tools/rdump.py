@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import annotations
 
 import logging
 import sys
@@ -24,7 +24,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-def list_adapters():
+def list_adapters() -> None:
     failed = []
     loader = flow.record.adapter.__loader__
 
@@ -33,7 +33,7 @@ def list_adapters():
     if isinstance(loader, zipimporter):
         adapters = [
             Path(path).stem
-            for path in loader._files.keys()
+            for path in loader._files
             if path.endswith((".py", ".pyc"))
             and not Path(path).name.startswith("__")
             and "flow/record/adapter" in str(Path(path).parent)
@@ -51,7 +51,7 @@ def list_adapters():
             mod = import_module(f"flow.record.adapter.{adapter}")
             usage = indent(mod.__usage__.strip(), prefix="    ")
             print(f"  {adapter}:\n{usage}\n")
-        except ImportError as reason:
+        except ImportError as reason:  # noqa: PERF203
             failed.append((adapter, reason))
 
     if failed:
@@ -60,7 +60,7 @@ def list_adapters():
 
 
 @catch_sigpipe
-def main(argv=None):
+def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -68,7 +68,7 @@ def main(argv=None):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument("--version", action="version", version="flow.record version {}".format(version))
+    parser.add_argument("--version", action="version", version=f"flow.record version {version}")
     parser.add_argument("src", metavar="SOURCE", nargs="*", default=["-"], help="Record source")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
 
@@ -221,7 +221,7 @@ def main(argv=None):
 
     try:
         record_writer = RecordWriter(uri)
-        for count, rec in enumerate(record_iterator, start=1):
+        for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
             if args.record_source is not None:
                 rec._source = args.record_source
             if args.record_classification is not None:
@@ -249,7 +249,9 @@ def main(argv=None):
         record_writer.__exit__()
 
     if args.list:
-        print("Processed {} records".format(count))
+        print(f"Processed {count} records")
+
+    return 0
 
 
 if __name__ == "__main__":

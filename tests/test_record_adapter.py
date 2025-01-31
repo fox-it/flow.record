@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import datetime
 import platform
 import sys
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -28,8 +31,11 @@ from flow.record.selector import CompiledSelector, Selector
 
 from ._utils import generate_records
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_stream_writer_reader():
+
+def test_stream_writer_reader() -> None:
     fp = BytesIO()
     out = RecordOutput(fp)
     for rec in generate_records():
@@ -37,14 +43,12 @@ def test_stream_writer_reader():
 
     fp.seek(0)
     reader = RecordStreamReader(fp, selector="r.number in (2, 7)")
-    records = []
-    for rec in reader:
-        records.append(rec)
+    records = list(reader)
 
-    assert set([2, 7]) == set([r.number for r in records])
+    assert {2, 7} == {r.number for r in records}
 
 
-def test_recordstream_filelike_object():
+def test_recordstream_filelike_object() -> None:
     fp = BytesIO()
     out = RecordOutput(fp)
     for rec in generate_records():
@@ -57,16 +61,14 @@ def test_recordstream_filelike_object():
     assert isinstance(reader, StreamReader)
 
     # Verify if selector worked and records are the same
-    records = []
-    for rec in reader:
-        records.append(rec)
+    records = list(reader)
 
-    assert set([6, 9]) == set([r.number for r in records])
+    assert {6, 9} == {r.number for r in records}
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_file_writer_reader(tmpdir, PSelector):
-    p = tmpdir.join("test.records")
+def test_file_writer_reader(tmp_path: Path, PSelector: type[Selector | CompiledSelector]) -> None:
+    p = tmp_path.joinpath("test.records")
     with RecordWriter(p) as out:
         for rec in generate_records():
             out.write(rec)
@@ -75,11 +77,11 @@ def test_file_writer_reader(tmpdir, PSelector):
     selector = PSelector("r.number in (1, 3)")
     with RecordReader(p, selector=selector) as reader:
         numbers = [r.number for r in reader]
-        assert set([1, 3]) == set(numbers)
+        assert {1, 3} == set(numbers)
 
 
 @pytest.mark.parametrize("compression", ["gz", "bz2", "lz4", "zstd"])
-def test_compressed_writer_reader(tmpdir, compression):
+def test_compressed_writer_reader(tmp_path: Path, compression: str) -> None:
     """Test auto compression of Record files."""
     if compression == "lz4" and not HAS_LZ4:
         pytest.skip("lz4 module not installed")
@@ -91,10 +93,11 @@ def test_compressed_writer_reader(tmpdir, compression):
     if compression == "zstd" and platform.python_implementation() == "PyPy":
         pytest.skip("zstandard module not supported on PyPy")
 
-    p = tmpdir.mkdir("{}-test".format(compression))
-    path = str(p.join("test.records.{}".format(compression)))
+    p = tmp_path.joinpath(f"{compression}-test")
+    p.mkdir()
+    path = p.joinpath(f"test.records.{compression}")
 
-    assert path.endswith(".{}".format(compression))
+    assert str(path).endswith(f".{compression}")
 
     count = 100
     writer = RecordWriter(path)
@@ -104,7 +107,7 @@ def test_compressed_writer_reader(tmpdir, compression):
     writer.close()
 
     # test if the file we wrote is actually correct format
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         if compression == "gz":
             assert f.read(2) == GZIP_MAGIC
         elif compression == "bz2":
@@ -116,14 +119,12 @@ def test_compressed_writer_reader(tmpdir, compression):
 
     # Read the records from compressed file
     reader = RecordReader(path)
-    numbers = []
-    for rec in reader:
-        numbers.append(rec.number)
+    numbers = [rec.number for rec in reader]
 
     assert numbers == list(range(count))
 
     # Using a file-handle instead of a path should also work
-    with open(path, "rb") as fh:
+    with path.open("rb") as fh:
         reader = RecordReader(fileobj=fh)
         numbers = []
         for rec in reader:
@@ -132,7 +133,7 @@ def test_compressed_writer_reader(tmpdir, compression):
         assert numbers == list(range(count))
 
 
-def test_path_template_writer(tmpdir):
+def test_path_template_writer(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -141,28 +142,29 @@ def test_path_template_writer(tmpdir):
     )
 
     records = [
-        TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),
-        TestRecord(id=2, _generated=datetime.datetime(2017, 12, 6, 23, 59)),
-        TestRecord(id=3, _generated=datetime.datetime(2017, 12, 7, 00, 00)),
+        TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),  # noqa: DTZ001
+        TestRecord(id=2, _generated=datetime.datetime(2017, 12, 6, 23, 59)),  # noqa: DTZ001
+        TestRecord(id=3, _generated=datetime.datetime(2017, 12, 7, 00, 00)),  # noqa: DTZ001
     ]
 
-    p = tmpdir.mkdir("test")
-    writer = PathTemplateWriter(str(p.join("{name}-{ts:%Y%m%dT%H}.records.gz")), name="test")
+    p = tmp_path.joinpath("test")
+    p.mkdir()
+    writer = PathTemplateWriter(str(p.joinpath("{name}-{ts:%Y%m%dT%H}.records.gz")), name="test")
     for rec in records:
         writer.write(rec)
     writer.close()
 
-    assert p.join("test-20171206T22.records.gz").check(file=1)
-    assert p.join("test-20171206T23.records.gz").check(file=1)
-    assert p.join("test-20171207T00.records.gz").check(file=1)
+    assert p.joinpath("test-20171206T22.records.gz").is_file()
+    assert p.joinpath("test-20171206T23.records.gz").is_file()
+    assert p.joinpath("test-20171207T00.records.gz").is_file()
 
     # Test rotation/renaming
-    before = p.listdir()
-    writer = PathTemplateWriter(str(p.join("{name}-{ts:%Y%m%dT%H}.records.gz")), name="test")
+    before = list(p.iterdir())
+    writer = PathTemplateWriter(str(p.joinpath("{name}-{ts:%Y%m%dT%H}.records.gz")), name="test")
     for rec in records:
         writer.write(rec)
     writer.close()
-    after = p.listdir()
+    after = list(p.iterdir())
 
     assert set(before).issubset(set(after))
     assert len(after) > len(before)
@@ -170,7 +172,7 @@ def test_path_template_writer(tmpdir):
     assert len(after) == 6
 
 
-def test_record_archiver(tmpdir):
+def test_record_archiver(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -179,32 +181,33 @@ def test_record_archiver(tmpdir):
     )
 
     records = [
-        TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),
-        TestRecord(id=2, _generated=datetime.datetime(2017, 12, 6, 23, 59)),
-        TestRecord(id=3, _generated=datetime.datetime(2017, 12, 7, 00, 00)),
+        TestRecord(id=1, _generated=datetime.datetime(2017, 12, 6, 22, 10)),  # noqa: DTZ001
+        TestRecord(id=2, _generated=datetime.datetime(2017, 12, 6, 23, 59)),  # noqa: DTZ001
+        TestRecord(id=3, _generated=datetime.datetime(2017, 12, 7, 00, 00)),  # noqa: DTZ001
     ]
 
-    p = tmpdir.mkdir("test")
+    p = tmp_path.joinpath("test")
+    p.mkdir()
 
     writer = RecordArchiver(p, name="archive-test")
     for rec in records:
         writer.write(rec)
     writer.close()
 
-    assert p.join("2017/12/06").check(dir=1)
-    assert p.join("2017/12/07").check(dir=1)
+    assert p.joinpath("2017/12/06").is_dir()
+    assert p.joinpath("2017/12/07").is_dir()
 
-    assert p.join("2017/12/06/archive-test-20171206T22.records.gz").check(file=1)
-    assert p.join("2017/12/06/archive-test-20171206T23.records.gz").check(file=1)
-    assert p.join("2017/12/07/archive-test-20171207T00.records.gz").check(file=1)
+    assert p.joinpath("2017/12/06/archive-test-20171206T22.records.gz").is_file()
+    assert p.joinpath("2017/12/06/archive-test-20171206T23.records.gz").is_file()
+    assert p.joinpath("2017/12/07/archive-test-20171207T00.records.gz").is_file()
 
     # test archiving
-    before = p.join("2017/12/06").listdir()
+    before = list(p.joinpath("2017/12/06").iterdir())
     writer = RecordArchiver(p, name="archive-test")
     for rec in records:
         writer.write(rec)
     writer.close()
-    after = p.join("2017/12/06").listdir()
+    after = list(p.joinpath("2017/12/06").iterdir())
 
     assert set(before).issubset(set(after))
     assert len(after) > len(before)
@@ -212,7 +215,7 @@ def test_record_archiver(tmpdir):
     assert len(after) == 4
 
 
-def test_record_writer_stdout():
+def test_record_writer_stdout() -> None:
     writer = RecordWriter()
     assert writer.fp == getattr(sys.stdout, "buffer", sys.stdout)
 
@@ -227,9 +230,9 @@ def test_record_writer_stdout():
     # assert reader.fp == sys.stdin
 
 
-def test_record_adapter_archive(tmpdir):
+def test_record_adapter_archive(tmp_path: Path) -> None:
     # archive some records, using "testing" as name
-    writer = RecordWriter("archive://{}?name=testing".format(tmpdir))
+    writer = RecordWriter(f"archive://{tmp_path}?name=testing")
     dt = datetime.datetime.now(datetime.timezone.utc)
     count = 0
     for rec in generate_records():
@@ -238,19 +241,19 @@ def test_record_adapter_archive(tmpdir):
     writer.close()
 
     # defaults to always archive by /YEAR/MONTH/DAY/ dir structure
-    outdir = tmpdir.join("{ts:%Y/%m/%d}".format(ts=dt))
-    assert len(outdir.listdir())
+    outdir = tmp_path.joinpath(f"{dt:%Y/%m/%d}")
+    assert len(list(outdir.iterdir()))
 
     # read the archived records and test filename and counts
     count2 = 0
-    for fname in outdir.listdir():
-        assert fname.basename.startswith("testing-")
-        for rec in RecordReader(str(fname)):
+    for fname in outdir.iterdir():
+        assert fname.name.startswith("testing-")
+        for _ in RecordReader(str(fname)):
             count2 += 1
     assert count == count2
 
 
-def test_record_pathlib(tmp_path):
+def test_record_pathlib(tmp_path: Path) -> None:
     # Test support for Pathlib/PathLike objects
     writer = RecordWriter(tmp_path / "test.records")
     for rec in generate_records(100):
@@ -258,44 +261,41 @@ def test_record_pathlib(tmp_path):
     writer.close()
 
     reader = RecordReader(tmp_path / "test.records")
-    assert len([rec for rec in reader]) == 100
+    assert len(list(reader)) == 100
     assert not isinstance(tmp_path / "test.records", str)
 
 
-def test_record_pathlib_contextmanager(tmp_path):
+def test_record_pathlib_contextmanager(tmp_path: Path) -> None:
     with RecordWriter(tmp_path / "test.records") as writer:
         for rec in generate_records(100):
             writer.write(rec)
 
     with RecordReader(tmp_path / "test.records") as reader:
-        assert len([rec for rec in reader]) == 100
+        assert len(list(reader)) == 100
         assert not isinstance(tmp_path / "test.records", str)
 
 
-def test_record_pathlib_contextmanager_double_close(tmp_path):
+def test_record_pathlib_contextmanager_double_close(tmp_path: Path) -> None:
     with RecordWriter(tmp_path / "test.records") as writer:
         for rec in generate_records(100):
             writer.write(rec)
         writer.close()
 
     with RecordReader(tmp_path / "test.records") as reader:
-        assert len([rec for rec in reader]) == 100
+        assert len(list(reader)) == 100
         reader.close()
 
 
-def test_record_invalid_recordstream(tmp_path):
-    path = str(tmp_path / "invalid_records")
-    with open(path, "wb") as f:
-        f.write(b"INVALID RECORD STREAM FILE")
+def test_record_invalid_recordstream(tmp_path: Path) -> None:
+    path = tmp_path.joinpath("invalid_records")
+    path.write_bytes(b"INVALID RECORD STREAM FILE")
 
-    with pytest.raises(IOError):
-        with RecordReader(path) as reader:
-            for r in reader:
-                assert r
+    with pytest.raises(IOError, match="Unknown file format, not a RecordStream"), RecordReader(path) as reader:
+        list(reader)
 
 
 @pytest.mark.parametrize(
-    "adapter,contains",
+    ("adapter", "contains"),
     [
         ("csvfile", (b"5,hello,world", b"count,foo,bar,")),
         ("jsonfile", (b'"count": 5',)),
@@ -303,7 +303,7 @@ def test_record_invalid_recordstream(tmp_path):
         ("line", (b"count = 5", b"--[ RECORD 5 ]--")),
     ],
 )
-def test_record_adapter(adapter, contains, tmp_path):
+def test_record_adapter(adapter: str, contains: list[bytes], tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -315,7 +315,7 @@ def test_record_adapter(adapter, contains, tmp_path):
 
     # construct the RecordWriter with uri
     path = tmp_path / "output"
-    uri = "{adapter}://{path!s}".format(adapter=adapter, path=path)
+    uri = f"{adapter}://{path!s}"
 
     # test parametrized contains
     with RecordWriter(uri) as writer:
@@ -326,19 +326,19 @@ def test_record_adapter(adapter, contains, tmp_path):
         assert pattern in path.read_bytes()
 
     # test include (excludes everything else except in include)
-    with RecordWriter("{}?fields=count".format(uri)) as writer:
+    with RecordWriter(f"{uri}?fields=count") as writer:
         for i in range(10):
             rec = TestRecord(count=i, foo="hello", bar="world")
             writer.write(rec)
 
     # test exclude
-    with RecordWriter("{}?exclude=count".format(uri)) as writer:
+    with RecordWriter(f"{uri}?exclude=count") as writer:
         for i in range(10):
             rec = TestRecord(count=i, foo="hello", bar="world")
             writer.write(rec)
 
 
-def test_text_record_adapter(capsys):
+def test_text_record_adapter(capsys: pytest.CaptureFixture) -> None:
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
         [
@@ -359,16 +359,16 @@ def test_text_record_adapter(capsys):
         rec = TestRecordWithFooBar(name="world", foo="foo", bar="bar")
         writer.write(rec)
         out, err = capsys.readouterr()
-        assert "Hello world, foo is bar!\n" == out
+        assert out == "Hello world, foo is bar!\n"
 
         # Format string with non-existing variables
         rec = TestRecordWithoutFooBar(name="planet")
         writer.write(rec)
         out, err = capsys.readouterr()
-        assert "Hello planet, {foo} is {bar}!\n" == out
+        assert out == "Hello planet, {foo} is {bar}!\n"
 
 
-def test_recordstream_header(tmp_path):
+def test_recordstream_header(tmp_path: Path) -> None:
     # Create and delete a RecordWriter, with nothing happening
     p = tmp_path / "out.records"
     writer = RecordWriter(p)
@@ -403,7 +403,7 @@ def test_recordstream_header(tmp_path):
     assert p.read_bytes().startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
 
-def test_recordstream_header_stdout(capsysbinary):
+def test_recordstream_header_stdout(capsysbinary: pytest.CaptureFixture) -> None:
     with RecordWriter() as writer:
         pass
     out, err = capsysbinary.readouterr()
@@ -426,7 +426,7 @@ def test_recordstream_header_stdout(capsysbinary):
     assert out == b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n"
 
 
-def test_csv_adapter_lineterminator(capsysbinary):
+def test_csv_adapter_lineterminator(capsysbinary: pytest.CaptureFixture) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -458,7 +458,7 @@ def test_csv_adapter_lineterminator(capsysbinary):
     assert out == b"count,foo,bar@0,hello,world@1,hello,world@2,hello,world@"
 
 
-def test_csvfilereader(tmp_path):
+def test_csvfilereader(tmp_path: Path) -> None:
     path = tmp_path / "test.csv"
     with path.open("wb") as f:
         f.write(b"count,foo,bar\r\n")
@@ -472,7 +472,7 @@ def test_csvfilereader(tmp_path):
             assert rec.bar == "world"
 
     with RecordReader(f"csvfile://{path}", selector="r.count == '2'") as reader:
-        for i, rec in enumerate(reader):
+        for rec in reader:
             assert rec.count == "2"
 
 

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import importlib
 import inspect
 import os
 import sys
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
@@ -28,8 +31,11 @@ from flow.record.base import (
 from flow.record.exceptions import RecordDescriptorError
 from flow.record.stream import RecordFieldRewriter
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def test_record_creation():
+
+def test_record_creation() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -59,8 +65,8 @@ def test_record_creation():
     assert r.url is None
 
 
-def test_record_version(tmpdir):
-    path = "jsonfile://{}".format(tmpdir.join("test.jsonl").strpath)
+def test_record_version(tmp_path: Path) -> None:
+    path = f"jsonfile://{tmp_path.joinpath('test.jsonl')}"
     writer = RecordWriter(path)
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
@@ -119,7 +125,7 @@ def test_record_version(tmpdir):
     assert u3.world == r3.world
 
     reader = RecordReader(path)
-    rec = [r for r in reader]
+    rec = list(reader)
     assert len(rec) == 3
     assert u3._desc.identifier == rec[2]._desc.identifier
     assert u1._desc.identifier != rec[2]._desc.identifier
@@ -128,7 +134,7 @@ def test_record_version(tmpdir):
     assert u3.world == rec[2].world
 
 
-def test_grouped_record():
+def test_grouped_record() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -172,15 +178,15 @@ def test_grouped_record():
 
     # test grouped._asdict
     rdict = grouped._asdict()
-    assert set(["hello", "world", "count", "assignee", "profile", "hello"]) <= set(rdict)
+    assert {"hello", "world", "count", "assignee", "profile"} <= set(rdict)
 
     rdict = grouped._asdict(fields=["profile", "count", "_generated"])
-    assert set(["profile", "count", "_generated"]) == set(rdict)
+    assert {"profile", "count", "_generated"} == set(rdict)
     assert rdict["profile"] == "omg"
     assert rdict["count"] == 12345
 
 
-def test_grouped_records_packing(tmpdir):
+def test_grouped_records_packing(tmp_path: Path) -> None:
     RecordA = RecordDescriptor(
         "test/a",
         [
@@ -212,7 +218,7 @@ def test_grouped_records_packing(tmpdir):
         ("uint32", "b_count"),
     ]
 
-    path = tmpdir.join("grouped.records").strpath
+    path = tmp_path.joinpath("grouped.records")
     writer = RecordWriter(path)
     writer.write(grouped)
     writer.write(grouped)
@@ -254,7 +260,7 @@ def test_grouped_records_packing(tmpdir):
     assert len(list(iter(reader))) == 5
 
 
-def test_record_reserved_fieldname():
+def test_record_reserved_fieldname() -> None:
     with pytest.raises(RecordDescriptorError):
         RecordDescriptor(
             "test/a",
@@ -266,7 +272,7 @@ def test_record_reserved_fieldname():
         )
 
 
-def test_record_printer_stdout(capsys):
+def test_record_printer_stdout(capsys: pytest.CaptureFixture) -> None:
     Record = RecordDescriptor(
         "test/a",
         [
@@ -278,7 +284,7 @@ def test_record_printer_stdout(capsys):
     record = Record("hello", "world", 10)
 
     # fake capsys to be a tty.
-    def isatty():
+    def isatty() -> bool:
         return True
 
     capsys._capture.out.tmpfile.isatty = isatty
@@ -291,7 +297,7 @@ def test_record_printer_stdout(capsys):
     assert out == expected
 
 
-def test_record_printer_stdout_surrogateescape(capsys):
+def test_record_printer_stdout_surrogateescape(capsys: pytest.CaptureFixture) -> None:
     Record = RecordDescriptor(
         "test/a",
         [
@@ -301,7 +307,7 @@ def test_record_printer_stdout_surrogateescape(capsys):
     record = Record(b"R\xc3\xa9\xeamy")
 
     # fake capsys to be a tty.
-    def isatty():
+    def isatty() -> bool:
         return True
 
     capsys._capture.out.tmpfile.isatty = isatty
@@ -314,16 +320,16 @@ def test_record_printer_stdout_surrogateescape(capsys):
     assert out == expected
 
 
-def test_record_field_limit():
+def test_record_field_limit() -> None:
     count = 1337
-    fields = [("uint32", "field_{}".format(i)) for i in range(count)]
-    values = dict([("field_{}".format(i), i) for i in range(count)])
+    fields = [("uint32", f"field_{i}") for i in range(count)]
+    values = {f"field_{i}": i for i in range(count)}
 
     Record = RecordDescriptor("test/limit", fields)
     record = Record(**values)
 
     for i in range(count):
-        assert getattr(record, "field_{}".format(i)) == i
+        assert getattr(record, f"field_{i}") == i
 
     # test kwarg init
     record = Record(field_404=12345)
@@ -346,7 +352,7 @@ def test_record_field_limit():
     assert record.field_502 == 502
 
 
-def test_record_internal_version():
+def test_record_internal_version() -> None:
     Record = RecordDescriptor(
         "test/a",
         [
@@ -363,7 +369,7 @@ def test_record_internal_version():
     assert record._version == RECORD_VERSION
 
 
-def test_record_reserved_keyword():
+def test_record_reserved_keyword() -> None:
     Record = RecordDescriptor(
         "test/a",
         [
@@ -442,7 +448,7 @@ def test_record_reserved_keyword():
     assert r.cls == 2
 
 
-def test_record_stream(tmp_path):
+def test_record_stream(tmp_path: Path) -> None:
     Record = RecordDescriptor(
         "test/counter",
         [
@@ -467,7 +473,7 @@ def test_record_stream(tmp_path):
     assert len(list(record_stream(datasets, "r.counter == 42"))) == len(datasets)
 
 
-def test_record_replace():
+def test_record_replace() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -497,12 +503,11 @@ def test_record_replace():
     assert t4._source == "pytest"
     assert t4._generated == t2._generated
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match=".*Got unexpected field names:.*foobar.*"):
         t._replace(foobar="keyword does not exist")
-    excinfo.match(".*Got unexpected field names:.*foobar.*")
 
 
-def test_record_init_from_record():
+def test_record_init_from_record() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -553,7 +558,7 @@ def test_record_init_from_record():
     assert t3.count is None
 
 
-def test_record_asdict():
+def test_record_asdict() -> None:
     Record = RecordDescriptor(
         "test/a",
         [
@@ -567,19 +572,19 @@ def test_record_asdict():
     assert rdict.get("a_string") == "hello"
     assert rdict.get("common") == "world"
     assert rdict.get("a_count") == 1337
-    assert set(rdict) == set(["a_string", "common", "a_count", "_source", "_generated", "_version", "_classification"])
+    assert set(rdict) == {"a_string", "common", "a_count", "_source", "_generated", "_version", "_classification"}
 
     rdict = record._asdict(fields=["common", "_source", "a_string"])
-    assert set(rdict) == set(["a_string", "common", "_source"])
+    assert set(rdict) == {"a_string", "common", "_source"}
 
     rdict = record._asdict(exclude=["a_count", "_source", "_generated", "_version"])
-    assert set(rdict) == set(["a_string", "common", "_classification"])
+    assert set(rdict) == {"a_string", "common", "_classification"}
 
     rdict = record._asdict(fields=["common", "_source", "a_string"], exclude=["common"])
-    assert set(rdict) == set(["a_string", "_source"])
+    assert set(rdict) == {"a_string", "_source"}
 
 
-def test_recordfield_rewriter_expression():
+def test_recordfield_rewriter_expression() -> None:
     rewriter = RecordFieldRewriter(expression="upper_a = a_string.upper(); count_times_10 = a_count * 10")
     Record = RecordDescriptor(
         "test/a",
@@ -598,7 +603,7 @@ def test_recordfield_rewriter_expression():
     assert new_record.count_times_10 == 1337 * 10
 
 
-def test_recordfield_rewriter_fields():
+def test_recordfield_rewriter_fields() -> None:
     rewriter = RecordFieldRewriter(fields=["a_count"])
     Record = RecordDescriptor(
         "test/a",
@@ -615,7 +620,7 @@ def test_recordfield_rewriter_fields():
     assert not hasattr(new_record, "common")
 
 
-def test_extend_record():
+def test_extend_record() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -683,7 +688,7 @@ def test_extend_record():
     assert new.world == "world"
 
 
-def test_extend_record_with_replace():
+def test_extend_record_with_replace() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -739,7 +744,7 @@ def test_extend_record_with_replace():
     assert "<test/replaced " in repr(new)
 
 
-def test_extend_record_cache():
+def test_extend_record_cache() -> None:
     TestRecord = RecordDescriptor(
         "test/record_a",
         [
@@ -784,7 +789,7 @@ def test_extend_record_cache():
     assert info2.hits == start_info.hits + 1
 
 
-def test_merge_record_descriptor_name():
+def test_merge_record_descriptor_name() -> None:
     TestRecord = RecordDescriptor(
         "test/ip_record",
         [
@@ -812,7 +817,7 @@ def test_merge_record_descriptor_name():
     assert record._desc.name == "test/ip_record"
 
 
-def test_normalize_fieldname():
+def test_normalize_fieldname() -> None:
     assert normalize_fieldname("hello") == "hello"
     assert normalize_fieldname("my-variable-name-with-dashes") == "my_variable_name_with_dashes"
     assert normalize_fieldname("_my_name_starting_with_underscore") == "x__my_name_starting_with_underscore"
@@ -823,7 +828,7 @@ def test_normalize_fieldname():
     assert normalize_fieldname("_source") == "_source"
 
 
-def test_compare_global_variable():
+def test_compare_global_variable() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -846,7 +851,7 @@ def test_compare_global_variable():
     assert len(set(records)) == 2
 
 
-def test_compare_environment_variable():
+def test_compare_environment_variable() -> None:
     with patch.dict(os.environ), patch.dict(sys.modules):
         os.environ["FLOW_RECORD_IGNORE"] = "_generated,lastname"
 
@@ -859,7 +864,7 @@ def test_compare_environment_variable():
 
         from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
 
-        assert IGNORE_FIELDS_FOR_COMPARISON == {"_generated", "lastname"}
+        assert {"_generated", "lastname"} == IGNORE_FIELDS_FOR_COMPARISON
 
         TestRecord = RecordDescriptor(
             "test/record",
@@ -880,7 +885,7 @@ def test_compare_environment_variable():
         assert len(set(records)) == 2
 
 
-def test_ignore_fields_for_comparision_contextmanager():
+def test_ignore_fields_for_comparision_contextmanager() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -945,7 +950,7 @@ def test_ignore_fields_for_comparision_contextmanager():
     assert records[0] != records[1]
 
 
-def test_list_field_type_hashing():
+def test_list_field_type_hashing() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [

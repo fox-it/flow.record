@@ -1,26 +1,29 @@
+from __future__ import annotations
+
 import base64
 import json
 import logging
 from datetime import datetime
+from typing import Any
 
-from . import fieldtypes
-from .base import Record, RecordDescriptor
-from .exceptions import RecordDescriptorNotFound
-from .utils import EventHandler
+from flow.record import fieldtypes
+from flow.record.base import Record, RecordDescriptor
+from flow.record.exceptions import RecordDescriptorNotFound
+from flow.record.utils import EventHandler
 
 log = logging.getLogger(__package__)
 
 
 class JsonRecordPacker:
-    def __init__(self, indent=None, pack_descriptors=True):
+    def __init__(self, indent: int | None = None, pack_descriptors: bool = True):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
         self.pack_descriptors = pack_descriptors
         self.indent = indent
 
-    def register(self, desc, notify=False):
+    def register(self, desc: RecordDescriptor, notify: bool = False) -> None:
         if not isinstance(desc, RecordDescriptor):
-            raise Exception("Expected Record Descriptor")
+            raise TypeError("Expected Record Descriptor")
 
         # Descriptor already known
         if desc.identifier in self.descriptors:
@@ -33,10 +36,10 @@ class JsonRecordPacker:
         self.descriptors[desc.name] = desc
 
         if notify and self.on_descriptor:
-            log.debug("JsonRecordPacker::on_descriptor {}".format(desc))
+            log.debug("JsonRecordPacker::on_descriptor %s", desc)
             self.on_descriptor(desc)
 
-    def pack_obj(self, obj):
+    def pack_obj(self, obj: Any) -> dict | str:
         if isinstance(obj, Record):
             if obj._desc.identifier not in self.descriptors:
                 self.register(obj._desc, True)
@@ -53,14 +56,12 @@ class JsonRecordPacker:
 
             return serial
         if isinstance(obj, RecordDescriptor):
-            serial = {
+            return {
                 "_type": "recorddescriptor",
                 "_data": obj._pack(),
             }
-            return serial
         if isinstance(obj, datetime):
-            serial = obj.isoformat()
-            return serial
+            return obj.isoformat()
         if isinstance(obj, fieldtypes.digest):
             return {
                 "md5": obj.md5,
@@ -79,9 +80,9 @@ class JsonRecordPacker:
                 "args": obj.args,
             }
 
-        raise Exception("Unpackable type " + str(type(obj)))
+        raise TypeError(f"Unpackable type {type(obj)}")
 
-    def unpack_obj(self, obj):
+    def unpack_obj(self, obj: Any) -> RecordDescriptor | Record | Any:
         if isinstance(obj, dict):
             _type = obj.get("_type", None)
             if _type == "record":
@@ -97,17 +98,16 @@ class JsonRecordPacker:
                 for field_type, field_name in record_descriptor.get_field_tuples():
                     if field_type == "bytes":
                         obj[field_name] = base64.b64decode(obj[field_name])
-                result = record_descriptor.recordType(**obj)
-                return result
+                return record_descriptor.recordType(**obj)
             if _type == "recorddescriptor":
                 data = obj["_data"]
                 return RecordDescriptor._unpack(*data)
         return obj
 
-    def pack(self, obj):
+    def pack(self, obj: Record | RecordDescriptor) -> str:
         return json.dumps(obj, default=self.pack_obj, indent=self.indent)
 
-    def unpack(self, d):
+    def unpack(self, d: str) -> RecordDescriptor | Record:
         record_dict = json.loads(d, object_hook=self.unpack_obj)
         result = self.unpack_obj(record_dict)
         if isinstance(result, RecordDescriptor):

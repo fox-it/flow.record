@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import gzip
 import hashlib
@@ -19,7 +21,7 @@ from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
 
 
-def test_rdump_pipe(tmp_path):
+def test_rdump_pipe(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -88,7 +90,7 @@ def test_rdump_pipe(tmp_path):
     assert {r.count for r in records} == {1, 3, 9}
 
 
-def test_rdump_format_template(tmp_path):
+def test_rdump_format_template(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -111,10 +113,10 @@ def test_rdump_format_template(tmp_path):
     res = subprocess.Popen(args, stdout=subprocess.PIPE)
     stdout, stderr = res.communicate()
     for i, line in enumerate(stdout.decode().splitlines()):
-        assert line == "TEST: {i},bar".format(i=i)
+        assert line == f"TEST: {i},bar"
 
 
-def test_rdump_json(tmp_path):
+def test_rdump_json(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -141,8 +143,8 @@ def test_rdump_json(tmp_path):
                 count=i,
                 foo="bar" * i,
                 data=b"\x00\x01\x02\x03--" + data,
-                ip="172.16.0.{}".format(i),
-                subnet="192.168.{}.0/24".format(i),
+                ip=f"172.16.0.{i}",
+                subnet=f"192.168.{i}.0/24",
                 digest=(md5, sha1, sha256),
             )
         )
@@ -157,9 +159,9 @@ def test_rdump_json(tmp_path):
 
     # Basic validations in stdout
     for i in range(10):
-        assert base64.b64encode("\x00\x01\x02\x03--{}".format(i).encode()) in stdout
-        assert "192.168.{}.0/24".format(i).encode() in stdout
-        assert "172.16.0.{}".format(i).encode() in stdout
+        assert base64.b64encode(f"\x00\x01\x02\x03--{i}".encode()) in stdout
+        assert f"192.168.{i}.0/24".encode() in stdout
+        assert f"172.16.0.{i}".encode() in stdout
         assert ("bar" * i).encode() in stdout
 
     # Load json using json.loads() and validate key values
@@ -177,9 +179,9 @@ def test_rdump_json(tmp_path):
             sha256 = hashlib.sha256(data).hexdigest()
             assert json_dict["count"] == count
             assert json_dict["foo"] == "bar" * count
-            assert json_dict["data"] == base64.b64encode("\x00\x01\x02\x03--{}".format(count).encode()).decode()
-            assert json_dict["ip"] == "172.16.0.{}".format(count)
-            assert json_dict["subnet"] == "192.168.{}.0/24".format(count)
+            assert json_dict["data"] == base64.b64encode(f"\x00\x01\x02\x03--{count}".encode()).decode()
+            assert json_dict["ip"] == f"172.16.0.{count}"
+            assert json_dict["subnet"] == f"192.168.{count}.0/24"
             assert json_dict["digest"]["md5"] == md5
             assert json_dict["digest"]["sha1"] == sha1
             assert json_dict["digest"]["sha256"] == sha256
@@ -187,7 +189,7 @@ def test_rdump_json(tmp_path):
     # Write jsonlines to file
     path = tmp_path / "records.jsonl"
     path.write_bytes(stdout)
-    json_path = "jsonfile://{}".format(path)
+    json_path = f"jsonfile://{path}"
 
     # Read records from json and original records file and validate
     for path in (json_path, record_path):
@@ -198,8 +200,8 @@ def test_rdump_json(tmp_path):
                 sha1 = hashlib.sha1(data).hexdigest()
                 sha256 = hashlib.sha256(data).hexdigest()
                 assert record.count == i
-                assert record.ip == "172.16.0.{}".format(i)
-                assert record.subnet == "192.168.{}.0/24".format(i)
+                assert record.ip == f"172.16.0.{i}"
+                assert record.subnet == f"192.168.{i}.0/24"
                 assert record.data == b"\x00\x01\x02\x03--" + data
                 assert record.digest.md5 == md5
                 assert record.digest.sha1 == sha1
@@ -207,7 +209,7 @@ def test_rdump_json(tmp_path):
                 assert record.foo == "bar" * i
 
 
-def test_rdump_json_no_descriptors(tmp_path):
+def test_rdump_json_no_descriptors(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -262,7 +264,7 @@ def test_rdump_json_no_descriptors(tmp_path):
         assert json_dict["digest"]["sha256"] == hashlib.sha256(data).hexdigest()
 
 
-def test_rdump_format_spec_hex(tmp_path):
+def test_rdump_format_spec_hex(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -304,7 +306,7 @@ def test_rdump_format_spec_hex(tmp_path):
     )
 
 
-def test_rdump_list_adapters():
+def test_rdump_list_adapters() -> None:
     args = [
         "rdump",
         "--list-adapters",
@@ -329,7 +331,7 @@ def test_rdump_list_adapters():
         "output.records.jsonl",
     ],
 )
-def test_rdump_split(tmp_path, filename):
+def test_rdump_split(tmp_path: Path, filename: str) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -356,7 +358,7 @@ def test_rdump_split(tmp_path, filename):
                 assert record.count == i * 10 + j
 
 
-def test_rdump_split_suffix_length(tmp_path):
+def test_rdump_split_suffix_length(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -379,7 +381,7 @@ def test_rdump_split_suffix_length(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "scheme,first_line",
+    ("scheme", "first_line"),
     [
         ("csvfile://", b"count,"),
         ("jsonfile://", b"recorddescriptor"),
@@ -387,7 +389,9 @@ def test_rdump_split_suffix_length(tmp_path):
         ("text://", b"<test/record"),
     ],
 )
-def test_rdump_split_using_uri(tmp_path, scheme, first_line, capsysbinary):
+def test_rdump_split_using_uri(
+    tmp_path: Path, scheme: str, first_line: bytes, capsysbinary: pytest.CaptureFixture
+) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -417,20 +421,20 @@ def test_rdump_split_using_uri(tmp_path, scheme, first_line, capsysbinary):
     for i in range(2):
         path = output_path.with_suffix(f".{i:02d}{output_path.suffix}")
         assert path.exists()
-        with open(path, "rb") as f:
+        with path.open("rb") as f:
             assert first_line in next(f)
 
 
-def test_rdump_split_without_writer(capsysbinary):
+def test_rdump_split_without_writer(capsysbinary: pytest.CaptureFixture) -> None:
     with pytest.raises(SystemExit):
         rdump.main(["--split=10"])
     captured = capsysbinary.readouterr()
     assert b"error: --split only makes sense in combination with -w/--writer" in captured.err
 
 
-def test_rdump_csv(tmp_path, capsysbinary):
+def test_rdump_csv(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
     path = tmp_path / "test.csv"
-    with open(path, "w") as f:
+    with path.open("w") as f:
         f.write("count,text\n")
         f.write("1,hello\n")
         f.write("2,world\n")
@@ -446,10 +450,10 @@ def test_rdump_csv(tmp_path, capsysbinary):
     ]
 
 
-def test_rdump_headerless_csv(tmp_path, capsysbinary):
+def test_rdump_headerless_csv(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
     # write out headerless CSV file
     path = tmp_path / "test.csv"
-    with open(path, "w") as f:
+    with path.open("w") as f:
         f.write("1,hello\n")
         f.write("2,world\n")
         f.write("3,bar\n")
@@ -465,7 +469,7 @@ def test_rdump_headerless_csv(tmp_path, capsysbinary):
     ]
 
 
-def test_rdump_stdin_peek(tmp_path: Path):
+def test_rdump_stdin_peek(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -517,7 +521,14 @@ def test_rdump_stdin_peek(tmp_path: Path):
         (10, None, 10, []),
     ],
 )
-def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip, expected_numbers):
+def test_rdump_count_and_skip(
+    tmp_path: Path,
+    capsysbinary: pytest.CaptureFixture,
+    total_records: int,
+    count: int | None,
+    skip: int,
+    expected_numbers: list[int],
+) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -539,7 +550,7 @@ def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip
     if skip is not None:
         rdump_parameters.append(f"--skip={skip}")
 
-    rdump.main([str(full_set_path), "--csv", "-F", "number"] + rdump_parameters)
+    rdump.main([str(full_set_path), "--csv", "-F", "number", *rdump_parameters])
     captured = capsysbinary.readouterr()
     assert captured.err == b""
 
@@ -552,7 +563,7 @@ def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip
 
     # Write records using --skip and --count to a new file
     subset_path = tmp_path / "test_subset.records"
-    rdump.main([str(full_set_path), "-w", str(subset_path)] + rdump_parameters)
+    rdump.main([str(full_set_path), "-w", str(subset_path), *rdump_parameters])
 
     # Read records from new file and validate
     numbers = None
@@ -562,7 +573,7 @@ def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip
 
 
 @pytest.mark.parametrize(
-    "date_str,tz,expected_date_str",
+    ("date_str", "tz", "expected_date_str"),
     [
         ("2023-08-02T22:28:06.12345+01:00", None, "2023-08-02 21:28:06.123450+00:00"),
         ("2023-08-02T22:28:06.12345+01:00", "NONE", "2023-08-02 22:28:06.123450+01:00"),
@@ -579,7 +590,14 @@ def test_rdump_count_and_skip(tmp_path, capsysbinary, total_records, count, skip
         ["--mode=line"],
     ],
 )
-def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str, rdump_params):
+def test_flow_record_tz_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    date_str: str,
+    tz: str,
+    expected_date_str: str,
+    rdump_params: list[str],
+) -> None:
     TestRecord = RecordDescriptor(
         "test/flow_record_tz",
         [
@@ -597,7 +615,7 @@ def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str
         # Reconfigure DISPLAY_TZINFO
         flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
-        rdump.main([str(tmp_path / "test.records")] + rdump_params)
+        rdump.main([str(tmp_path / "test.records"), *rdump_params])
         captured = capsys.readouterr()
         assert captured.err == ""
         assert expected_date_str in captured.out
@@ -606,7 +624,7 @@ def test_flow_record_tz_output(tmp_path, capsys, date_str, tz, expected_date_str
     flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
 
-def test_flow_record_invalid_tz(tmp_path, capsys):
+def test_flow_record_invalid_tz(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     TestRecord = RecordDescriptor(
         "test/flow_record_tz",
         [
@@ -629,7 +647,7 @@ def test_flow_record_invalid_tz(tmp_path, capsys):
         captured = capsys.readouterr()
         assert captured.err == ""
         assert "2023-08-16 15:46:55.390691+00:00" in captured.out
-        assert flow.record.fieldtypes.DISPLAY_TZINFO == timezone.utc
+        assert timezone.utc == flow.record.fieldtypes.DISPLAY_TZINFO
 
     # restore DISPLAY_TZINFO just in case
     flow.record.fieldtypes.DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
@@ -646,7 +664,7 @@ def test_flow_record_invalid_tz(tmp_path, capsys):
         ["-w", "line://?verbose=True"],
     ],
 )
-def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
+def test_rdump_line_verbose(tmp_path: Path, capsys: pytest.CaptureFixture, rdump_params: list[str]) -> None:
     TestRecord = RecordDescriptor(
         "test/rdump/line_verbose",
         [
@@ -667,7 +685,7 @@ def test_rdump_line_verbose(tmp_path, capsys, rdump_params):
 
     field_types_for_record_descriptor.cache_clear()
     assert field_types_for_record_descriptor.cache_info().currsize == 0
-    rdump.main([str(record_path)] + rdump_params)
+    rdump.main([str(record_path), *rdump_params])
     assert field_types_for_record_descriptor.cache_info().misses == 1
     assert field_types_for_record_descriptor.cache_info().hits == 2
     assert field_types_for_record_descriptor.cache_info().currsize == 1

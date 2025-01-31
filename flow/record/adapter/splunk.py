@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import json
 import logging
 import socket
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 try:
@@ -15,9 +17,11 @@ except ImportError:
     HAS_HTTPX = False
 
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.base import Record
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.utils import to_base64, to_bytes, to_str
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
 
 __usage__ = """
 Splunk output adapter (writer only)
@@ -38,32 +42,26 @@ RECORD_BUFFER_LIMIT = 20
 
 # List of reserved splunk fields that do not start with an `_`, as those will be escaped anyway.
 # See: https://docs.splunk.com/Documentation/Splunk/9.2.1/Data/Aboutdefaultfields
-RESERVED_SPLUNK_FIELDS = set(
-    [
-        "host",
-        "index",
-        "linecount",
-        "punct",
-        "source",
-        "sourcetype",
-        "splunk_server",
-        "timestamp",
-    ],
-)
+RESERVED_SPLUNK_FIELDS = {
+    "host",
+    "index",
+    "linecount",
+    "punct",
+    "source",
+    "sourcetype",
+    "splunk_server",
+    "timestamp",
+}
 
-RESERVED_SPLUNK_APP_FIELDS = set(
-    [
-        "tag",
-        "type",
-    ]
-)
+RESERVED_SPLUNK_APP_FIELDS = {
+    "tag",
+    "type",
+}
 
-RESERVED_RDUMP_FIELDS = set(
-    [
-        "rdtag",
-        "rdtype",
-    ],
-)
+RESERVED_RDUMP_FIELDS = {
+    "rdtag",
+    "rdtype",
+}
 
 RESERVED_FIELDS = RESERVED_SPLUNK_FIELDS.union(RESERVED_SPLUNK_APP_FIELDS.union(RESERVED_RDUMP_FIELDS))
 
@@ -87,7 +85,7 @@ def escape_field_name(field: str) -> str:
     return field
 
 
-def record_to_splunk_kv_line(record: Record, tag: Optional[str] = None) -> str:
+def record_to_splunk_kv_line(record: Record, tag: str | None = None) -> str:
     ret = []
 
     ret.append(f'rdtype="{record._desc.name}"')
@@ -116,7 +114,7 @@ def record_to_splunk_kv_line(record: Record, tag: Optional[str] = None) -> str:
     return " ".join(ret)
 
 
-def record_to_splunk_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] = None) -> dict:
+def record_to_splunk_json(packer: JsonRecordPacker, record: Record, tag: str | None = None) -> dict:
     record_as_dict = packer.pack_obj(record)
     json_dict = {}
 
@@ -134,7 +132,7 @@ def record_to_splunk_json(packer: JsonRecordPacker, record: Record, tag: Optiona
     return json_dict
 
 
-def record_to_splunk_http_api_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] = None) -> str:
+def record_to_splunk_http_api_json(packer: JsonRecordPacker, record: Record, tag: str | None = None) -> str:
     ret = {}
 
     indexer_fields = [
@@ -159,7 +157,7 @@ def record_to_splunk_http_api_json(packer: JsonRecordPacker, record: Record, tag
     return json.dumps(ret, default=packer.pack_obj)
 
 
-def record_to_splunk_tcp_api_json(packer: JsonRecordPacker, record: Record, tag: Optional[str] = None) -> str:
+def record_to_splunk_tcp_api_json(packer: JsonRecordPacker, record: Record, tag: str | None = None) -> str:
     record_dict = record_to_splunk_json(packer, record, tag)
     return json.dumps(record_dict, default=packer.pack_obj)
 
@@ -171,9 +169,9 @@ class SplunkWriter(AbstractWriter):
     def __init__(
         self,
         uri: str,
-        tag: Optional[str] = None,
-        token: Optional[str] = None,
-        sourcetype: Optional[str] = None,
+        tag: str | None = None,
+        token: str | None = None,
+        sourcetype: str | None = None,
         ssl_verify: bool = True,
         **kwargs,
     ):
@@ -242,16 +240,16 @@ class SplunkWriter(AbstractWriter):
                 self.packer = JsonRecordPacker(indent=4, pack_descriptors=False)
                 self.json_converter = record_to_splunk_http_api_json
 
-    def _cache_records_for_http(self, data: Optional[bytes] = None, flush: bool = False) -> Optional[bytes]:
+    def _cache_records_for_http(self, data: bytes | None = None, flush: bool = False) -> bytes | None:
         # It's possible to call this function without any data, purely to flush. Hence this check.
         if data:
             self.record_buffer.append(data)
         if len(self.record_buffer) < RECORD_BUFFER_LIMIT and not flush:
             # Buffer limit not exceeded yet, so we do not return a buffer yet, unless buffer is explicitly flushed.
-            return
+            return None
         buf = b"".join(self.record_buffer)
         if not buf:
-            return
+            return None
 
         # We're going to be returning a buffer for the writer to send, so we can clear the internal record buffer.
         self.record_buffer.clear()
@@ -260,7 +258,7 @@ class SplunkWriter(AbstractWriter):
     def _send(self, data: bytes) -> None:
         raise RuntimeError("This method should be overridden at runtime")
 
-    def _send_http(self, data: Optional[bytes] = None, flush: bool = False) -> None:
+    def _send_http(self, data: bytes | None = None, flush: bool = False) -> None:
         buf = self._cache_records_for_http(data, flush)
         if not buf:
             return
@@ -306,5 +304,5 @@ class SplunkWriter(AbstractWriter):
 
 
 class SplunkReader(AbstractReader):
-    def __init__(self, path, selector=None, **kwargs):
-        raise NotImplementedError()
+    def __init__(self, path: str, selector: str | None = None, **kwargs):
+        raise NotImplementedError

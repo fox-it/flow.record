@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from importlib.util import find_spec
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 import fastavro
 
@@ -11,6 +11,10 @@ from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 __usage__ = """
 Apache AVRO adapter
@@ -52,7 +56,7 @@ class AvroWriter(AbstractWriter):
     fp = None
     writer = None
 
-    def __init__(self, path, key=None, **kwargs):
+    def __init__(self, path: str | Path | BinaryIO, **kwargs):
         self.fp = record.open_path_or_stream(path, "wb")
 
         self.desc = None
@@ -69,11 +73,11 @@ class AvroWriter(AbstractWriter):
             self.writer = fastavro.write.Writer(self.fp, self.parsed_schema, codec=self.codec)
 
         if self.desc != r._desc:
-            raise Exception("Mixed record types")
+            raise ValueError("Mixed record types")
 
         self.writer.write(r._packdict())
 
-    def flush(self):
+    def flush(self) -> None:
         if not self.writer:
             self.writer = fastavro.write.Writer(
                 self.fp,
@@ -92,21 +96,21 @@ class AvroWriter(AbstractWriter):
 class AvroReader(AbstractReader):
     fp = None
 
-    def __init__(self, path, selector=None, **kwargs):
+    def __init__(self, path: str, selector: str | None = None, **kwargs):
         self.fp = record.open_path_or_stream(path, "rb")
         self.selector = make_selector(selector)
 
         self.reader = fastavro.reader(self.fp)
         self.schema = self.reader.writer_schema
         if not self.schema:
-            raise Exception("Missing Avro schema")
+            raise ValueError("Missing Avro schema")
 
         self.desc = schema_to_descriptor(self.schema)
 
         # Store the fieldnames that are of type "datetime"
-        self.datetime_fields = set(
+        self.datetime_fields = {
             name for name, field in self.desc.get_all_fields().items() if field.typename == "datetime"
-        )
+        }
 
     def __iter__(self) -> Iterator[record.Record]:
         for obj in self.reader:
@@ -149,7 +153,7 @@ def descriptor_to_schema(desc: record.RecordDescriptor) -> dict[str, Any]:
         else:
             avro_type = AVRO_TYPE_MAP.get(field_type)
             if not avro_type:
-                raise Exception("Unsupported Avro type: {}".format(field_type))
+                raise ValueError(f"Unsupported Avro type: {field_type}")
 
             field_schema["type"] = [avro_type, "null"]
 
@@ -190,11 +194,10 @@ def avro_type_to_flow_type(ftype: list) -> str:
         if isinstance(t, dict):
             if t.get("type") == "array":
                 item_type = avro_type_to_flow_type(t.get("items"))
-                return "{}[]".format(item_type)
-            else:
-                logical_type = t.get("logicalType")
-                if logical_type and ("time" in logical_type or "date" in logical_type):
-                    return "datetime"
+                return f"{item_type}[]"
+            logical_type = t.get("logicalType")
+            if logical_type and ("time" in logical_type or "date" in logical_type):
+                return "datetime"
 
         if t == "null":
             continue
@@ -202,4 +205,4 @@ def avro_type_to_flow_type(ftype: list) -> str:
         if t in RECORD_TYPE_MAP:
             return RECORD_TYPE_MAP[t]
 
-    raise TypeError("Can't map avro type to flow type: {}".format(t))
+    raise TypeError(f"Can't map avro type to flow type: {t}")

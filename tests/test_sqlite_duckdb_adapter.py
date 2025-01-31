@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Iterator, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 try:
     import duckdb
@@ -14,6 +15,10 @@ from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+    from pathlib import Path
 
 
 class Database(NamedTuple):
@@ -250,7 +255,7 @@ def test_write_zero_records(tmp_path: Path, db: Database) -> None:
 
 
 @pytest.mark.parametrize(
-    "sqlite_coltype, sqlite_value, expected_value",
+    ("sqlite_coltype", "sqlite_value", "expected_value"),
     [
         ("INTEGER", 1, 1),
         ("INTEGER", "3", 3),
@@ -294,10 +299,11 @@ def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) ->
         con.execute(f"INSERT INTO [{invalid_table_name}] VALUES(?, ?)", ("goodbye", "planet"))
 
     # However, these invalid_table_names should raise an exception when reading
-    with pytest.raises(RecordDescriptorError, match="Invalid record type name"):
-        with RecordReader(f"sqlite://{db}") as reader:
-            for record in reader:
-                pass
+    with (
+        pytest.raises(RecordDescriptorError, match="Invalid record type name"),
+        RecordReader(f"sqlite://{db}") as reader,
+    ):
+        _ = next(iter(reader))
 
 
 @pytest.mark.parametrize(
@@ -319,12 +325,14 @@ def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) ->
         con.execute("INSERT INTO [test] VALUES(?, ?)", ("goodbye", "planet"))
 
     # However, these field names are invalid in flow.record and should raise an exception
-    with pytest.raises(RecordDescriptorError, match="Field .* is an invalid or reserved field name."):
-        with RecordReader(f"sqlite://{db}") as reader:
-            _ = next(iter(reader))
+    with (
+        pytest.raises(RecordDescriptorError, match="Field .* is an invalid or reserved field name."),
+        RecordReader(f"sqlite://{db}") as reader,
+    ):
+        _ = next(iter(reader))
 
 
-def test_prepare_insert_sql():
+def test_prepare_insert_sql() -> None:
     table_name = "my_table"
     field_names = ("name", "age", "email")
     expected_sql = 'INSERT INTO "my_table" ("name", "age", "email") VALUES (?, ?, ?)'
@@ -332,7 +340,7 @@ def test_prepare_insert_sql():
 
 
 @pytest.mark.parametrize(
-    "batch_size, expected_first, expected_second",
+    ("batch_size", "expected_first", "expected_second"),
     [
         (1, 1, 2),
         (10, 0, 10),
@@ -361,7 +369,7 @@ def test_batch_size(
             assert x.fetchone()[0] is expected_first
 
         # write at least batch_size records, should be flushed due to batch_size
-        for i in range(batch_size):
+        for _i in range(batch_size):
             writer.write(next(records))
 
         # test count of records in table after flush

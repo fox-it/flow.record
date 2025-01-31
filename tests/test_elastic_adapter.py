@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import json
+from typing import TYPE_CHECKING
 
 import pytest
 
 from flow.record import RecordDescriptor
 from flow.record.adapter.elastic import ElasticWriter
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
 
 MyRecord = RecordDescriptor(
     "my/record",
@@ -21,7 +27,7 @@ MyRecord = RecordDescriptor(
         MyRecord("second", "record"),
     ],
 )
-def test_elastic_writer_metadata(record):
+def test_elastic_writer_metadata(record: Record) -> None:
     options = {
         "_meta_foo": "some value",
         "_meta_bar": "another value",

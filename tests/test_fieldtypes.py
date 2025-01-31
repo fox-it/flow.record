@@ -1,4 +1,3 @@
-# coding: utf-8
 from __future__ import annotations
 
 import hashlib
@@ -21,9 +20,6 @@ from flow.record.fieldtypes import (
     _is_posixlike_path,
     _is_windowslike_path,
     command,
-)
-from flow.record.fieldtypes import datetime as dt
-from flow.record.fieldtypes import (
     fieldtype_for_value,
     net,
     posix_command,
@@ -32,6 +28,7 @@ from flow.record.fieldtypes import (
     windows_command,
     windows_path,
 )
+from flow.record.fieldtypes import datetime as dt
 
 UTC = timezone.utc
 
@@ -59,10 +56,10 @@ def test_uint16() -> None:
     desc.recordType(UINT16_MAX)
 
     # invalid
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Value not within"):
         desc.recordType(-1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Value not within"):
         desc.recordType(UINT16_MAX + 1)
 
     with pytest.raises((ValueError, OverflowError)):
@@ -84,10 +81,10 @@ def test_uint32() -> None:
     TestRecord(UINT32_MAX)
 
     # invalid
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Value not within"):
         TestRecord(-1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Value not within"):
         TestRecord(UINT32_MAX + 1)
 
     with pytest.raises((ValueError, OverflowError)):
@@ -113,10 +110,8 @@ def test_net_ipv4_address() -> None:
     assert isinstance(r.ip, net.ipv4.Address)
 
     for invalid in ["1.1.1.256", "192.168.0.1/24", "a.b.c.d"]:
-        with pytest.raises(Exception) as excinfo:
-            with pytest.deprecated_call():
-                TestRecord(invalid)
-        excinfo.match(r".*illegal IP address string.*")
+        with pytest.raises(Exception, match=r".*illegal IP address string.*"), pytest.deprecated_call():
+            TestRecord(invalid)
 
     r = TestRecord()
     assert r.ip is None
@@ -148,21 +143,23 @@ def test_net_ipv4_subnet() -> None:
         r = TestRecord("127.0.0.1")
 
     for invalid in ["a.b.c.d", "foo", "bar", ""]:
-        with pytest.raises(Exception) as excinfo:
-            with pytest.deprecated_call():
-                TestRecord(invalid)
-        excinfo.match(r".*illegal IP address string.*")
+        with pytest.raises(Exception, match=r".*illegal IP address string.*"), pytest.deprecated_call():
+            TestRecord(invalid)
 
-    for invalid in [1, 1.0, sum, dict(), list(), True]:
-        with pytest.raises(TypeError) as excinfo:
-            with pytest.deprecated_call():
-                TestRecord(invalid)
-        excinfo.match(r"Subnet\(\) argument 1 must be string, not .*")
+    for invalid in [1, 1.0, sum, {}, [], True]:
+        with (
+            pytest.raises(TypeError, match=r"Subnet\(\) argument 1 must be string, not .*"),
+            pytest.deprecated_call(),
+        ):
+            TestRecord(invalid)
 
-    with pytest.raises(ValueError) as excinfo:
-        with pytest.deprecated_call():
-            TestRecord("192.168.0.106/28")
-    excinfo.match(r"Not a valid subnet '192\.168\.0\.106/28', did you mean '192\.168\.0\.96/28' ?")
+    with (
+        pytest.raises(
+            ValueError, match=r"Not a valid subnet '192\.168\.0\.106/28', did you mean '192\.168\.0\.96/28' ?"
+        ),
+        pytest.deprecated_call(),
+    ):
+        TestRecord("192.168.0.106/28")
 
 
 def test_bytes() -> None:
@@ -177,13 +174,11 @@ def test_bytes() -> None:
     r = TestRecord("url", b"some bytes")
     assert r.body == b"some bytes"
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match="Value not of bytes type"):
         r = TestRecord("url", 1234)
-        excinfo.match(r"Value not of bytes type")
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match="Value not of bytes type"):
         r = TestRecord("url", "a string")
-        excinfo.match(r"Value not of bytes type")
 
     b_array = bytes(bytearray(range(256)))
     body = b"HTTP/1.1 200 OK\r\n\r\n" + b_array
@@ -250,7 +245,7 @@ def test_typedlist() -> None:
     assert len(r.uri_value) == 2
     assert r.string_value[2] == "c"
     assert r.uint32_value[1] == 2
-    assert all([isinstance(v, uri) for v in r.uri_value])
+    assert all(isinstance(v, uri) for v in r.uri_value)
     assert r.uri_value[1].filename == "shadow"
     assert list(map(str, r.ip_value)) == ["1.1.1.1", "8.8.8.8"]
 
@@ -260,7 +255,7 @@ def test_typedlist() -> None:
     assert r.uri_value == []
     assert r.ip_value == []
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid literal for int"):
         r = TestRecord(uint32_value=["a", "b", "c"])
 
 
@@ -320,10 +315,10 @@ def test_boolean() -> None:
     assert repr(r.booltrue) == "True"
     assert repr(r.boolfalse) == "False"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Value not a valid boolean value"):
         r = TestRecord(2, -1)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid literal for int"):
         r = TestRecord("True", "False")
 
 
@@ -352,7 +347,7 @@ def test_float() -> None:
     assert r.value == -12345
 
     # invalid float
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="could not convert string to float"):
         r = TestRecord("abc")
 
 
@@ -437,7 +432,7 @@ def test_datetime() -> None:
 
 
 @pytest.mark.parametrize(
-    "value,expected_dt",
+    ("value", "expected_dt"),
     [
         ("2023-12-31T13:37:01.123456Z", datetime(2023, 12, 31, 13, 37, 1, 123456, tzinfo=UTC)),
         ("2023-01-10T16:12:01+00:00", datetime(2023, 1, 10, 16, 12, 1, tzinfo=UTC)),
@@ -507,30 +502,25 @@ def test_digest() -> None:
     assert record.digest.sha1 == sha1
     assert record.digest.sha256 == sha256
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match=r".*Invalid MD5.*Odd-length string"):
         record = TestRecord(("a", sha1, sha256))
-        excinfo.match(r".*Invalid MD5.*Odd-length string")
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match=r".*Invalid MD5.*Incorrect hash length"):
         record = TestRecord(("aa", sha1, sha256))
-        excinfo.match(r".*Invalid MD5.*Incorrect hash length")
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match=r".*Invalid SHA-1.*"):
         record = TestRecord((md5, "aa", sha256))
-        excinfo.match(r".*Invalid SHA1.*")
 
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match=r".*Invalid SHA-256.*"):
         record = TestRecord((md5, sha1, "aa"))
-        excinfo.match(r".*Invalid SHA256.*")
 
     record = TestRecord()
     assert record.digest is not None
     assert record.digest.md5 is None
     assert record.digest.sha1 is None
     assert record.digest.sha256 is None
-    with pytest.raises(TypeError) as excinfo:
+    with pytest.raises(TypeError, match=r".*Invalid MD5.*"):
         record.digest.md5 = "INVALID MD5"
-        excinfo.match(r".*Invalid MD5.*")
 
 
 def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
@@ -572,7 +562,7 @@ def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
 
 
 @pytest.mark.parametrize(
-    "path_, is_posix",
+    ("path_", "is_posix"),
     [
         (pathlib.PurePosixPath("/foo/bar"), True),
         (pathlib.PureWindowsPath(r"C:\foo\bar"), False),
@@ -587,7 +577,7 @@ def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> No
 
 
 @pytest.mark.parametrize(
-    "path_, is_windows",
+    ("path_", "is_windows"),
     [
         (pathlib.PurePosixPath("/foo/bar"), False),
         (pathlib.PureWindowsPath(r"C:\foo\bar"), True),
@@ -670,7 +660,7 @@ def test_path() -> None:
 
 
 @pytest.mark.parametrize(
-    "path_parts, expected_instance",
+    ("path_parts", "expected_instance"),
     [
         (
             ("/some/path", pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
@@ -713,7 +703,7 @@ def test_path_multiple_parts(
     ],
 )
 @pytest.mark.parametrize(
-    "path,expected_repr",
+    ("path", "expected_repr"),
     [
         ("/tmp/foo/bar", "/tmp/foo/bar"),
         ("\\tmp\\foo\\bar", r"\\tmp\\foo\\bar"),
@@ -741,7 +731,7 @@ def test_path_posix(path_initializer: Callable[[str], pathlib.PurePath], path: s
     ],
 )
 @pytest.mark.parametrize(
-    "path,expected_repr,expected_str",
+    ("path", "expected_repr", "expected_str"),
     [
         ("c:\\windows\\temp\\foo\\bar", r"'c:\windows\temp\foo\bar'", r"c:\windows\temp\foo\bar"),
         (r"C:\Windows\Temp\foo\bar", r"'C:\Windows\Temp\foo\bar'", r"C:\Windows\Temp\foo\bar"),
@@ -809,7 +799,7 @@ def test_fieldtype_for_value() -> None:
     assert fieldtype_for_value(1.337) == "float"
     assert fieldtype_for_value(b"\r\n") == "bytes"
     assert fieldtype_for_value("hello world") == "string"
-    assert fieldtype_for_value(datetime.now()) == "datetime"
+    assert fieldtype_for_value(datetime.now()) == "datetime"  # noqa: DTZ005
     assert fieldtype_for_value([1, 2, 3, 4, 5]) == "string"
     assert fieldtype_for_value([1, 2, 3, 4, 5], None) is None
     assert fieldtype_for_value(object(), None) is None
@@ -856,7 +846,7 @@ def test_dynamic() -> None:
 
 
 @pytest.mark.parametrize(
-    "record_type,value,expected",
+    ("record_type", "value", "expected"),
     [
         ("uri", "https://www.fox-it.com/nl-en/dissect/", "hxxps://www.fox-it[.]com/nl-en/dissect/"),
         ("string", "https://www.fox-it.com/nl-en/dissect/", "hxxps://www.fox-it[.]com/nl-en/dissect/"),
@@ -892,7 +882,7 @@ def test_format_defang(record_type: str, value: str, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "spec,value,expected",
+    ("spec", "value", "expected"),
     [
         ("x", b"\xac\xce\x55\xed", "acce55ed"),
         ("X", b"\xac\xce\x55\xed", "ACCE55ED"),
@@ -925,7 +915,7 @@ def test_format_hex(spec: str, value: bytes, expected: str) -> None:
     ],
 )
 @pytest.mark.parametrize(
-    "str_bytes,unicode_errors,expected_str",
+    ("str_bytes", "unicode_errors", "expected_str"),
     [
         (b"hello \xa7 world", "surrogateescape", "hello \udca7 world"),
         (b"hello \xa7 world", "backslashreplace", "hello \\xa7 world"),
@@ -1011,10 +1001,10 @@ def test_datetime_timezone_aware(tmp_path: pathlib.Path, record_filename: str) -
 
 def test_datetime_comparisions() -> None:
     with pytest.raises(TypeError, match=".* compare .*naive"):
-        assert dt("2023-01-01") > datetime(2022, 1, 1)
+        assert dt("2023-01-01") > datetime(2022, 1, 1)  # noqa: DTZ001
 
     with pytest.raises(TypeError, match=".* compare .*naive"):
-        assert datetime(2022, 1, 1) < dt("2023-01-01")
+        assert datetime(2022, 1, 1) < dt("2023-01-01")  # noqa: DTZ001
 
     assert dt("2023-01-01") > datetime(2022, 1, 1, tzinfo=UTC)
     assert dt("2023-01-01") == datetime(2023, 1, 1, tzinfo=UTC)
@@ -1085,7 +1075,7 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "command_string, expected_executable, expected_argument",
+    ("command_string", "expected_executable", "expected_argument"),
     [
         # Test relative windows paths
         ("windows.exe something,or,somethingelse", "windows.exe", ["something,or,somethingelse"]),
@@ -1117,7 +1107,7 @@ def test_command_windows(command_string: str, expected_executable: str, expected
 
 
 @pytest.mark.parametrize(
-    "command_string, expected_executable, expected_argument",
+    ("command_string", "expected_executable", "expected_argument"),
     [
         # Test relative posix command
         ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
@@ -1156,7 +1146,7 @@ def test_command_equal() -> None:
 
 
 def test_command_failed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError, match="Expected a value of type 'str'"):
         command(b"failed")
 
 

@@ -4,7 +4,7 @@ import hashlib
 import logging
 import queue
 import threading
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 import elasticsearch
 import elasticsearch.helpers
@@ -13,7 +13,11 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
-from flow.record.selector import CompiledSelector, Selector
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flow.record.selector import CompiledSelector, Selector
 
 __usage__ = """
 ElasticSearch adapter

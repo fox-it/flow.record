@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 import pytest
@@ -6,7 +8,7 @@ from flow.record import RecordDescriptor
 from flow.record.selector import CompiledSelector, InvalidOperation, Selector
 
 
-def test_selector_func_name():
+def test_selector_func_name() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -18,7 +20,7 @@ def test_selector_func_name():
     assert TestRecord(None, None) in Selector("name(r) == 'test/record'")
 
 
-def test_selector():
+def test_selector() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -53,7 +55,7 @@ def test_selector():
         assert TestRecord() in Selector("invalid_func(r.invalid_field, 1337) or r.id == 4")
 
 
-def test_selector_str_repr():
+def test_selector_str_repr() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -77,7 +79,7 @@ def test_selector_str_repr():
     assert TestRecord("foo", "bar") not in CompiledSelector("'nope' in repr(r)")
 
 
-def test_selector_meta_query_true():
+def test_selector_meta_query_true() -> None:
     source = "internal/flow.record.test"
 
     desc = RecordDescriptor(
@@ -87,10 +89,10 @@ def test_selector_meta_query_true():
         ],
     )
     rec = desc("value", _source=source)
-    assert rec in Selector("r._source == '{}'".format(source))
+    assert rec in Selector(f"r._source == '{source}'")
 
 
-def test_selector_meta_query_false():
+def test_selector_meta_query_false() -> None:
     source = "internal/flow.record.test"
 
     desc = RecordDescriptor(
@@ -100,10 +102,10 @@ def test_selector_meta_query_false():
         ],
     )
     rec = desc("value", _source=source + "nope")
-    assert (rec in Selector("r._source == '{}'".format(source))) is False
+    assert (rec in Selector(f"r._source == '{source}'")) is False
 
 
-def test_selector_basic_query_true():
+def test_selector_basic_query_true() -> None:
     md5hash = "My MD5 hash!"
 
     desc = RecordDescriptor(
@@ -113,10 +115,10 @@ def test_selector_basic_query_true():
         ],
     )
     rec = desc(md5hash)
-    assert rec in Selector("r.md5 == '{}'".format(md5hash))
+    assert rec in Selector(f"r.md5 == '{md5hash}'")
 
 
-def test_selector_basic_query_false():
+def test_selector_basic_query_false() -> None:
     md5hash = "My MD5 hash!"
 
     desc = RecordDescriptor(
@@ -126,10 +128,10 @@ def test_selector_basic_query_false():
         ],
     )
     rec = desc(md5hash + "nope")
-    assert (rec in Selector("r.md5 == '{}'".format(md5hash))) is False
+    assert (rec in Selector(f"r.md5 == '{md5hash}'")) is False
 
 
-def test_selector_non_existing_field():
+def test_selector_non_existing_field() -> None:
     md5hash = "My MD5 hash!"
 
     desc = RecordDescriptor(
@@ -151,7 +153,7 @@ def test_selector_non_existing_field():
 #    assert (obj in s) is True
 
 
-def test_selector_string_contains():
+def test_selector_string_contains() -> None:
     desc = RecordDescriptor(
         "test/filetype",
         [
@@ -163,7 +165,7 @@ def test_selector_string_contains():
     assert rec in Selector("'PE' in r.filetype")
 
 
-def test_selector_not_in_operator():
+def test_selector_not_in_operator() -> None:
     desc = RecordDescriptor(
         "test/md5_hash",
         [
@@ -175,7 +177,7 @@ def test_selector_not_in_operator():
     assert rec in Selector("'ELF' not in r.filetype")
 
 
-def test_selector_or_operator():
+def test_selector_or_operator() -> None:
     desc = RecordDescriptor(
         "test/filetype",
         [
@@ -187,7 +189,7 @@ def test_selector_or_operator():
     assert rec in Selector("'PE32' in r.filetype or 'PE64' in r.xxxx")
 
 
-def test_selector_and_operator():
+def test_selector_and_operator() -> None:
     desc = RecordDescriptor(
         "test/filetype",
         [
@@ -201,7 +203,7 @@ def test_selector_and_operator():
     assert rec in Selector("'PE32' in r.filetype and 'PE32' in r.xxxx")
 
 
-def test_selector_in_function():
+def test_selector_in_function() -> None:
     desc = RecordDescriptor(
         "test/filetype",
         [
@@ -213,7 +215,7 @@ def test_selector_in_function():
     assert rec in Selector("'pe' in lower(r.filetype)")
 
 
-def test_selector_function_call_whitelisting():
+def test_selector_function_call_whitelisting() -> None:
     TestRecord = RecordDescriptor(
         "test/filetype",
         [
@@ -225,12 +227,16 @@ def test_selector_function_call_whitelisting():
     # We allow explicitly exposed functions
     assert rec in Selector("'pe32' in lower(r.filetype)")
     # But functions on types are not
-    with pytest.raises(Exception) as excinfo:
-        rec in Selector("'pe' in r.filetype.lower()")
+    with pytest.raises(
+        Exception, match="Call 'r.filetype.lower' not allowed. No calls other then whitelisted 'global' calls allowed!"
+    ):
+        assert rec in Selector("'pe' in r.filetype.lower()")
 
     assert rec in Selector("'EXECUTABLE' in upper(r.filetype)")
-    with pytest.raises(Exception) as excinfo:
-        rec in Selector("'EXECUTABLE' in r.filetype.upper()")
+    with pytest.raises(
+        Exception, match="Call 'r.filetype.upper' not allowed. No calls other then whitelisted 'global' calls allowed!"
+    ):
+        assert rec in Selector("'EXECUTABLE' in r.filetype.upper()")
 
     IPRecord = RecordDescriptor(
         "test/address",
@@ -244,12 +250,13 @@ def test_selector_function_call_whitelisting():
         assert rec not in Selector("r.non_existing_field in net.ipv4.Subnet('192.168.1.0/24')")
 
     # We call net.ipv4 instead of net.ipv4.Subnet, which should fail
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(
+        Exception, match="Call 'net.ipv4' not allowed. No calls other then whitelisted 'global' calls allowed!"
+    ):
         assert rec in Selector("r.ip in net.ipv4('192.168.1.0/24')")
-    excinfo.match("Call 'net.ipv4' not allowed. No calls other then whitelisted 'global' calls allowed!")
 
 
-def test_selector_subnet():
+def test_selector_subnet() -> None:
     desc = RecordDescriptor(
         "test/ip",
         [
@@ -267,7 +274,7 @@ def test_selector_subnet():
         assert rec in Selector("r.ip not in net.ipv4.Subnet('10.0.0.0/8')")
 
 
-def test_field_equals():
+def test_field_equals() -> None:
     desc = RecordDescriptor(
         "test/record",
         [
@@ -283,7 +290,7 @@ def test_field_equals():
     assert rec not in CompiledSelector("field_equals(r, ['mailfrom', 'mailto'], ['hello',])")
 
 
-def test_field_contains():
+def test_field_contains() -> None:
     desc = RecordDescriptor(
         "test/record",
         [
@@ -301,7 +308,7 @@ def test_field_contains():
     assert rec2 not in CompiledSelector("field_contains(r, ['testing'], ['TEST@fox-it.com'])")
 
 
-def test_field_contains_word_boundary():
+def test_field_contains_word_boundary() -> None:
     desc = RecordDescriptor(
         "test/record",
         [
@@ -333,7 +340,7 @@ def test_field_contains_word_boundary():
     assert rec in Selector("field_contains(r, ['content'], ['testing'], word_boundary=True)")
 
 
-def test_field_regex():
+def test_field_regex() -> None:
     desc = RecordDescriptor(
         "test/record",
         [
@@ -350,7 +357,7 @@ def test_field_regex():
     assert rec not in CompiledSelector("field_regex(r, ['mailfrom', 'mailto'], r'.+@fox-it.com')")
 
 
-def test_selector_uri():
+def test_selector_uri() -> None:
     TestRecord = RecordDescriptor(
         "test/uri",
         [
@@ -361,7 +368,7 @@ def test_selector_uri():
     assert rec in Selector("r.uri.filename in ['evil.bin', 'foo.bar']")
 
 
-def test_selector_typed():
+def test_selector_typed() -> None:
     TestRecord = RecordDescriptor(
         "test/uri_typed",
         [
@@ -430,7 +437,7 @@ def test_selector_typed():
         assert rec in Selector("Type.uri.filename.__class__ == 'invalid'")
 
 
-def test_selector_unicode():
+def test_selector_unicode() -> None:
     TestRecord = RecordDescriptor(
         "test/string",
         [
@@ -444,7 +451,7 @@ def test_selector_unicode():
     assert rec in Selector("field_contains(r, ['name'], [u'Jack O\u2019Neill'])")
 
 
-def test_record_in_records():
+def test_record_in_records() -> None:
     RecordA = RecordDescriptor(
         "test/record_a",
         [
@@ -480,7 +487,7 @@ def test_record_in_records():
     subrecords = []
     record_d = None
     for i in range(10):
-        record_d = RecordD(stringlist=["aap", "noot", "mies", "Subrecord {}".format(i)])
+        record_d = RecordD(stringlist=["aap", "noot", "mies", f"Subrecord {i}"])
         subrecords.append(record_d)
 
     subrecords.append(record_a)
@@ -489,9 +496,9 @@ def test_record_in_records():
     subrecords.append(None)
     record_c_with_none_values = RecordC(records=subrecords)
 
-    assert record_b in Selector("r.record.field == '{}'".format(test_str))
-    assert record_b in Selector("Type.string == '{}'".format(test_str))
-    assert record_c in Selector("Type.string == '{}'".format(test_str))
+    assert record_b in Selector(f"r.record.field == '{test_str}'")
+    assert record_b in Selector(f"Type.string == '{test_str}'")
+    assert record_c in Selector(f"Type.string == '{test_str}'")
     assert record_d in Selector("any(s == 'Subrecord 9' for s in r.stringlist)")
     assert record_c in Selector("any(s == 'Subrecord 9' for e in r.records for s in e.stringlist)")
     assert record_c_with_none_values in Selector("any(s == 'Subrecord 9' for e in r.records for s in e.stringlist)")
@@ -499,7 +506,7 @@ def test_record_in_records():
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_non_existing_field(PSelector):
+def test_non_existing_field(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -514,7 +521,7 @@ def test_non_existing_field(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_modulo(PSelector):
+def test_selector_modulo(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -522,9 +529,7 @@ def test_selector_modulo(PSelector):
         ],
     )
 
-    records = []
-    for i in range(300):
-        records.append(TestRecord(i))
+    records = [TestRecord(i) for i in range(300)]
 
     selected = [rec for rec in records if rec in PSelector("r.counter % 10 == 0")]
     assert len(selected) == 30
@@ -538,7 +543,7 @@ def test_selector_modulo(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_bit_and(PSelector):
+def test_selector_bit_and(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -546,9 +551,7 @@ def test_selector_bit_and(PSelector):
         ],
     )
 
-    records = []
-    for i in range(300):
-        records.append(TestRecord(i))
+    records = [TestRecord(i) for i in range(300)]
 
     for rec in records:
         sel = PSelector("(r.counter & 0x0F) == 1")
@@ -559,7 +562,7 @@ def test_selector_bit_and(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_bit_or(PSelector):
+def test_selector_bit_or(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -567,9 +570,7 @@ def test_selector_bit_or(PSelector):
         ],
     )
 
-    records = []
-    for i in range(300):
-        records.append(TestRecord(i))
+    records = [TestRecord(i) for i in range(300)]
 
     for rec in records:
         sel = PSelector("(r.counter | 0x10) == 0x11")
@@ -580,7 +581,7 @@ def test_selector_bit_or(PSelector):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_selector_modulo_non_existing_field(PSelector):
+def test_selector_modulo_non_existing_field(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -588,9 +589,7 @@ def test_selector_modulo_non_existing_field(PSelector):
         ],
     )
 
-    records = []
-    for i in range(300):
-        records.append(TestRecord(i))
+    records = [TestRecord(i) for i in range(300)]
 
     sel = PSelector("r.counter % 10 == 0")
     for rec in records:
