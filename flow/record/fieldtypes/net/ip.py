@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from ipaddress import (
     IPv4Address,
+    IPv4Interface,
     IPv4Network,
     IPv6Address,
+    IPv6Interface,
     IPv6Network,
     ip_address,
+    ip_interface,
     ip_network,
 )
 from typing import Union
@@ -15,6 +18,7 @@ from flow.record.fieldtypes import defang
 
 _IPNetwork = Union[IPv4Network, IPv6Network]
 _IPAddress = Union[IPv4Address, IPv6Address]
+_IPInterface = Union[IPv4Interface, IPv6Interface]
 
 
 class ipaddress(FieldType):
@@ -98,8 +102,56 @@ class ipnetwork(FieldType):
     def _unpack(data: str) -> ipnetwork:
         return ipnetwork(data)
 
+    @property
+    def netmask(self) -> ipaddress:
+        return ipaddress(self.val.netmask)
+
+
+class ipinterface(FieldType):
+    val = None
+    _type = "net.ipinterface"
+
+    def __init__(self, addr: int) -> None:
+        self.val = ip_interface(addr)
+
+    def __eq__(self, b: str | int | bytes | _IPInterface) -> bool:
+        try:
+            return self.val == ip_interface(b)
+        except ValueError:
+            return False
+
+    def __hash__(self) -> int:
+        return hash(self.val)
+
+    def __str__(self) -> str:
+        return str(self.val)
+
+    def __repr__(self) -> str:
+        return f"{self._type}({str(self)!r})"
+
+    @property
+    def ip(self) -> ipaddress:
+        return ipaddress(self.val.ip)
+
+    @property
+    def network(self) -> ipnetwork:
+        return ipnetwork(self.val.network)
+
+    @property
+    def netmask(self) -> ipnetwork:
+        return self.network.netmask
+
+    def _pack(self) -> str:
+        return self.val.compressed
+
+    @staticmethod
+    def _unpack(data: str) -> ipinterface:
+        return ipinterface(data)
+
 
 # alias: net.IPAddress -> net.ipaddress
 # alias: net.IPNetwork -> net.ipnetwork
+# alias: net.IPInterface -> net.ipinterface
 IPAddress = ipaddress
 IPNetwork = ipnetwork
+IPInterface = ipinterface

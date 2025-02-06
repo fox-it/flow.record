@@ -128,6 +128,48 @@ def test_record_ipnetwork() -> None:
     assert "::1" not in data
 
 
+def test_record_ipinterface() -> None:
+    TestRecord = RecordDescriptor(
+        "test/ipinterface",
+        [
+            ("net.ipinterface", "interface"),
+        ],
+    )
+
+    # ipv4
+    r = TestRecord("192.168.0.0/24")
+    assert r.interface == "192.168.0.0/24"
+    assert "bad.ip" not in r.interface.network
+    assert "192.168.0.1" in r.interface.network
+    assert isinstance(r.interface, net.ipinterface)
+    assert repr(r.interface) == "net.ipinterface('192.168.0.0/24')"
+    assert hash(r.interface) == hash(net.ipinterface("192.168.0.0/24"))
+
+    r = TestRecord("192.168.1.1")
+    assert r.interface.ip == "192.168.1.1"
+    assert r.interface.network == "192.168.1.1/32"
+    assert r.interface == "192.168.1.1/32"
+    assert r.interface.netmask == "255.255.255.255"
+
+    r = TestRecord("192.168.1.24/255.255.255.0")
+    assert r.interface == "192.168.1.24/24"
+    assert r.interface.ip == "192.168.1.24"
+    assert r.interface.network == "192.168.1.0/24"
+    assert r.interface.netmask == "255.255.255.0"
+
+    # ipv6 - https://en.wikipedia.org/wiki/IPv6_address
+    r = TestRecord("::1")
+    assert r.interface == "::1"
+    assert r.interface == "::1/128"
+
+    # Test whether it functions in a set
+    data = {TestRecord(x).interface for x in ["192.168.0.0/24", "192.168.0.0/24", "::1", "::1"]}
+    assert len(data) == 2
+    assert net.ipinterface("::1") in data
+    assert net.ipinterface("192.168.0.0/24") in data
+    assert "::1" not in data
+
+
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
 def test_selector_ipaddress(PSelector: type[Selector]) -> None:
     TestRecord = RecordDescriptor(

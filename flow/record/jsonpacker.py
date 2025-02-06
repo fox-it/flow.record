@@ -79,6 +79,12 @@ class JsonRecordPacker:
                 "executable": obj.executable,
                 "args": obj.args,
             }
+        if isinstance(obj, fieldtypes.net.ipinterface):
+            return {
+                "ip": str(obj.ip),
+                "subnetmask": str(obj.netmask),
+                "network": str(obj.network),
+            }
 
         raise TypeError(f"Unpackable type {type(obj)}")
 
