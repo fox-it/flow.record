@@ -162,12 +162,49 @@ def test_record_ipinterface() -> None:
     assert r.interface == "::1"
     assert r.interface == "::1/128"
 
+    r = TestRecord("64:ff9b::2/96")
+    assert r.interface == "64:ff9b::2/96"
+    assert r.interface.ip == "64:ff9b::2"
+    assert r.interface.network == "64:ff9b::/96"
+    assert r.interface.netmask == "ffff:ffff:ffff:ffff:ffff:ffff::"
+
+    # instantiate from different types
+    assert TestRecord(1).interface == "0.0.0.1/32"
+    assert TestRecord(0x7F0000FF).interface == "127.0.0.255/32"
+    assert TestRecord(b"\x7f\xff\xff\xff").interface == "127.255.255.255/32"
+
     # Test whether it functions in a set
     data = {TestRecord(x).interface for x in ["192.168.0.0/24", "192.168.0.0/24", "::1", "::1"]}
     assert len(data) == 2
     assert net.ipinterface("::1") in data
     assert net.ipinterface("192.168.0.0/24") in data
     assert "::1" not in data
+
+
+def test_record_ipinterface_types() -> None:
+    TestRecord = RecordDescriptor(
+        "test/ipinterface",
+        [
+            (
+                "net.ipinterface",
+                "interface",
+            )
+        ],
+    )
+
+    r = TestRecord("192.168.0.255/24")
+    _if = r.interface
+    assert isinstance(_if, net.ipinterface)
+    assert isinstance(_if.ip, net.ipaddress)
+    assert isinstance(_if.network, net.ipnetwork)
+    assert isinstance(_if.netmask, net.ipaddress)
+
+    r = TestRecord("64:ff9b::/96")
+    _if = r.interface
+    assert isinstance(_if, net.ipinterface)
+    assert isinstance(_if.ip, net.ipaddress)
+    assert isinstance(_if.network, net.ipnetwork)
+    assert isinstance(_if.netmask, net.ipaddress)
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])

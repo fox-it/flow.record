@@ -19,16 +19,18 @@ from flow.record.fieldtypes import defang
 _IPNetwork = Union[IPv4Network, IPv6Network]
 _IPAddress = Union[IPv4Address, IPv6Address]
 _IPInterface = Union[IPv4Interface, IPv6Interface]
+_ConversionTypes = Union[str, int, bytes]
+_IP = Union[_IPNetwork, _IPAddress, _IPInterface]
 
 
 class ipaddress(FieldType):
-    val = None
+    val: _IPAddress = None
     _type = "net.ipaddress"
 
-    def __init__(self, addr: str | int | bytes):
+    def __init__(self, addr: _ConversionTypes | _IPAddress):
         self.val = ip_address(addr)
 
-    def __eq__(self, b: str | int | bytes | _IPAddress) -> bool:
+    def __eq__(self, b: _ConversionTypes | _IPAddress) -> bool:
         try:
             return self.val == ip_address(b)
         except ValueError:
@@ -57,13 +59,13 @@ class ipaddress(FieldType):
 
 
 class ipnetwork(FieldType):
-    val = None
+    val: _IPNetwork = None
     _type = "net.ipnetwork"
 
-    def __init__(self, addr: str | int | bytes):
+    def __init__(self, addr: _ConversionTypes | _IPNetwork):
         self.val = ip_network(addr)
 
-    def __eq__(self, b: str | int | bytes | _IPNetwork) -> bool:
+    def __eq__(self, b: _ConversionTypes | _IPNetwork) -> bool:
         try:
             return self.val == ip_network(b)
         except ValueError:
@@ -108,13 +110,13 @@ class ipnetwork(FieldType):
 
 
 class ipinterface(FieldType):
-    val = None
+    val: _IPInterface = None
     _type = "net.ipinterface"
 
-    def __init__(self, addr: int) -> None:
+    def __init__(self, addr: _ConversionTypes | _IP) -> None:
         self.val = ip_interface(addr)
 
-    def __eq__(self, b: str | int | bytes | _IPInterface) -> bool:
+    def __eq__(self, b: _ConversionTypes | _IP) -> bool:
         try:
             return self.val == ip_interface(b)
         except ValueError:
@@ -138,8 +140,8 @@ class ipinterface(FieldType):
         return ipnetwork(self.val.network)
 
     @property
-    def netmask(self) -> ipnetwork:
-        return self.network.netmask
+    def netmask(self) -> ipaddress:
+        return ipaddress(self.val.netmask)
 
     def _pack(self) -> str:
         return self.val.compressed
@@ -151,7 +153,5 @@ class ipinterface(FieldType):
 
 # alias: net.IPAddress -> net.ipaddress
 # alias: net.IPNetwork -> net.ipnetwork
-# alias: net.IPInterface -> net.ipinterface
 IPAddress = ipaddress
 IPNetwork = ipnetwork
-IPInterface = ipinterface

@@ -27,7 +27,6 @@ WHITELIST = [
     "net.ipinterface",
     "net.ipnetwork",
     "net.IPAddress",
-    "net.IPInterface",
     "net.IPNetwork",
     "path",
 ]
