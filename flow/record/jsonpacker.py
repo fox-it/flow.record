@@ -68,7 +68,7 @@ class JsonRecordPacker:
                 "sha1": obj.sha1,
                 "sha256": obj.sha256,
             }
-        if isinstance(obj, (fieldtypes.net.ipaddress, fieldtypes.net.ipnetwork)):
+        if isinstance(obj, (fieldtypes.net.ipaddress, fieldtypes.net.ipnetwork, fieldtypes.net.ipinterface)):
             return str(obj)
         if isinstance(obj, bytes):
             return base64.b64encode(obj).decode()
@@ -78,12 +78,6 @@ class JsonRecordPacker:
             return {
                 "executable": obj.executable,
                 "args": obj.args,
-            }
-        if isinstance(obj, fieldtypes.net.ipinterface):
-            return {
-                "ip": str(obj.ip),
-                "subnetmask": str(obj.netmask),
-                "network": str(obj.network),
             }
 
         raise TypeError(f"Unpackable type {type(obj)}")
