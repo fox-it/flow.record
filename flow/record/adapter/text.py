@@ -26,6 +26,8 @@ REPLACE_LIST = [
 
 
 class DefaultMissing(dict):
+    """DefaultMissing"""
+
     def __missing__(self, key: str) -> str:
         return key.join("{}")
 
