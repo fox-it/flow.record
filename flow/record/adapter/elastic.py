@@ -149,11 +149,14 @@ class ElasticWriter(AbstractWriter):
             raise_on_exception=False,
         ):
             if not ok:
-                log.error("Failed to insert %r", item)
+                raise ValueError(f"Failed to insert {item}")
 
         self.event.set()
 
     def write(self, record: Record) -> None:
+        if self.exception:
+            raise self.exception
+
         self.queue.put(record)
 
     def flush(self) -> None:
