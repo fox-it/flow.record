@@ -20,7 +20,7 @@ _IPNetwork = Union[IPv4Network, IPv6Network]
 _IPAddress = Union[IPv4Address, IPv6Address]
 _IPInterface = Union[IPv4Interface, IPv6Interface]
 _ConversionTypes = Union[str, int, bytes]
-_IP = Union[_IPNetwork, _IPAddress, _IPInterface]
+_IPTypes = Union[_IPNetwork, _IPAddress, _IPInterface]
 
 
 class ipaddress(FieldType):
@@ -113,10 +113,10 @@ class ipinterface(FieldType):
     val: _IPInterface = None
     _type = "net.ipinterface"
 
-    def __init__(self, addr: _ConversionTypes | _IP) -> None:
+    def __init__(self, addr: _ConversionTypes | _IPTypes) -> None:
         self.val = ip_interface(addr)
 
-    def __eq__(self, b: _ConversionTypes | _IP) -> bool:
+    def __eq__(self, b: _ConversionTypes | _IPTypes) -> bool:
         try:
             return self.val == ip_interface(b)
         except ValueError:
