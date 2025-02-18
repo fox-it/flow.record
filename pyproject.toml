@@ -41,6 +41,7 @@ compression = [
 ]
 elastic = [
     "elasticsearch",
+    "tqdm",
 ]
 geoip = [
     "maxminddb",
