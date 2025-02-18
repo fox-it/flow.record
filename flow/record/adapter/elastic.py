@@ -90,6 +90,8 @@ class ElasticWriter(AbstractWriter):
 
         self.queue: queue.Queue[Record | StopIteration] = queue.Queue(maxsize=queue_size)
         self.event = threading.Event()
+        self.exception: Exception | None = None
+        threading.excepthook = self.excepthook
 
         self.es = elasticsearch.Elasticsearch(
             uri,
@@ -105,8 +107,6 @@ class ElasticWriter(AbstractWriter):
 
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
-        self.exception: Exception | None = None
-        threading.excepthook = self.excepthook
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
