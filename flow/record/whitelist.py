@@ -24,6 +24,7 @@ WHITELIST = [
     "bytes",
     "record",
     "net.ipaddress",
+    "net.ipinterface",
     "net.ipnetwork",
     "net.IPAddress",
     "net.IPNetwork",

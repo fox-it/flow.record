@@ -26,6 +26,16 @@ REPLACE_LIST = [
 
 
 class DefaultMissing(dict):
+    """A dictionary subclass that returns a formatted string for missing keys.
+
+    Example:
+        >>> d = DefaultMissing({"foo": "bar"})
+        >>> d['foo']
+        'bar'
+        >>> d['missing_key']
+        '{missing_key}'
+    """
+
     def __missing__(self, key: str) -> str:
         return key.join("{}")
 
