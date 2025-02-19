@@ -112,7 +112,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Generate suffixes of length LEN for splitted output files",
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
-    output.add_argument("--progress", "-p", action="store_true", default=False, help="Output progress indicator (supported adapters only)")
+    output.add_argument(
+        "--progress",
+        "-p",
+        action="store_true",
+        default=False,
+        help="Output progress indicator (supported adapters only)",
+    )
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(

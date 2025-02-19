@@ -19,7 +19,6 @@ except ImportError:
 
 
 class AbstractWriter(metaclass=abc.ABCMeta):
-
     def __init__(self, progress: bool = False, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
