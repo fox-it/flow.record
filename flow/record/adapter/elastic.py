@@ -76,7 +76,7 @@ class ElasticWriter(AbstractWriter):
         """
 
         if not HAS_ELASTIC:
-            raise ValueError("Required dependency elasticsearch missing")
+            raise RuntimeError("Required dependency 'elasticsearch' missing")
 
         self.index = index
         self.uri = uri
@@ -181,7 +181,7 @@ class ElasticWriter(AbstractWriter):
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
             - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
         """
-        for _, _ in elasticsearch.helpers.streaming_bulk(
+        for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),
             raise_on_error=True,
