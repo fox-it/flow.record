@@ -15,14 +15,6 @@ try:
 except ImportError:
     HAS_ELASTIC = False
 
-try:
-    import tqdm
-
-    HAS_TQDM = True
-
-except ImportError:
-    HAS_TQDM = False
-
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
 from flow.record.fieldtypes import fieldtype_for_value
@@ -119,11 +111,6 @@ class ElasticWriter(AbstractWriter):
             if arg_key.startswith("_meta_"):
                 self.metadata_fields[arg_key[6:]] = arg_val
 
-        if HAS_TQDM:
-            self.progress = tqdm.tqdm(unit=" records", delay=3)
-        else:
-            self.progress = None
-
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
         log.error("Exception in thread: %s", exc)
         self.exception = getattr(exc, "exc_value", exc)
@@ -189,8 +176,7 @@ class ElasticWriter(AbstractWriter):
             # Some settings have to be redefined because streaming_bulk does not inherit them from the self.es instance.
             max_retries=3,
         ):
-            if HAS_TQDM:
-                self.progress.update(1)
+            pass
 
         self.event.set()
 
