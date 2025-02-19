@@ -63,6 +63,10 @@ test = [
     "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
 ]
+full = [
+    "flow.record[compression]",
+    "tqdm",
+]
 
 [project.scripts]
 rdump = "flow.record.tools.rdump:main"

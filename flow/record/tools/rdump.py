@@ -112,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Generate suffixes of length LEN for splitted output files",
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
+    output.add_argument("--progress", "-p", action="store_true", default=False, help="Output progress indicator (supported adapters only)")
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -218,9 +219,10 @@ def main(argv: list[str] | None = None) -> int:
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
     count = 0
+    record_writer = None
 
     try:
-        record_writer = RecordWriter(uri)
+        record_writer = RecordWriter(uri, progress=args.progress)
         for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
             if args.record_source is not None:
                 rec._source = args.record_source
@@ -246,7 +248,8 @@ def main(argv: list[str] | None = None) -> int:
                     record_writer.write(rec)
 
     finally:
-        record_writer.__exit__()
+        if record_writer:
+            record_writer.__exit__()
 
     if args.list:
         print(f"Processed {count} records")
