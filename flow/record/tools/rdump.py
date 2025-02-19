@@ -125,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         "-p",
         action="store_true",
         default=False,
-        help="Output progress indicator (supported adapters only)",
+        help="Output progress indicator to stderr",
     )
 
     advanced = parser.add_argument_group("advanced")
