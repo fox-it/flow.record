@@ -6,8 +6,14 @@ import queue
 import threading
 from typing import TYPE_CHECKING
 
-import elasticsearch
-import elasticsearch.helpers
+try:
+    import elasticsearch
+    import elasticsearch.helpers
+
+    HAS_ELASTIC = True
+
+except ImportError:
+    HAS_ELASTIC = False
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
@@ -33,6 +39,8 @@ Optional arguments:
   [INDEX]: name of the index to use (default: records)
   [VERIFY_CERTS]: verify certs of Elasticsearch instance (default: True)
   [HASH_RECORD]: make record unique by hashing record [slow] (default: False)
+  [REQUEST_TIMEOUT]: maximum duration in seconds for a request to Elastic (default: 30)
+  [MAX_RETRIES]: maximum retries before a record is marked as failed (default: 3)
   [_META_*]: record metadata fields (default: None)
 """
 
@@ -49,8 +57,19 @@ class ElasticWriter(AbstractWriter):
         hash_record: str | bool = False,
         api_key: str | None = None,
         queue_size: int = 100000,
+        request_timeout: int = 30,
+        max_retries: int = 3,
         **kwargs,
     ) -> None:
+        """Initialize the ElasticWriter.
+
+        Resources:
+            - https://elasticsearch-py.readthedocs.io/en/v8.17.1/api/elasticsearch.html
+        """
+
+        if not HAS_ELASTIC:
+            raise RuntimeError("Required dependency 'elasticsearch' missing")
+
         self.index = index
         self.uri = uri
         verify_certs = str(verify_certs).lower() in ("1", "true")
@@ -63,20 +82,23 @@ class ElasticWriter(AbstractWriter):
 
         self.queue: queue.Queue[Record | StopIteration] = queue.Queue(maxsize=queue_size)
         self.event = threading.Event()
+        self.exception: Exception | None = None
+        threading.excepthook = self.excepthook
 
         self.es = elasticsearch.Elasticsearch(
             uri,
             verify_certs=verify_certs,
             http_compress=http_compress,
             api_key=api_key,
+            request_timeout=request_timeout,
+            retry_on_timeout=True,
+            max_retries=max_retries,
         )
 
         self.json_packer = JsonRecordPacker()
 
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
-        self.exception: Exception | None = None
-        threading.excepthook = self.excepthook
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
@@ -140,20 +162,28 @@ class ElasticWriter(AbstractWriter):
             yield self.record_to_document(record, index=self.index)
 
     def streaming_bulk_thread(self) -> None:
-        """Thread that streams the documents to ES via the bulk api"""
+        """Thread that streams the documents to ES via the bulk api.
 
-        for ok, item in elasticsearch.helpers.streaming_bulk(
+        Resources:
+            - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
+            - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
+        """
+        for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),
-            raise_on_error=False,
-            raise_on_exception=False,
+            raise_on_error=True,
+            raise_on_exception=True,
+            # Some settings have to be redefined because streaming_bulk does not inherit them from the self.es instance.
+            max_retries=3,
         ):
-            if not ok:
-                log.error("Failed to insert %r", item)
+            pass
 
         self.event.set()
 
     def write(self, record: Record) -> None:
+        if self.exception:
+            raise self.exception
+
         self.queue.put(record)
 
     def flush(self) -> None:
@@ -179,6 +209,8 @@ class ElasticReader(AbstractReader):
         http_compress: str | bool = True,
         selector: None | Selector | CompiledSelector = None,
         api_key: str | None = None,
+        request_timeout: int = 30,
+        max_retries: int = 3,
         **kwargs,
     ) -> None:
         self.index = index
@@ -195,6 +227,9 @@ class ElasticReader(AbstractReader):
             verify_certs=verify_certs,
             http_compress=http_compress,
             api_key=api_key,
+            request_timeout=request_timeout,
+            retry_on_timeout=True,
+            max_retries=max_retries,
         )
 
         if not verify_certs:
