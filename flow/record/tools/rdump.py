@@ -21,6 +21,14 @@ try:
 except ImportError:
     version = "unknown"
 
+try:
+    import tqdm
+
+    HAS_TQDM = True
+
+except ImportError:
+    HAS_TQDM = False
+
 log = logging.getLogger(__name__)
 
 
@@ -224,11 +232,13 @@ def main(argv: list[str] | None = None) -> int:
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
+    if HAS_TQDM and args.progress:
+        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=3)
     count = 0
     record_writer = None
 
     try:
-        record_writer = RecordWriter(uri, progress=args.progress)
+        record_writer = RecordWriter(uri)
         for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
             if args.record_source is not None:
                 rec._source = args.record_source

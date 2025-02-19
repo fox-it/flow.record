@@ -9,24 +9,8 @@ if TYPE_CHECKING:
 
     from flow.record.base import Record
 
-try:
-    import tqdm
-
-    HAS_TQDM = True
-
-except ImportError:
-    HAS_TQDM = False
-
 
 class AbstractWriter(metaclass=abc.ABCMeta):
-    def __init__(self, progress: bool = False, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self._progress = None
-        self._progress_enabled = False
-        if HAS_TQDM and progress:
-            self._progress = tqdm.tqdm(unit=" records", delay=3)
-            self._progress_enabled = True
 
     @abc.abstractmethod
     def write(self, rec: Record) -> None:
@@ -42,10 +26,6 @@ class AbstractWriter(metaclass=abc.ABCMeta):
     def close(self) -> None:
         """Close the Writer, no more writes will be possible."""
         raise NotImplementedError
-
-    def __progress_count__(self, amount: int = 1) -> None:
-        if self._progress_enabled:
-            self._progress.update(amount)
 
     def __del__(self) -> None:
         self.close()

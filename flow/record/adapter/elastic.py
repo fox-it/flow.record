@@ -66,7 +66,6 @@ class ElasticWriter(AbstractWriter):
         Resources:
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/api/elasticsearch.html
         """
-        super().__init__(progress=kwargs.get("progress"))
 
         if not HAS_ELASTIC:
             raise RuntimeError("Required dependency 'elasticsearch' missing")
@@ -177,7 +176,7 @@ class ElasticWriter(AbstractWriter):
             # Some settings have to be redefined because streaming_bulk does not inherit them from the self.es instance.
             max_retries=3,
         ):
-            self.__progress_count__(1)
+            pass
 
         self.event.set()
 

@@ -33,7 +33,6 @@ class JsonfileWriter(AbstractWriter):
     def __init__(
         self, path: str | Path | BinaryIO, indent: str | int | None = None, descriptors: bool = True, **kwargs
     ):
-        super().__init__(progress=kwargs.get("progress"))
         self.descriptors = str(descriptors).lower() in ("true", "1")
         self.fp = record.open_path_or_stream(path, "w")
         if isinstance(indent, str):
@@ -51,7 +50,6 @@ class JsonfileWriter(AbstractWriter):
 
     def write(self, r: Record) -> None:
         self._write(r)
-        self.__progress_count__(1)
 
     def flush(self) -> None:
         if self.fp:
