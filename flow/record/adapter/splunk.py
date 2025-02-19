@@ -175,6 +175,8 @@ class SplunkWriter(AbstractWriter):
         ssl_verify: bool = True,
         **kwargs,
     ):
+        super().__init__(progress=kwargs.get("progress"))
+
         # If the writer is initiated without a protocol, we assume we will be writing over tcp
         if "://" not in uri:
             uri = f"tcp://{uri}"
@@ -286,6 +288,7 @@ class SplunkWriter(AbstractWriter):
         data = to_bytes(rec) + b"\n"
 
         self._send(data)
+        self.__progress_count__(1)
 
     def flush(self) -> None:
         if self.protocol in [Protocol.HTTP, Protocol.HTTPS]:
