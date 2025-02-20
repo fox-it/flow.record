@@ -30,9 +30,9 @@ class DefaultMissing(dict):
 
     Example:
         >>> d = DefaultMissing({"foo": "bar"})
-        >>> d['foo']
+        >>> d["foo"]
         'bar'
-        >>> d['missing_key']
+        >>> d["missing_key"]
         '{missing_key}'
     """
 

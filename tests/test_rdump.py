@@ -696,3 +696,29 @@ def test_rdump_line_verbose(tmp_path: Path, capsys: pytest.CaptureFixture, rdump
     assert "data (bytes) =" in captured.out
     assert "counter (uint32) =" in captured.out
     assert "foo (string) =" in captured.out
+
+
+def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    TestRecord = RecordDescriptor(
+        "test/rdump/progress",
+        [
+            ("uint32", "counter"),
+        ],
+    )
+    record_path = tmp_path / "test.records"
+
+    with RecordWriter(record_path) as writer:
+        for i in range(100):
+            writer.write(TestRecord(counter=i))
+
+    rdump.main(["--list", "--progress", str(record_path)])
+    captured = capsys.readouterr()
+
+    # stderr should contain tqdm progress bar
+    #   100 records [00:00, 64987.67 records/s]
+    assert "\r100 records [" in captured.err
+    assert " records/s]" in captured.err
+
+    # stdout should contain the RecordDescriptor definition and count
+    assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
+    assert "Processed 100 records" in captured.out

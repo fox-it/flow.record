@@ -62,6 +62,11 @@ test = [
     "flow.record[elastic]",
     "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
+    "tqdm",
+]
+full = [
+    "flow.record[compression]",
+    "tqdm",
 ]
 
 [project.scripts]

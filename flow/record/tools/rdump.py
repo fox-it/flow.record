@@ -21,6 +21,14 @@ try:
 except ImportError:
     version = "unknown"
 
+try:
+    import tqdm
+
+    HAS_TQDM = True
+
+except ImportError:
+    HAS_TQDM = False
+
 log = logging.getLogger(__name__)
 
 
@@ -112,6 +120,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Generate suffixes of length LEN for splitted output files",
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
+    output.add_argument(
+        "-p",
+        "--progress",
+        action="store_true",
+        help="Show progress bar (requires tqdm)",
+    )
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -217,7 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
+
+    if args.progress:
+        if not HAS_TQDM:
+            parser.error("tqdm is required for progress bar")
+        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=sys.float_info.min)
+
     count = 0
+    record_writer = None
 
     try:
         record_writer = RecordWriter(uri)
@@ -246,7 +267,8 @@ def main(argv: list[str] | None = None) -> int:
                     record_writer.write(rec)
 
     finally:
-        record_writer.__exit__()
+        if record_writer:
+            record_writer.__exit__()
 
     if args.list:
         print(f"Processed {count} records")
