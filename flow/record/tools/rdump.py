@@ -121,11 +121,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
     output.add_argument(
-        "--progress",
         "-p",
+        "--progress",
         action="store_true",
-        default=False,
-        help="Output progress indicator to stderr",
+        help="Show progress bar (requires tqdm)",
     )
 
     advanced = parser.add_argument_group("advanced")
@@ -232,8 +231,12 @@ def main(argv: list[str] | None = None) -> int:
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
-    if HAS_TQDM and args.progress:
-        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=3)
+
+    if args.progress:
+        if not HAS_TQDM:
+            parser.error("tqdm is required for progress bar")
+        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=sys.float_info.min)
+
     count = 0
     record_writer = None
 
