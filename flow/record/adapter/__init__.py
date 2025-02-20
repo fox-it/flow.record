@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 
 class AbstractWriter(metaclass=abc.ABCMeta):
-
     @abc.abstractmethod
     def write(self, rec: Record) -> None:
         """Write a record."""

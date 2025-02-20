@@ -175,7 +175,6 @@ class SplunkWriter(AbstractWriter):
         ssl_verify: bool = True,
         **kwargs,
     ):
-
         # If the writer is initiated without a protocol, we assume we will be writing over tcp
         if "://" not in uri:
             uri = f"tcp://{uri}"
