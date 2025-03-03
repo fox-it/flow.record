@@ -304,7 +304,6 @@ def main(argv: list[str] | None = None) -> int:
 
     finally:
         if record_writer:
-
             # Exceptions raised in threads can be thrown when deconstructing the writer.
             try:
                 record_writer.__exit__()

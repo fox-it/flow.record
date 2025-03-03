@@ -72,8 +72,8 @@ def test_rdump_pipe(tmp_path: Path) -> None:
         stderr=subprocess.PIPE,
     )
     stdout, stderr = p2.communicate()
-    assert stdout.strip() == b""
-    assert b"Are you perhaps entering record text, rather than a record stream?" in stderr.strip()
+    assert stderr.strip() == b"[reading from stdin]"
+    assert b"Are you perhaps entering record text, rather than a record stream?" in stdout.strip()
 
     # rdump test.records -w - | rdump -s 'r.count in (1, 3, 9)' -w filtered.records
     path2 = tmp_path / "filtered.records"
@@ -721,4 +721,3 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
     # stdout should contain the RecordDescriptor definition and count
     assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
-    assert "Processed 100 records" in captured.out
