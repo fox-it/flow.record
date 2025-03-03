@@ -29,7 +29,15 @@ try:
 except ImportError:
     HAS_TQDM = False
 
-log = logging.getLogger(__name__)
+try:
+    import structlog
+
+    log = structlog.get_logger(__name__)
+    HAS_STRUCTLOG = True
+
+except ImportError:
+    log = logging.getLogger(__name__)
+    HAS_STRUCTLOG = False
 
 
 def list_adapters() -> None:
@@ -126,6 +134,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Show progress bar (requires tqdm)",
     )
+    output.add_argument(
+        "--stats",
+        action="store_true",
+        help="Show count of processed records",
+    )
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -185,7 +198,20 @@ def main(argv: list[str] | None = None) -> int:
 
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     level = levels[min(len(levels) - 1, args.verbose)]
-    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
+
+    if HAS_STRUCTLOG:
+        structlog.configure(
+            wrapper_class=structlog.make_filtering_bound_logger(level),
+            processors=(
+                [
+                    structlog.stdlib.add_log_level,
+                    structlog.processors.TimeStamper(fmt="iso"),
+                    structlog.dev.ConsoleRenderer(colors=True, pad_event=10),
+                ]
+            ),
+        )
+    else:
+        logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
@@ -239,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
 
     count = 0
     record_writer = None
+    ret = 0
 
     try:
         record_writer = RecordWriter(uri)
@@ -266,14 +293,33 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     record_writer.write(rec)
 
+    except Exception as e:
+        print_error(e)
+
+        # Prevent throwing an exception twice when deconstructing the record writer.
+        if hasattr(record_writer, "exception") and record_writer.exception is e:
+            record_writer.exception = None
+
+        ret = 1
+
     finally:
         if record_writer:
-            record_writer.__exit__()
 
-    if args.list:
+            # Exceptions raised in threads can be thrown when deconstructing the writer.
+            try:
+                record_writer.__exit__()
+            except Exception as e:
+                print_error(e)
+
+    if (args.list or args.stats) and not args.progress:
         print(f"Processed {count} records")
 
-    return 0
+    return ret
+
+
+def print_error(e: Exception) -> None:
+    log.error("rdump encountered a fatal error: %s", e)
+    log.debug("", exc_info=e)
 
 
 if __name__ == "__main__":

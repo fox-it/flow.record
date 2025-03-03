@@ -76,6 +76,8 @@ class ElasticWriter(AbstractWriter):
         http_compress = str(http_compress).lower() in ("1", "true")
         self.hash_record = str(hash_record).lower() in ("1", "true")
         queue_size = int(queue_size)
+        request_timeout = int(request_timeout)
+        self.max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
@@ -92,7 +94,7 @@ class ElasticWriter(AbstractWriter):
             api_key=api_key,
             request_timeout=request_timeout,
             retry_on_timeout=True,
-            max_retries=max_retries,
+            max_retries=self.max_retries,
         )
 
         self.json_packer = JsonRecordPacker()
@@ -112,10 +114,29 @@ class ElasticWriter(AbstractWriter):
                 self.metadata_fields[arg_key[6:]] = arg_val
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
-        log.error("Exception in thread: %s", exc)
         self.exception = getattr(exc, "exc_value", exc)
+
+        # Extend the exception with error information from Elastic.
+        # https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
+        if hasattr(self.exception, "errors"):
+            try:
+                unique_errors = set()
+                for error in self.exception.errors:
+                    i = error.get("index", {})
+                    unique_errors.add(
+                        f"({i.get('status')} {i.get('error', {}).get('type')} {i.get('error', {}).get('reason')})"
+                    )
+            except Exception:
+                unique_errors = ["unable to extend errors"]
+            self.exception.args = (f"{self.exception.args[0]} {', '.join(unique_errors)}",) + self.exception.args[1:]
+
         self.event.set()
-        self.close()
+
+        # Close will raise the exception we just set, but we want the rdump process to catch it instead.
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
@@ -168,13 +189,14 @@ class ElasticWriter(AbstractWriter):
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
             - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
         """
+        logging.getLogger("elastic_transport").setLevel(logging.CRITICAL)
+
         for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),
             raise_on_error=True,
             raise_on_exception=True,
-            # Some settings have to be redefined because streaming_bulk does not inherit them from the self.es instance.
-            max_retries=3,
+            max_retries=self.max_retries,
         ):
             pass
 
@@ -190,13 +212,19 @@ class ElasticWriter(AbstractWriter):
         pass
 
     def close(self) -> None:
-        self.queue.put(StopIteration)
-        self.event.wait()
+        if hasattr(self, "queue"):
+            self.queue.put(StopIteration)
+
+        if hasattr(self, "event"):
+            self.event.wait()
 
         if hasattr(self, "es"):
-            self.es.close()
+            try:
+                self.es.close()
+            except Exception:
+                pass
 
-        if self.exception:
+        if hasattr(self, "exception") and self.exception:
             raise self.exception
 
 
@@ -218,6 +246,8 @@ class ElasticReader(AbstractReader):
         self.selector = selector
         verify_certs = str(verify_certs).lower() in ("1", "true")
         http_compress = str(http_compress).lower() in ("1", "true")
+        request_timeout = int(request_timeout)
+        max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri

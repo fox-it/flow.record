@@ -161,12 +161,19 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             yield from reader
             reader.close()
         except IOError as e:
-            log.exception("%s(%r): %s", reader, src, e)  # noqa: TRY401
+            if len(sources) == 1:
+                raise
+            else:
+                log.error("%s(%r): %s", reader, src, e)
+                log.debug("", exc_info=e)
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
-            continue
+            if len(sources) == 1:
+                raise
+            else:
+                log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
+                continue
 
 
 class PathTemplateWriter:

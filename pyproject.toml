@@ -67,6 +67,7 @@ test = [
 full = [
     "flow.record[compression]",
     "tqdm",
+    "structlog",
 ]
 
 [project.scripts]
@@ -116,7 +117,7 @@ select = [
   "FURB",
   "RUF",
 ]
-ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003"]
+ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003", "TRY400"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/docs/**" = ["INP001"]
