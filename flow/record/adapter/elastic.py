@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from contextlib import suppress
 import hashlib
 import logging
 import queue
 import threading
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 try:
