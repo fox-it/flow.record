@@ -202,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     if HAS_STRUCTLOG:
         structlog.configure(
             wrapper_class=structlog.make_filtering_bound_logger(level),
+            logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
             processors=(
                 [
                     structlog.stdlib.add_log_level,

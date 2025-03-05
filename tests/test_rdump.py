@@ -72,8 +72,8 @@ def test_rdump_pipe(tmp_path: Path) -> None:
         stderr=subprocess.PIPE,
     )
     stdout, stderr = p2.communicate()
-    assert stderr.strip() == b"[reading from stdin]"
-    assert b"Are you perhaps entering record text, rather than a record stream?" in stdout.strip()
+    assert stdout.strip() == b""
+    assert b"Are you perhaps entering record text, rather than a record stream?" in stderr.strip()
 
     # rdump test.records -w - | rdump -s 'r.count in (1, 3, 9)' -w filtered.records
     path2 = tmp_path / "filtered.records"
