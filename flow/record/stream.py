@@ -146,8 +146,9 @@ class RecordStreamReader:
 def record_stream(sources: list[str], selector: str | None = None) -> Iterator[Record]:
     """Return a Record stream generator from the given Record sources.
 
-    Exceptions in a Record source will be caught so the stream is not interrupted.
+    If there are multiple sources, exceptions are caught and logged, and the stream continues with the next source.
     """
+
     log.debug("Record stream with selector: %r", selector)
     for src in sources:
         # Inform user that we are reading from stdin
@@ -165,7 +166,7 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
                 raise
             else:
                 log.error("%s(%r): %s", reader, src, e)
-                log.debug("", exc_info=e)
+                log.debug("Full traceback", exc_info=e)
         except KeyboardInterrupt:
             raise
         except Exception as e:

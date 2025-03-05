@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 import hashlib
 import logging
 import queue
@@ -115,28 +116,8 @@ class ElasticWriter(AbstractWriter):
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
         self.exception = getattr(exc, "exc_value", exc)
-
-        # Extend the exception with error information from Elastic.
-        # https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
-        if hasattr(self.exception, "errors"):
-            try:
-                unique_errors = set()
-                for error in self.exception.errors:
-                    i = error.get("index", {})
-                    unique_errors.add(
-                        f"({i.get('status')} {i.get('error', {}).get('type')} {i.get('error', {}).get('reason')})"
-                    )
-            except Exception:
-                unique_errors = ["unable to extend errors"]
-            self.exception.args = (f"{self.exception.args[0]} {', '.join(unique_errors)}",) + self.exception.args[1:]
-
+        self.exception = enrich_elastic_exception(self.exception)
         self.event.set()
-
-        # Close will raise the exception we just set, but we want the rdump process to catch it instead.
-        try:
-            self.close()
-        except Exception:
-            pass
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
@@ -189,7 +170,6 @@ class ElasticWriter(AbstractWriter):
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
             - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
         """
-        logging.getLogger("elastic_transport").setLevel(logging.CRITICAL)
 
         for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
@@ -219,10 +199,8 @@ class ElasticWriter(AbstractWriter):
             self.event.wait()
 
         if hasattr(self, "es"):
-            try:
+            with suppress(Exception):
                 self.es.close()
-            except Exception:
-                pass
 
         if hasattr(self, "exception") and self.exception:
             raise self.exception
@@ -284,3 +262,27 @@ class ElasticReader(AbstractReader):
     def close(self) -> None:
         if hasattr(self, "es"):
             self.es.close()
+
+
+def enrich_elastic_exception(exception: Exception) -> Exception:
+    """Extend the exception with error information from Elastic.
+
+    Resources:
+        - https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
+    """
+    errors = set()
+    if hasattr(exception, "errors"):
+        try:
+            for error in exception.errors:
+                i = error.get("index", {})
+                status = i.get("status")
+                type = i.get("error", {}).get("type")
+                reason = i.get("error", {}).get("reason")
+
+                errors.add(f"({status} {type} {reason})")
+        except Exception:
+            errors.add("unable to extend errors")
+
+    exception.args = (f"{exception.args[0]} {', '.join(errors)}",) + exception.args[1:]
+
+    return exception

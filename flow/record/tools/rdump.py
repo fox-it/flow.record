@@ -312,14 +312,14 @@ def main(argv: list[str] | None = None) -> int:
                 print_error(e)
 
     if (args.list or args.stats) and not args.progress:
-        print(f"Processed {count} records")
+        print(f"Processed {count} records", file=sys.stderr)
 
     return ret
 
 
 def print_error(e: Exception) -> None:
     log.error("rdump encountered a fatal error: %s", e)
-    log.debug("", exc_info=e)
+    log.debug("Full traceback", exc_info=e)
 
 
 if __name__ == "__main__":
