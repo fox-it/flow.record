@@ -312,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
                 print_error(e)
 
     if (args.list or args.stats) and not args.progress:
-        print(f"Processed {count} records", file=sys.stderr)
+        print(f"Processed {count} records", file=sys.stdout if args.list else sys.stderr)
 
     return ret
 
