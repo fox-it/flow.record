@@ -274,15 +274,20 @@ def enrich_elastic_exception(exception: Exception) -> Exception:
     if hasattr(exception, "errors"):
         try:
             for error in exception.errors:
-                i = error.get("index", {})
-                status = i.get("status")
-                type = i.get("error", {}).get("type")
-                reason = i.get("error", {}).get("reason")
+                index_dict = error.get("index", {})
+                status = index_dict.get("status")
+                error_dict = index_dict.get("error", {})
+                error_type = error_dict.get("type")
+                error_reason = error_dict.get("reason", "")
 
-                errors.add(f"({status} {type} {reason})")
+                errors.add(f"({status} {error_type} {error_reason})")
         except Exception:
             errors.add("unable to extend errors")
 
-    exception.args = (f"{exception.args[0]} {', '.join(errors)}",) + exception.args[1:]
+    # append errors to original exeption message
+    error_str = ", ".join(unique_errors)
+    original_message = self.exception.args[0] if self.exception.args else ""
+    new_message = f"{original_message} {error_str}"            
+    self.exception.args = (new_message,) + self.exception.args[1:]
 
     return exception
