@@ -266,6 +266,9 @@ class GroupedRecord(Record):
 
         self._desc = RecordDescriptor(self.name, [(f.typename, f.name) for f in self.flat_fields])
 
+        # _field_types to maintain compatibility with RecordDescriptor
+        self._field_types = self._desc.recordType._field_types
+
     def get_record_by_type(self, type_name: str) -> Record | None:
         """
         Get record in a GroupedRecord by type_name.
