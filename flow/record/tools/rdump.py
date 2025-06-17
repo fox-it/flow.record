@@ -32,12 +32,13 @@ except ImportError:
 try:
     import structlog
 
-    log = structlog.get_logger(__name__)
     HAS_STRUCTLOG = True
 
 except ImportError:
-    log = logging.getLogger(__name__)
     HAS_STRUCTLOG = False
+
+
+log = logging.getLogger(__name__)
 
 
 def list_adapters() -> None:
@@ -198,21 +199,27 @@ def main(argv: list[str] | None = None) -> int:
 
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     level = levels[min(len(levels) - 1, args.verbose)]
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
 
     if HAS_STRUCTLOG:
-        structlog.configure(
-            wrapper_class=structlog.make_filtering_bound_logger(level),
-            logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
-            processors=(
-                [
+        # We have structlog, configure Python logging to use it for rendering
+        console_renderer = structlog.dev.ConsoleRenderer()
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            structlog.stdlib.ProcessorFormatter(
+                processor=console_renderer,
+                foreign_pre_chain=[
+                    structlog.stdlib.add_logger_name,
                     structlog.stdlib.add_log_level,
                     structlog.processors.TimeStamper(fmt="iso"),
-                    structlog.dev.ConsoleRenderer(colors=True, pad_event=10),
-                ]
-            ),
+                ],
+            )
         )
-    else:
-        logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
+
+        # Clear existing handlers and add our structlog handler
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+        root_logger.addHandler(handler)
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
