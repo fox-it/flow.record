@@ -15,7 +15,7 @@ from flow.record.base import Record, RecordDescriptor, RecordReader
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
+from flow.record.utils import LOGGING_TRACE_LEVEL, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -149,6 +149,8 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
     If there are multiple sources, exceptions are caught and logged, and the stream continues with the next source.
     """
 
+    trace = log.isEnabledFor(LOGGING_TRACE_LEVEL)
+
     log.debug("Record stream with selector: %r", selector)
     for src in sources:
         # Inform user that we are reading from stdin
@@ -166,7 +168,8 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
                 raise
             else:
                 log.error("%s(%r): %s", reader, src, e)
-                log.debug("Full traceback", exc_info=e)
+                if trace:
+                    log.exception("Full traceback")
         except KeyboardInterrupt:
             raise
         except Exception as e:

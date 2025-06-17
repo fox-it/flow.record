@@ -14,7 +14,7 @@ import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
-from flow.record.utils import catch_sigpipe
+from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
 
 try:
     from flow.record.version import version
@@ -197,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG, LOGGING_TRACE_LEVEL]
     level = levels[min(len(levels) - 1, args.verbose)]
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -326,7 +326,8 @@ def main(argv: list[str] | None = None) -> int:
 
 def print_error(e: Exception) -> None:
     log.error("rdump encountered a fatal error: %s", e)
-    log.debug("Full traceback", exc_info=e)
+    if log.isEnabledFor(LOGGING_TRACE_LEVEL):
+        log.exception("Full traceback")
 
 
 if __name__ == "__main__":
