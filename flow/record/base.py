@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 
     from flow.record.adapter import AbstractReader, AbstractWriter
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 _utcnow = functools.partial(datetime.now, timezone.utc)
 
 RECORD_VERSION = 1

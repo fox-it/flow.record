@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
     from flow.record.adapter import AbstractWriter
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 
 aRepr = reprlib.Repr()
 aRepr.maxother = 255

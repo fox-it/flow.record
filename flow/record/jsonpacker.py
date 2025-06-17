@@ -11,7 +11,7 @@ from flow.record.base import Record, RecordDescriptor
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.utils import EventHandler
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 
 
 class JsonRecordPacker:
