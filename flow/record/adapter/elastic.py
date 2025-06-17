@@ -285,9 +285,9 @@ def enrich_elastic_exception(exception: Exception) -> Exception:
             errors.add("unable to extend errors")
 
     # append errors to original exeption message
-    error_str = ", ".join(unique_errors)
-    original_message = self.exception.args[0] if self.exception.args else ""
-    new_message = f"{original_message} {error_str}"            
-    self.exception.args = (new_message,) + self.exception.args[1:]
+    error_str = ", ".join(errors)
+    original_message = exception.args[0] if exception.args else ""
+    new_message = f"{original_message} {error_str}"
+    exception.args = (new_message,) + exception.args[1:]
 
     return exception
