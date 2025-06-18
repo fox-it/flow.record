@@ -9,7 +9,7 @@ from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, normalize_fieldname
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
+from flow.record.utils import boolean_argument, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -54,7 +54,7 @@ class CsvfileWriter(AbstractWriter):
             self.fields = self.fields.split(",")
         if isinstance(self.exclude, str):
             self.exclude = self.exclude.split(",")
-        self.header = header.lower() == "true"
+        self.header = boolean_argument(header)
 
     def write(self, r: Record) -> None:
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)

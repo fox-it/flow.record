@@ -107,7 +107,11 @@ def main(argv: list[str] | None = None) -> int:
     output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument(
-        "-m", "--mode", default=None, choices=("csv", "csv-no-header", "json", "jsonlines", "line", "line-verbose"), help="Output mode"
+        "-m",
+        "--mode",
+        default=None,
+        choices=("csv", "csv-no-header", "json", "jsonlines", "line", "line-verbose"),
+        help="Output mode",
     )
     output.add_argument(
         "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"

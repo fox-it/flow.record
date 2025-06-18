@@ -6,9 +6,9 @@ import os
 import pathlib
 import subprocess
 import sys
-from pathlib import Path
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from typing import Callable
 from unittest.mock import MagicMock, patch
 
