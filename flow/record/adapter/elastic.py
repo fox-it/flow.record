@@ -6,6 +6,8 @@ import queue
 import threading
 from typing import TYPE_CHECKING
 
+import urllib3
+
 try:
     import elasticsearch
     import elasticsearch.helpers
@@ -102,8 +104,6 @@ class ElasticWriter(AbstractWriter):
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            import urllib3
-
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         self.metadata_fields = {}
@@ -234,8 +234,6 @@ class ElasticReader(AbstractReader):
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            import urllib3
-
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:

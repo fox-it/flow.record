@@ -22,7 +22,7 @@ def test_uri_packing() -> None:
         ],
     )
 
-    # construct with an url
+    # Construct with an url
     record = TestRecord("http://www.google.com/evil.bin")
     data = packer.pack(record)
     record = packer.unpack(data)
@@ -30,8 +30,7 @@ def test_uri_packing() -> None:
     assert record.path.filename == "evil.bin"
     assert record.path.dirname == "/"
 
-    # construct from uri() -> for windows=True
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match="Construct from uri() -> for windows=True"):
         path = uri.from_windows(r"c:\Program Files\Fox-IT\flow is awesome.exe")
     record = TestRecord(path)
     data = packer.pack(record)
@@ -40,8 +39,7 @@ def test_uri_packing() -> None:
     assert record.path.filename == "flow is awesome.exe"
     assert record.path.dirname == "/Program Files/Fox-IT"
 
-    # construct using uri.from_windows()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning, match="Construct using uri.from_windows()"):
         path = uri.from_windows(r"c:\Users\Hello World\foo.bar.exe")
     record = TestRecord(path)
     data = packer.pack(record)

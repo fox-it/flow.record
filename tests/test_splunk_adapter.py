@@ -339,8 +339,6 @@ def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock) -> Non
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
 
-    from flow.record.adapter.splunk import Protocol, SourceType, SplunkWriter
-
     with patch.object(
         flow.record.adapter.splunk,
         "HAS_HTTPX",
@@ -386,8 +384,6 @@ def test_https_protocol_records_sourcetype(mock_httpx_package: MagicMock) -> Non
 def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock) -> None:
     if "flow.record.adapter.splunk" in sys.modules:
         del sys.modules["flow.record.adapter.splunk"]
-
-    from flow.record.adapter.splunk import SplunkWriter
 
     with patch.object(
         flow.record.adapter.splunk,

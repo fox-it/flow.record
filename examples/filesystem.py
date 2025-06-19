@@ -1,9 +1,17 @@
+from __future__ import annotations
+
 import os
 import stat
-
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from flow.record import RecordDescriptor, RecordWriter
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 descriptor = """
 filesystem/unix/entry
@@ -22,31 +30,29 @@ filesystem/unix/entry
 FilesystemFile = RecordDescriptor(descriptor)
 
 
-def hash_file(path, t):
-    f = open(path, "rb")
-    while 1:
-        d = f.read(4096)
-        if d == "":
-            break
-    f.close()
+def hash_file(path: str | Path) -> None:
+    with Path(path).open("rb") as f:
+        while 1:
+            d = f.read(4096)
+            if d == "":
+                break
 
 
 class FilesystemIterator:
     basepath = None
 
-    def __init__(self, basepath):
+    def __init__(self, basepath: str | None):
         self.basepath = basepath
         self.recordType = FilesystemFile
 
-    def classify(self, source, classification):
+    def classify(self, source: str, classification: str) -> None:
         self.recordType = FilesystemFile.base(_source=source, _classification=classification)
 
-    def iter(self, path):
-        path = os.path.abspath(path)
-        return self._iter(path)
+    def iter(self, path: Path) -> Iterator[FilesystemFile]:
+        return self._iter(path.resolve())
 
-    def _iter(self, path):
-        if path.startswith("/proc"):
+    def _iter(self, path: Path) -> Iterator[FilesystemFile]:
+        if "proc" in path.parts:
             return
 
         st = os.lstat(path)
@@ -59,7 +65,7 @@ class FilesystemIterator:
 
         link = None
         if ifmt == stat.S_IFLNK:
-            link = os.readlink(path)
+            link = path.readlink()
 
         yield self.recordType(
             path=abspath,
@@ -69,20 +75,19 @@ class FilesystemIterator:
             size=st.st_size,
             uid=st.st_uid,
             gid=st.st_gid,
-            ctime=datetime.fromtimestamp(st.st_ctime),
-            mtime=datetime.fromtimestamp(st.st_mtime),
-            atime=datetime.fromtimestamp(st.st_atime),
+            ctime=datetime.fromtimestamp(st.st_ctime, tz=ZoneInfo("UTC")),
+            mtime=datetime.fromtimestamp(st.st_mtime, tz=ZoneInfo("UTC")),
+            atime=datetime.fromtimestamp(st.st_atime, tz=ZoneInfo("UTC")),
             link=link,
         )
 
         if ifmt == stat.S_IFDIR:
-            for i in os.listdir(path):
+            for i in path.iterdir():
                 if i in (".", ".."):
                     continue
 
-                fullpath = os.path.join(path, i)
-                for e in self.iter(fullpath):
-                    yield e
+                fullpath = path.joinpath(i)
+                yield from self.iter(fullpath)
 
 
 chunk = []

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from importlib import import_module
@@ -69,8 +70,6 @@ def list_adapters() -> None:
 
 @catch_sigpipe
 def main(argv: list[str] | None = None) -> int:
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Record dumper, a tool that can read, write and filter records",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,

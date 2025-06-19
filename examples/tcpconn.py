@@ -1,6 +1,7 @@
 import random
-
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from flow import record
 
 descriptor = """
@@ -32,9 +33,9 @@ port_list = [
 
 rs = record.RecordWriter()
 
-for i in range(500):
+for _ in range(500):
     r = conn(
-        ts=datetime.now(),
+        ts=datetime.now(tz=ZoneInfo("UTC")),
         src=random.choice(ip_list),
         srcport=random.choice(port_list),
         dst=random.choice(ip_list),

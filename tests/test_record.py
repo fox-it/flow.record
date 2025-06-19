@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from flow.record import (
+    IGNORE_FIELDS_FOR_COMPARISON,
     RECORD_VERSION,
     GroupedRecord,
     Record,
@@ -861,8 +862,6 @@ def test_compare_environment_variable() -> None:
             del sys.modules[key]
 
         importlib.import_module("flow.record")
-
-        from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
 
         assert {"_generated", "lastname"} == IGNORE_FIELDS_FOR_COMPARISON
 

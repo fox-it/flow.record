@@ -376,15 +376,15 @@ def test_uri_type() -> None:
     assert r.path.protocol == "http"
     assert r.path.hostname == "example.com"
 
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning):  # noqa
         r = TestRecord(uri.from_windows(r"c:\windows\program files\Fox-IT B.V\flow.exe"))
     assert r.path.filename == "flow.exe"
 
     r = TestRecord()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning):  # noqa
         r.path = uri.normalize(r"c:\Users\Fox-IT\Downloads\autoruns.exe")
     assert r.path.filename == "autoruns.exe"
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(DeprecationWarning):  # noqa
         assert r.path.dirname == uri.normalize(r"\Users\Fox-IT\Downloads")
     assert r.path.dirname == "/Users/Fox-IT/Downloads"
 
