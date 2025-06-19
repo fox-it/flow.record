@@ -151,7 +151,7 @@ def test_grouped_record() -> None:
             ("string", "hello"),
         ],
     )
-    excpected_field_types = {
+    expected_field_types = {
         "hello": fieldtypes.string,
         "world": fieldtypes.string,
         "count": fieldtypes.uint32,
@@ -196,9 +196,9 @@ def test_grouped_record() -> None:
     assert rdict["profile"] == "omg"
     assert rdict["count"] == 12345
 
-    # Test gourped._field_types
+    # Test grouped._field_types
     assert grouped._field_types
-    assert grouped._field_types == excpected_field_types
+    assert grouped._field_types == expected_field_types
 
 
 def test_grouped_records_packing(tmp_path: Path) -> None:
