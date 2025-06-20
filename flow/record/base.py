@@ -265,9 +265,12 @@ class GroupedRecord(Record):
                 self.fieldname_to_record[fname] = rec
                 if fname not in required_fields:
                     self.flat_fields.append(field)
-        # flat descriptor to maintain compatibility with Record
+        # Flat descriptor to maintain compatibility with Record
 
         self._desc = RecordDescriptor(self.name, [(f.typename, f.name) for f in self.flat_fields])
+
+        # _field_types to maintain compatibility with RecordDescriptor
+        self._field_types = self._desc.recordType._field_types
 
     def get_record_by_type(self, type_name: str) -> Record | None:
         """
