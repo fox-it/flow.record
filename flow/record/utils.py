@@ -117,3 +117,32 @@ class EventHandler:
     def __call__(self, *args, **kwargs) -> None:
         for h in self.handlers:
             h(*args, **kwargs)
+
+
+def boolean_argument(value: str | bool | int) -> bool:
+    """Convert a string, boolean, or integer to a boolean value.
+
+    This function interprets various string representations of boolean values,
+    such as "true", "false", "1", "0", "yes", "no".
+    It also accepts boolean and integer values directly.
+
+    Arguments:
+        value: The value to convert. Can be a string, boolean, or integer.
+
+    Returns:
+        bool: The converted boolean value.
+
+    Raises:
+        ValueError: If the value cannot be interpreted as a boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return bool(value)
+    if isinstance(value, str):
+        value = value.lower()
+        if value in ("true", "1", "y", "yes", "on"):
+            return True
+        if value in ("false", "0", "n", "no", "off"):
+            return False
+    raise ValueError(f"Invalid boolean argument: {value}")

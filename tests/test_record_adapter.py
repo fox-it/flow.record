@@ -242,7 +242,7 @@ def test_record_adapter_archive(tmp_path: Path) -> None:
 
     # defaults to always archive by /YEAR/MONTH/DAY/ dir structure
     outdir = tmp_path.joinpath(f"{dt:%Y/%m/%d}")
-    assert len(list(outdir.iterdir()))
+    assert list(outdir.iterdir())
 
     # read the archived records and test filename and counts
     count2 = 0

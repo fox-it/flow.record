@@ -8,6 +8,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from typing import Callable
 from unittest.mock import MagicMock, patch
 
@@ -689,6 +690,25 @@ def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> No
 
     stdout = capsysbinary.readouterr().out
     assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
+
+
+def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
+    """Test rdump regression where selected fields was not propagated properly to adapter."""
+
+    # Pastebin record used for this test
+    example_records_json_path = Path(__file__).parent.parent / "examples" / "records.json"
+
+    # rdump --fields key,title,syntax --csv
+    rdump.main([str(example_records_json_path), "--fields", "key,title,syntax", "--csv"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out == b"key,title,syntax\r\nQ42eWSaF,A sample pastebin record,text\r\n"
+
+    # rdump --fields key,title,syntax --csv
+    rdump.main([str(example_records_json_path), "--fields", "key,title,syntax", "--csv-no-header"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out == b"Q42eWSaF,A sample pastebin record,text\r\n"
 
 
 if __name__ == "__main__":
