@@ -21,6 +21,7 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
+from flow.record.utils import boolean_argument
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -74,9 +75,9 @@ class ElasticWriter(AbstractWriter):
 
         self.index = index
         self.uri = uri
-        verify_certs = str(verify_certs).lower() in ("1", "true")
-        http_compress = str(http_compress).lower() in ("1", "true")
-        self.hash_record = str(hash_record).lower() in ("1", "true")
+        verify_certs = boolean_argument(verify_certs)
+        http_compress = boolean_argument(http_compress)
+        self.hash_record = boolean_argument(hash_record)
         queue_size = int(queue_size)
 
         if not uri.lower().startswith(("http://", "https://")):
@@ -216,8 +217,8 @@ class ElasticReader(AbstractReader):
         self.index = index
         self.uri = uri
         self.selector = selector
-        verify_certs = str(verify_certs).lower() in ("1", "true")
-        http_compress = str(http_compress).lower() in ("1", "true")
+        verify_certs = boolean_argument(verify_certs)
+        http_compress = boolean_argument(http_compress)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri

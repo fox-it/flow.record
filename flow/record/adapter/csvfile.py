@@ -9,7 +9,7 @@ from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, normalize_fieldname
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
+from flow.record.utils import boolean_argument, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -17,11 +17,12 @@ if TYPE_CHECKING:
 __usage__ = """
 Comma-separated values (CSV) adapter
 ---
-Write usage: rdump -w csvfile://[PATH]?lineterminator=[TERMINATOR]
+Write usage: rdump -w csvfile://[PATH]?lineterminator=[TERMINATOR]&header=[HEADER]
 Read usage: rdump csvfile://[PATH]?fields=[FIELDS]
 [PATH]: path to file. Leave empty or "-" to output to stdout
 
 Optional parameters:
+    [HEADER]: if set to false, it will not print the CSV header (default: true)
     [TERMINATOR]: line terminator, default is \\r\\n
     [FIELDS]: comma-separated list of CSV fields (in case of missing CSV header)
 """
@@ -34,6 +35,7 @@ class CsvfileWriter(AbstractWriter):
         fields: str | list[str] | None = None,
         exclude: str | list[str] | None = None,
         lineterminator: str = "\r\n",
+        header: str = "true",
         **kwargs,
     ):
         self.fp = None
@@ -52,13 +54,16 @@ class CsvfileWriter(AbstractWriter):
             self.fields = self.fields.split(",")
         if isinstance(self.exclude, str):
             self.exclude = self.exclude.split(",")
+        self.header = boolean_argument(header)
 
     def write(self, r: Record) -> None:
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)
         if not self.desc or self.desc != r._desc:
             self.desc = r._desc
             self.writer = csv.DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
-            self.writer.writeheader()
+            if self.header:
+                # Write header only if it is requested
+                self.writer.writeheader()
         self.writer.writerow(rdict)
 
     def flush(self) -> None:
