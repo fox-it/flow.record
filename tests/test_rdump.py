@@ -17,6 +17,7 @@ import pytest
 
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record.adapter.line import field_types_for_record_descriptor
 from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
 
@@ -680,8 +681,6 @@ def test_rdump_line_verbose(tmp_path: Path, capsys: pytest.CaptureFixture, rdump
         writer.write(TestRecord(counter=1))
         writer.write(TestRecord(counter=2))
         writer.write(TestRecord(counter=3))
-
-    from flow.record.adapter.line import field_types_for_record_descriptor
 
     field_types_for_record_descriptor.cache_clear()
     assert field_types_for_record_descriptor.cache_info().currsize == 0

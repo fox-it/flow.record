@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from typing import Callable
 
 
@@ -14,6 +15,5 @@ def main(glob: dict[str, Callable[..., None]]) -> None:
             print("PASSED")
         except Exception:
             print("FAILED")
-            import traceback
 
             traceback.print_exc()

@@ -56,10 +56,14 @@ duckdb = [
 splunk = [
     "httpx",
 ]
+xlsx = [
+    "openpyxl",
+]
 test = [
     "flow.record[compression]",
     "flow.record[avro]",
     "flow.record[elastic]",
+    "flow.record[xlsx]",
     "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "tqdm",

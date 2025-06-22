@@ -186,6 +186,7 @@ class Record:
         return OrderedDict((k, getattr(self, k)) for k in self.__slots__ if k not in exclude)
 
     if TYPE_CHECKING:
+
         def __getattr__(self, name: str) -> Any: ...
 
     def __setattr__(self, k: str, v: Any) -> None:

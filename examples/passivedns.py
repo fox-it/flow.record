@@ -1,18 +1,21 @@
 #!/usr/bin/env pypy
-import record
+from __future__ import annotations
+
 import sys
-import datetime
+from datetime import datetime, timezone
 
 import net.ipv4
-
+import record
 from fileprocessing import DirectoryProcessor
 
-
-def ts(s):
-    return datetime.datetime.fromtimestamp(float(s))
+UTC_TIMEZONE = timezone.utc
 
 
-def ip(s):
+def ts(s: float) -> datetime:
+    return datetime.fromtimestamp(float(s), tz=UTC_TIMEZONE)
+
+
+def ip(s: str) -> net.ipv4.Address:
     return net.ipv4.Address(s)
 
 
@@ -21,7 +24,7 @@ class SeparatedFile:
     seperator = None
     format = None
 
-    def __init__(self, fp, seperator, format):
+    def __init__(self, fp: list[str], seperator: str | None, format: list[tuple]):
         self.fp = fp
         self.seperator = seperator
         self.format = format
@@ -46,7 +49,7 @@ class SeparatedFile:
             yield recordtype(**r)
 
 
-def PassiveDnsFile(fp):
+def PassiveDnsFile(fp: list[str]) -> SeparatedFile:
     return SeparatedFile(fp, "||", PASSIVEDNS_FORMAT)
 
 
@@ -63,7 +66,7 @@ PASSIVEDNS_FORMAT = [
 ]
 
 
-def main():
+def main() -> None:
     rs = record.RecordOutput(sys.stdout)
     for r in DirectoryProcessor(sys.argv[1], PassiveDnsFile, r"\.log\.gz"):
         rs.write(r)
