@@ -9,8 +9,11 @@ import record
 from fileprocessing import DirectoryProcessor
 
 
+UTC_TIMEZONE = timezone.utc
+
+
 def ts(s: float) -> datetime:
-    return datetime.fromtimestamp(float(s), tz=timezone.utc)
+    return datetime.fromtimestamp(float(s), tz=UTC_TIMEZONE)
 
 
 def ip(s: str) -> net.ipv4.Address:
