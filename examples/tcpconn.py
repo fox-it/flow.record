@@ -1,8 +1,9 @@
 import random
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 from flow import record
+
+UTC_TIMEZONE = timezone.utc
 
 descriptor = """
 network/traffic/tcp/connection
@@ -35,7 +36,7 @@ rs = record.RecordWriter()
 
 for _ in range(500):
     r = conn(
-        ts=datetime.now(tz=ZoneInfo("UTC")),
+        ts=datetime.now(tz=UTC_TIMEZONE),
         src=random.choice(ip_list),
         srcport=random.choice(port_list),
         dst=random.choice(ip_list),

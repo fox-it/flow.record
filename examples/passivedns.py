@@ -8,7 +8,6 @@ import net.ipv4
 import record
 from fileprocessing import DirectoryProcessor
 
-
 UTC_TIMEZONE = timezone.utc
 
 
