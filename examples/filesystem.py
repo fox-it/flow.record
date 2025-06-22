@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import os
 import stat
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 from flow.record import RecordDescriptor, RecordWriter
 
@@ -83,9 +80,6 @@ class FilesystemIterator:
 
         if ifmt == stat.S_IFDIR:
             for i in path.iterdir():
-                if i in (".", ".."):
-                    continue
-
                 fullpath = path.joinpath(i)
                 yield from self.iter(fullpath)
 
