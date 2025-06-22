@@ -32,9 +32,9 @@ FilesystemFile = RecordDescriptor(descriptor)
 
 def hash_file(path: str | Path) -> None:
     with Path(path).open("rb") as f:
-        while 1:
+        while True:
             d = f.read(4096)
-            if d == "":
+            if not d:
                 break
 
 
@@ -48,14 +48,14 @@ class FilesystemIterator:
     def classify(self, source: str, classification: str) -> None:
         self.recordType = FilesystemFile.base(_source=source, _classification=classification)
 
-    def iter(self, path: Path) -> Iterator[FilesystemFile]:
-        return self._iter(path.resolve())
+    def iter(self, path: str | Path) -> Iterator[FilesystemFile]:
+        return self._iter(Path(path).resolve())
 
     def _iter(self, path: Path) -> Iterator[FilesystemFile]:
-        if "proc" in path.parts:
+        if path.is_relative_to("/proc"):
             return
 
-        st = os.lstat(path)
+        st = path.lstat()
 
         abspath = path
         if self.basepath and abspath.startswith(self.basepath):
@@ -75,9 +75,9 @@ class FilesystemIterator:
             size=st.st_size,
             uid=st.st_uid,
             gid=st.st_gid,
-            ctime=datetime.fromtimestamp(st.st_ctime, tz=ZoneInfo("UTC")),
-            mtime=datetime.fromtimestamp(st.st_mtime, tz=ZoneInfo("UTC")),
-            atime=datetime.fromtimestamp(st.st_atime, tz=ZoneInfo("UTC")),
+            ctime=st.st_ctime,
+            mtime=st.st_mtime,
+            atime=st.st_atime,
             link=link,
         )
 
