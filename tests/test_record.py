@@ -879,7 +879,6 @@ def test_compare_environment_variable() -> None:
 
         from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
 
-        print(f"{IGNORE_FIELDS_FOR_COMPARISON=}")
         assert {"_generated", "lastname"} == IGNORE_FIELDS_FOR_COMPARISON
 
         TestRecord = RecordDescriptor(
