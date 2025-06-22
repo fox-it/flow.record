@@ -1,17 +1,16 @@
 #!/usr/bin/env pypy
 from __future__ import annotations
 
-import datetime
 import sys
-from zoneinfo import ZoneInfo
+from datetime import datetime, timezone
 
 import net.ipv4
 import record
 from fileprocessing import DirectoryProcessor
 
 
-def ts(s: float) -> datetime.datetime:
-    return datetime.datetime.fromtimestamp(float(s), tz=ZoneInfo("UTC"))
+def ts(s: float) -> datetime:
+    return datetime.fromtimestamp(float(s), tz=timezone.utc)
 
 
 def ip(s: str) -> net.ipv4.Address:
