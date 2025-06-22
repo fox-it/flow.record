@@ -152,6 +152,17 @@ def test_grouped_record() -> None:
             ("string", "hello"),
         ],
     )
+    expected_field_types = {
+        "hello": fieldtypes.string,
+        "world": fieldtypes.string,
+        "count": fieldtypes.uint32,
+        "assignee": fieldtypes.string,
+        "profile": fieldtypes.string,
+        "_source": fieldtypes.string,
+        "_classification": fieldtypes.string,
+        "_generated": fieldtypes.datetime,
+        "_version": fieldtypes.varint,
+    }
 
     test_record = TestRecord("a", "b", 12345)
     meta_record = WQMetaRecord("me", "this is a test", "other hello")
@@ -177,7 +188,7 @@ def test_grouped_record() -> None:
 
     assert len(grouped.records) == 2
 
-    # test grouped._asdict
+    # Test grouped._asdict
     rdict = grouped._asdict()
     assert {"hello", "world", "count", "assignee", "profile"} <= set(rdict)
 
@@ -185,6 +196,10 @@ def test_grouped_record() -> None:
     assert {"profile", "count", "_generated"} == set(rdict)
     assert rdict["profile"] == "omg"
     assert rdict["count"] == 12345
+
+    # Test grouped._field_types
+    assert grouped._field_types
+    assert grouped._field_types == expected_field_types
 
 
 def test_grouped_records_packing(tmp_path: Path) -> None:
