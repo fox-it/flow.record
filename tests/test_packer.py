@@ -30,7 +30,9 @@ def test_uri_packing() -> None:
     assert record.path.filename == "evil.bin"
     assert record.path.dirname == "/"
 
-    with pytest.warns(DeprecationWarning, match="Construct from uri() -> for windows=True"):
+    with pytest.warns(
+        DeprecationWarning, match=r"Do not use class uri\(...\) for filesystem paths, use class path\(...\)"
+    ):
         path = uri.from_windows(r"c:\Program Files\Fox-IT\flow is awesome.exe")
     record = TestRecord(path)
     data = packer.pack(record)
@@ -39,7 +41,9 @@ def test_uri_packing() -> None:
     assert record.path.filename == "flow is awesome.exe"
     assert record.path.dirname == "/Program Files/Fox-IT"
 
-    with pytest.warns(DeprecationWarning, match="Construct using uri.from_windows()"):
+    with pytest.warns(
+        DeprecationWarning, match=r"Do not use class uri\(...\) for filesystem paths, use class path\(...\)"
+    ):
         path = uri.from_windows(r"c:\Users\Hello World\foo.bar.exe")
     record = TestRecord(path)
     data = packer.pack(record)

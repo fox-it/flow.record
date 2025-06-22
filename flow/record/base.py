@@ -117,6 +117,7 @@ else:
 def set_ignored_fields_for_comparison(ignored_fields: Iterator[str]) -> None:
     """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
     global IGNORE_FIELDS_FOR_COMPARISON
+    print(f"{ignored_fields=}")
     IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
 
 
@@ -186,6 +187,7 @@ class Record:
         return OrderedDict((k, getattr(self, k)) for k in self.__slots__ if k not in exclude)
 
     if TYPE_CHECKING:
+
         def __getattr__(self, name: str) -> Any: ...
 
     def __setattr__(self, k: str, v: Any) -> None:
