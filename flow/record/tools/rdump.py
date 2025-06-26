@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from importlib import import_module
@@ -78,8 +79,6 @@ def list_adapters() -> None:
 
 @catch_sigpipe
 def main(argv: list[str] | None = None) -> int:
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Record dumper, a tool that can read, write and filter records",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -116,7 +115,11 @@ def main(argv: list[str] | None = None) -> int:
     output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument(
-        "-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line", "line-verbose"), help="Output mode"
+        "-m",
+        "--mode",
+        default=None,
+        choices=("csv", "csv-no-header", "json", "jsonlines", "line", "line-verbose"),
+        help="Output mode",
     )
     output.add_argument(
         "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
@@ -194,6 +197,15 @@ def main(argv: list[str] | None = None) -> int:
         default=argparse.SUPPRESS,
         help="Short for --mode=line-verbose",
     )
+    aliases.add_argument(
+        "-Cn",
+        "--csv-no-header",
+        action="store_const",
+        const="csv-no-header",
+        dest="mode",
+        default=argparse.SUPPRESS,
+        help="Short for --mode=csv-no-header",
+    )
 
     args = parser.parse_args(argv)
 
@@ -232,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.writer:
         mode_to_uri = {
             "csv": "csvfile://",
+            "csv-no-header": "csvfile://?header=false",
             "json": "jsonfile://?indent=2&descriptors=false",
             "jsonlines": "jsonfile://?descriptors=false",
             "line": "line://",
@@ -244,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
-        uri += "&" if urlparse(uri).query else "?" + query
+        uri += f"&{query}" if urlparse(uri).query else f"?{query}"
 
     if args.split:
         if not args.writer:
@@ -255,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         query_dict = dict(parse_qsl(parsed.query))
         query_dict.update({"count": args.split, "suffix-length": args.suffix_length})
         query = urlencode(query_dict)
-        uri = parsed.scheme + "://" + parsed.netloc + parsed.path + "?" + query
+        uri = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{query}"
 
     record_field_rewriter = None
     if fields or fields_to_exclude or args.exec_expression:

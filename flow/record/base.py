@@ -185,6 +185,10 @@ class Record:
             return OrderedDict((k, getattr(self, k)) for k in fields if k in self.__slots__ and k not in exclude)
         return OrderedDict((k, getattr(self, k)) for k in self.__slots__ if k not in exclude)
 
+    if TYPE_CHECKING:
+
+        def __getattr__(self, name: str) -> Any: ...
+
     def __setattr__(self, k: str, v: Any) -> None:
         """Enforce setting the fields to their respective types."""
         # NOTE: This is a HOT code path

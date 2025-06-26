@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from flow.record import fieldtypes
+from flow.record.adapter.xlsx import sanitize_fieldvalues
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -27,8 +28,6 @@ def mock_openpyxl_package(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock
 
 
 def test_sanitize_field_values(mock_openpyxl_package: MagicMock) -> None:
-    from flow.record.adapter.xlsx import sanitize_fieldvalues
-
     assert list(
         sanitize_fieldvalues(
             [

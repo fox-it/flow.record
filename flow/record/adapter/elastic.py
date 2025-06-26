@@ -7,6 +7,8 @@ import threading
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
+import urllib3
+
 try:
     import elasticsearch
     import elasticsearch.helpers
@@ -20,6 +22,7 @@ from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
+from flow.record.utils import boolean_argument
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -73,9 +76,9 @@ class ElasticWriter(AbstractWriter):
 
         self.index = index
         self.uri = uri
-        verify_certs = str(verify_certs).lower() in ("1", "true")
-        http_compress = str(http_compress).lower() in ("1", "true")
-        self.hash_record = str(hash_record).lower() in ("1", "true")
+        verify_certs = boolean_argument(verify_certs)
+        http_compress = boolean_argument(http_compress)
+        self.hash_record = boolean_argument(hash_record)
         queue_size = int(queue_size)
         request_timeout = int(request_timeout)
         self.max_retries = int(max_retries)
@@ -105,8 +108,6 @@ class ElasticWriter(AbstractWriter):
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            import urllib3
-
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         self.metadata_fields = {}
@@ -222,8 +223,8 @@ class ElasticReader(AbstractReader):
         self.index = index
         self.uri = uri
         self.selector = selector
-        verify_certs = str(verify_certs).lower() in ("1", "true")
-        http_compress = str(http_compress).lower() in ("1", "true")
+        verify_certs = boolean_argument(verify_certs)
+        http_compress = boolean_argument(http_compress)
         request_timeout = int(request_timeout)
         max_retries = int(max_retries)
 
@@ -242,8 +243,6 @@ class ElasticReader(AbstractReader):
 
         if not verify_certs:
             # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            import urllib3
-
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:

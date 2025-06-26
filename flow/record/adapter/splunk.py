@@ -18,7 +18,7 @@ except ImportError:
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.jsonpacker import JsonRecordPacker
-from flow.record.utils import to_base64, to_bytes, to_str
+from flow.record.utils import boolean_argument, to_base64, to_bytes, to_str
 
 if TYPE_CHECKING:
     from flow.record.base import Record
@@ -218,7 +218,7 @@ class SplunkWriter(AbstractWriter):
                 self.token = f"Splunk {self.token}"
 
             # Assume verify=True unless specified otherwise.
-            self.verify = str(ssl_verify).lower() not in ("0", "false")
+            self.verify = boolean_argument(ssl_verify)
             if not self.verify:
                 log.warning("Certificate verification is disabled")
 
