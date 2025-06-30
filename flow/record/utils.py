@@ -7,6 +7,8 @@ import warnings
 from functools import wraps
 from typing import Any, BinaryIO, Callable, TextIO
 
+LOGGING_TRACE_LEVEL = 5
+
 
 def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
     """Return the stdout stream as binary or text stream.

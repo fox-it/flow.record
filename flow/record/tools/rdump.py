@@ -15,7 +15,7 @@ import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
-from flow.record.utils import catch_sigpipe
+from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
 
 try:
     from flow.record.version import version
@@ -29,6 +29,15 @@ try:
 
 except ImportError:
     HAS_TQDM = False
+
+try:
+    import structlog
+
+    HAS_STRUCTLOG = True
+
+except ImportError:
+    HAS_STRUCTLOG = False
+
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +138,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Show progress bar (requires tqdm)",
     )
+    output.add_argument(
+        "--stats",
+        action="store_true",
+        help="Show count of processed records",
+    )
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -195,9 +209,29 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG, LOGGING_TRACE_LEVEL]
     level = levels[min(len(levels) - 1, args.verbose)]
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
+
+    if HAS_STRUCTLOG:
+        # We have structlog, configure Python logging to use it for rendering
+        console_renderer = structlog.dev.ConsoleRenderer()
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            structlog.stdlib.ProcessorFormatter(
+                processor=console_renderer,
+                foreign_pre_chain=[
+                    structlog.stdlib.add_logger_name,
+                    structlog.stdlib.add_log_level,
+                    structlog.processors.TimeStamper(fmt="iso"),
+                ],
+            )
+        )
+
+        # Clear existing handlers and add our structlog handler
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+        root_logger.addHandler(handler)
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
@@ -252,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
 
     count = 0
     record_writer = None
+    ret = 0
 
     try:
         record_writer = RecordWriter(uri)
@@ -279,14 +314,33 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     record_writer.write(rec)
 
+    except Exception as e:
+        print_error(e)
+
+        # Prevent throwing an exception twice when deconstructing the record writer.
+        if hasattr(record_writer, "exception") and record_writer.exception is e:
+            record_writer.exception = None
+
+        ret = 1
+
     finally:
         if record_writer:
-            record_writer.__exit__()
+            # Exceptions raised in threads can be thrown when deconstructing the writer.
+            try:
+                record_writer.__exit__()
+            except Exception as e:
+                print_error(e)
 
-    if args.list:
-        print(f"Processed {count} records")
+    if (args.list or args.stats) and not args.progress:
+        print(f"Processed {count} records", file=sys.stdout if args.list else sys.stderr)
 
-    return 0
+    return ret
+
+
+def print_error(e: Exception) -> None:
+    log.error("rdump encountered a fatal error: %s", e)
+    if log.isEnabledFor(LOGGING_TRACE_LEVEL):
+        log.exception("Full traceback")
 
 
 if __name__ == "__main__":

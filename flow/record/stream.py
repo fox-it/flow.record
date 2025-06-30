@@ -15,14 +15,14 @@ from flow.record.base import Record, RecordDescriptor, RecordReader
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
 from flow.record.selector import make_selector
-from flow.record.utils import is_stdout
+from flow.record.utils import LOGGING_TRACE_LEVEL, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from flow.record.adapter import AbstractWriter
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 
 aRepr = reprlib.Repr()
 aRepr.maxother = 255
@@ -146,8 +146,11 @@ class RecordStreamReader:
 def record_stream(sources: list[str], selector: str | None = None) -> Iterator[Record]:
     """Return a Record stream generator from the given Record sources.
 
-    Exceptions in a Record source will be caught so the stream is not interrupted.
+    If there are multiple sources, exceptions are caught and logged, and the stream continues with the next source.
     """
+
+    trace = log.isEnabledFor(LOGGING_TRACE_LEVEL)
+
     log.debug("Record stream with selector: %r", selector)
     for src in sources:
         # Inform user that we are reading from stdin
@@ -161,12 +164,20 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             yield from reader
             reader.close()
         except IOError as e:
-            log.exception("%s(%r): %s", reader, src, e)  # noqa: TRY401
+            if len(sources) == 1:
+                raise
+            else:
+                log.error("%s(%r): %s", reader, src, e)
+                if trace:
+                    log.exception("Full traceback")
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
-            continue
+            if len(sources) == 1:
+                raise
+            else:
+                log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
+                continue
 
 
 class PathTemplateWriter:

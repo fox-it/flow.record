@@ -4,6 +4,7 @@ import hashlib
 import logging
 import queue
 import threading
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 import urllib3
@@ -79,6 +80,8 @@ class ElasticWriter(AbstractWriter):
         http_compress = boolean_argument(http_compress)
         self.hash_record = boolean_argument(hash_record)
         queue_size = int(queue_size)
+        request_timeout = int(request_timeout)
+        self.max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
@@ -95,7 +98,7 @@ class ElasticWriter(AbstractWriter):
             api_key=api_key,
             request_timeout=request_timeout,
             retry_on_timeout=True,
-            max_retries=max_retries,
+            max_retries=self.max_retries,
         )
 
         self.json_packer = JsonRecordPacker()
@@ -113,10 +116,9 @@ class ElasticWriter(AbstractWriter):
                 self.metadata_fields[arg_key[6:]] = arg_val
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
-        log.error("Exception in thread: %s", exc)
         self.exception = getattr(exc, "exc_value", exc)
+        self.exception = enrich_elastic_exception(self.exception)
         self.event.set()
-        self.close()
 
     def record_to_document(self, record: Record, index: str) -> dict:
         """Convert a record to a Elasticsearch compatible document dictionary"""
@@ -169,13 +171,13 @@ class ElasticWriter(AbstractWriter):
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
             - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
         """
+
         for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),
             raise_on_error=True,
             raise_on_exception=True,
-            # Some settings have to be redefined because streaming_bulk does not inherit them from the self.es instance.
-            max_retries=3,
+            max_retries=self.max_retries,
         ):
             pass
 
@@ -191,13 +193,17 @@ class ElasticWriter(AbstractWriter):
         pass
 
     def close(self) -> None:
-        self.queue.put(StopIteration)
-        self.event.wait()
+        if hasattr(self, "queue"):
+            self.queue.put(StopIteration)
+
+        if hasattr(self, "event"):
+            self.event.wait()
 
         if hasattr(self, "es"):
-            self.es.close()
+            with suppress(Exception):
+                self.es.close()
 
-        if self.exception:
+        if hasattr(self, "exception") and self.exception:
             raise self.exception
 
 
@@ -219,6 +225,8 @@ class ElasticReader(AbstractReader):
         self.selector = selector
         verify_certs = boolean_argument(verify_certs)
         http_compress = boolean_argument(http_compress)
+        request_timeout = int(request_timeout)
+        max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
             uri = "http://" + uri
@@ -253,3 +261,32 @@ class ElasticReader(AbstractReader):
     def close(self) -> None:
         if hasattr(self, "es"):
             self.es.close()
+
+
+def enrich_elastic_exception(exception: Exception) -> Exception:
+    """Extend the exception with error information from Elastic.
+
+    Resources:
+        - https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
+    """
+    errors = set()
+    if hasattr(exception, "errors"):
+        try:
+            for error in exception.errors:
+                index_dict = error.get("index", {})
+                status = index_dict.get("status")
+                error_dict = index_dict.get("error", {})
+                error_type = error_dict.get("type")
+                error_reason = error_dict.get("reason", "")
+
+                errors.add(f"({status} {error_type} {error_reason})")
+        except Exception:
+            errors.add("unable to extend errors")
+
+    # append errors to original exception message
+    error_str = ", ".join(errors)
+    original_message = exception.args[0] if exception.args else ""
+    new_message = f"{original_message} {error_str}"
+    exception.args = (new_message,) + exception.args[1:]
+
+    return exception

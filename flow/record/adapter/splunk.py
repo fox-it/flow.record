@@ -35,7 +35,7 @@ Write usage: rdump -w splunk+[PROTOCOL]://[IP]:[PORT]?tag=[TAG]&token=[TOKEN]&so
 [SSL_VERIFY]: Whether to verify the server certificate when sending data over HTTPS. Defaults to True.
 """
 
-log = logging.getLogger(__package__)
+log = logging.getLogger(__name__)
 
 # Amount of records to bundle into a single request when sending data over HTTP(S).
 RECORD_BUFFER_LIMIT = 20

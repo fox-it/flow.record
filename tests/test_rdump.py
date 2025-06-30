@@ -720,4 +720,3 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
     # stdout should contain the RecordDescriptor definition and count
     assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
-    assert "Processed 100 records" in captured.out
