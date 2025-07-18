@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import sys
 from pathlib import Path
@@ -89,7 +90,8 @@ class CsvfileReader(AbstractReader):
 
         self.dialect = "excel"
         if self.fp.seekable():
-            self.dialect = csv.Sniffer().sniff(self.fp.read(1024))
+            with contextlib.suppress(csv.Error):
+                self.dialect = csv.Sniffer().sniff(self.fp.read(1024))
             self.fp.seek(0)
         self.reader = csv.reader(self.fp, dialect=self.dialect)
 
