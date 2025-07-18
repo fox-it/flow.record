@@ -711,5 +711,15 @@ def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
     assert captured.out == b"Q42eWSaF,A sample pastebin record,text\r\n"
 
 
+def test_rdump_csv_sniff(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
+    csv_path = tmp_path / "test.csv"
+    csv_path.write_text("ip,common_name,vulnerable\n127.0.0.1,localhost,1\n192.168.4.20,")
+    rdump.main([str(csv_path)])
+
+    captured = capsysbinary.readouterr()
+    assert b"<csv/reader ip='127.0.0.1' common_name='localhost' vulnerable='1'>" in captured.out
+    assert b"<csv/reader ip='192.168.4.20' common_name='' vulnerable=None>" in captured.out
+
+
 if __name__ == "__main__":
     __import__("standalone_test").main(globals())
