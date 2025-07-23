@@ -1,24 +1,42 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Callable
 
 import pytest
 
 from flow.record import RecordReader, RecordWriter
-from tests._utils import generate_records
+from tests._utils import generate_command_records, generate_records
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
+    from flow.record import Record
 
-def test_json_adapter(tmp_path: Path) -> None:
+
+class GeneratorType(Enum):
+    RECORDS = auto()
+    COMMAND = auto()
+
+
+FUNCTIONS = {
+    GeneratorType.RECORDS: generate_records,
+    GeneratorType.COMMAND: generate_command_records,
+}
+
+
+@pytest.mark.parametrize("generator_function", FUNCTIONS.keys())
+def test_json_adapter(generator_function: GeneratorType, tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("records.json")
     record_adapter_path = f"jsonfile://{json_file}"
     writer = RecordWriter(record_adapter_path)
     nr_records = 1337
 
-    for record in generate_records(nr_records):
+    gen_func: Callable[[int], Iterator[Record]] = FUNCTIONS.get(generator_function)
+
+    for record in gen_func(nr_records):
         writer.write(record)
     writer.flush()
 

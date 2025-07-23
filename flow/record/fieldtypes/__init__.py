@@ -755,10 +755,11 @@ class command(FieldType):
     executable: path | None = None
     args: list[str] | None = None
 
+    _raw: str | None = None
     _path_type: type[path] = None
-    _posix: bool
+    _posix: bool = True
 
-    def __new__(cls, value: str):
+    def __new__(cls, value: str | None):
         if cls is not command:
             return super().__new__(cls)
 
@@ -776,17 +777,12 @@ class command(FieldType):
         cls = windows_command if windows else posix_command
         return super().__new__(cls)
 
-    def __init__(self, value: str | tuple[str, tuple[str]] | None):
+    def __init__(self, value: str | None):
         if value is None:
             return
 
-        if isinstance(value, str):
-            self.executable, self.args = self._split(value)
-            return
-
-        executable, self.args = value
-        self.executable = self._path_type(executable)
-        self.args = list(self.args)
+        self._raw = value
+        self.executable, self.args = self._split(self._raw)
 
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
@@ -795,30 +791,29 @@ class command(FieldType):
         if isinstance(other, command):
             return self.executable == other.executable and self.args == other.args
         if isinstance(other, str):
-            return self._join() == other
+            return self._raw == other
         if isinstance(other, (tuple, list)):
             return self.executable == other[0] and self.args == list(other[1:])
 
         return False
 
-    def _split(self, value: str) -> tuple[str, list[str]]:
+    def _split(self, value: str) -> tuple[path, list[str]]:
         executable, *args = shlex.split(value, posix=self._posix)
         executable = executable.strip("'\" ")
 
         return self._path_type(executable), args
 
     def _join(self) -> str:
-        return shlex.join([str(self.executable), *self.args])
+        return self._raw
 
-    def _pack(self) -> tuple[tuple[str, list], str]:
+    def _pack(self) -> tuple[str, int]:
         command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
         if self.executable:
-            _exec, _ = self.executable._pack()
-            return ((_exec, self.args), command_type)
+            return (self._raw, command_type)
         return (None, command_type)
 
     @classmethod
-    def _unpack(cls, data: tuple[tuple[str, tuple] | None, int]) -> command:
+    def _unpack(cls, data: tuple[str | None, int]) -> command:
         _value, _type = data
         if _type == TYPE_WINDOWS:
             return windows_command(_value)
@@ -843,18 +838,8 @@ class windows_command(command):
     _posix = False
     _path_type = windows_path
 
-    def _split(self, value: str) -> tuple[str, list[str]]:
-        executable, args = super()._split(value)
-        if args:
-            args = [" ".join(args)]
+    def _split(self, value: str) -> tuple[path, list[str]]:
+        executable, _args = super()._split(value)
+        args = [" ".join(_args)] if _args else _args
 
         return executable, args
-
-    def _join(self) -> str:
-        arg = f" {self.args[0]}" if self.args else ""
-        executable_str = str(self.executable)
-
-        if " " in executable_str:
-            return f"'{executable_str}'{arg}"
-
-        return f"{executable_str}{arg}"
