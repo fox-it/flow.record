@@ -42,3 +42,16 @@ def generate_plain_records(count: int = 100) -> Iterator[Record]:
 
     for i in range(count):
         yield TestRecord(number=i, dt=datetime.datetime.now(datetime.timezone.utc))
+
+
+def generate_command_records(count: int = 100) -> Iterator[Record]:
+    TestRecord = RecordDescriptor(
+        "test/addapter/command",
+        [
+            ("uint32", "number"),
+            ("command", "data"),
+        ],
+    )
+
+    for i in range(count):
+        yield TestRecord(number=i, data=f"/path/to/file {i}")
