@@ -8,6 +8,6 @@ __pycache__/
 .pytest_cache/
 
 flow/record/version.py
-tests/docs/api
-tests/docs/build
+tests/_docs/api
+tests/_docs/build
 .tox/

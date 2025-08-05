@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from flow.record import RecordReader, RecordWriter
-
-from ._utils import generate_records
+from tests._utils import generate_records
 
 if TYPE_CHECKING:
     from pathlib import Path
