@@ -4,12 +4,15 @@ import logging
 import sqlite3
 from datetime import datetime
 from functools import lru_cache
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 from flow.record import Record, RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS, normalize_fieldname
 from flow.record.selector import Selector, make_selector
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +79,7 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
 
     # Get existing columns
     cursor = con.execute(f'PRAGMA table_info("{table_name}")')
-    column_names = set(row[1] for row in cursor.fetchall())
+    column_names = {row[1] for row in cursor.fetchall()}
 
     # Add missing columns
     column_defs = []
@@ -88,7 +91,7 @@ def update_descriptor_columns(con: sqlite3.Connection, descriptor: RecordDescrip
 
     # No missing columns
     if not column_defs:
-        return None
+        return
 
     # Add the new columns
     for col_def in column_defs:
@@ -158,7 +161,7 @@ class SqliteReader(AbstractReader):
         fields = []
         fnames = []
         fname_to_type = {}
-        for idx, row in enumerate(schema):
+        for row in schema:
             ftype, fname = row
             fname = normalize_fieldname(fname)
             ftype = SQLITE_FIELD_MAP.get(ftype, "string")

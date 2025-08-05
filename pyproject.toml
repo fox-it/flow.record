@@ -56,24 +56,79 @@ duckdb = [
 splunk = [
     "httpx",
 ]
+xlsx = [
+    "openpyxl",
+]
 test = [
     "flow.record[compression]",
     "flow.record[avro]",
     "flow.record[elastic]",
+    "flow.record[xlsx]",
     "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
     "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
+    "tqdm",
+    "structlog",
+]
+full = [
+    "flow.record[compression]",
+    "tqdm",
+    "structlog",
 ]
 
 [project.scripts]
 rdump = "flow.record.tools.rdump:main"
 rgeoip = "flow.record.tools.geoip:main"
 
-[tool.black]
+[tool.ruff]
 line-length = 120
+required-version = ">=0.9.0"
+extend-exclude = ["flow/record/version.py"]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["flow.record"]
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  "F",
+  "E",
+  "W",
+  "I",
+  "UP",
+  "YTT",
+  "ANN",
+  "B",
+  "C4",
+  "DTZ",
+  "T10",
+  "FA",
+  "ISC",
+  "G",
+  "INP",
+  "PIE",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TCH",
+  "PTH",
+  "PLC",
+  "TRY",
+  "FLY",
+  "PERF",
+  "FURB",
+  "RUF",
+]
+ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003", "TRY400"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/docs/**" = ["INP001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["flow.record"]
 
 [tool.setuptools]
 license-files = ["LICENSE", "COPYRIGHT"]

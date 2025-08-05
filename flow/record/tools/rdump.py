@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from importlib import import_module
@@ -14,17 +15,34 @@ import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
-from flow.record.utils import catch_sigpipe
+from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
 
 try:
     from flow.record.version import version
 except ImportError:
     version = "unknown"
 
+try:
+    import tqdm
+
+    HAS_TQDM = True
+
+except ImportError:
+    HAS_TQDM = False
+
+try:
+    import structlog
+
+    HAS_STRUCTLOG = True
+
+except ImportError:
+    HAS_STRUCTLOG = False
+
+
 log = logging.getLogger(__name__)
 
 
-def list_adapters():
+def list_adapters() -> None:
     failed = []
     loader = flow.record.adapter.__loader__
 
@@ -33,7 +51,7 @@ def list_adapters():
     if isinstance(loader, zipimporter):
         adapters = [
             Path(path).stem
-            for path in loader._files.keys()
+            for path in loader._files
             if path.endswith((".py", ".pyc"))
             and not Path(path).name.startswith("__")
             and "flow/record/adapter" in str(Path(path).parent)
@@ -51,7 +69,7 @@ def list_adapters():
             mod = import_module(f"flow.record.adapter.{adapter}")
             usage = indent(mod.__usage__.strip(), prefix="    ")
             print(f"  {adapter}:\n{usage}\n")
-        except ImportError as reason:
+        except ImportError as reason:  # noqa: PERF203
             failed.append((adapter, reason))
 
     if failed:
@@ -60,15 +78,13 @@ def list_adapters():
 
 
 @catch_sigpipe
-def main(argv=None):
-    import argparse
-
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Record dumper, a tool that can read, write and filter records",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument("--version", action="version", version="flow.record version {}".format(version))
+    parser.add_argument("--version", action="version", version=f"flow.record version {version}")
     parser.add_argument("src", metavar="SOURCE", nargs="*", default=["-"], help="Record source")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
 
@@ -99,7 +115,11 @@ def main(argv=None):
     output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument(
-        "-m", "--mode", default=None, choices=("csv", "json", "jsonlines", "line", "line-verbose"), help="Output mode"
+        "-m",
+        "--mode",
+        default=None,
+        choices=("csv", "csv-no-header", "json", "jsonlines", "line", "line-verbose"),
+        help="Output mode",
     )
     output.add_argument(
         "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
@@ -112,6 +132,17 @@ def main(argv=None):
         help="Generate suffixes of length LEN for splitted output files",
     )
     output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
+    output.add_argument(
+        "-p",
+        "--progress",
+        action="store_true",
+        help="Show progress bar (requires tqdm)",
+    )
+    output.add_argument(
+        "--stats",
+        action="store_true",
+        help="Show count of processed records",
+    )
 
     advanced = parser.add_argument_group("advanced")
     advanced.add_argument(
@@ -166,12 +197,41 @@ def main(argv=None):
         default=argparse.SUPPRESS,
         help="Short for --mode=line-verbose",
     )
+    aliases.add_argument(
+        "-Cn",
+        "--csv-no-header",
+        action="store_const",
+        const="csv-no-header",
+        dest="mode",
+        default=argparse.SUPPRESS,
+        help="Short for --mode=csv-no-header",
+    )
 
     args = parser.parse_args(argv)
 
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
+    levels = [logging.WARNING, logging.INFO, logging.DEBUG, LOGGING_TRACE_LEVEL]
     level = levels[min(len(levels) - 1, args.verbose)]
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s")
+
+    if HAS_STRUCTLOG:
+        # We have structlog, configure Python logging to use it for rendering
+        console_renderer = structlog.dev.ConsoleRenderer()
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            structlog.stdlib.ProcessorFormatter(
+                processor=console_renderer,
+                foreign_pre_chain=[
+                    structlog.stdlib.add_logger_name,
+                    structlog.stdlib.add_log_level,
+                    structlog.processors.TimeStamper(fmt="iso"),
+                ],
+            )
+        )
+
+        # Clear existing handlers and add our structlog handler
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+        root_logger.addHandler(handler)
 
     fields_to_exclude = args.exclude.split(",") if args.exclude else []
     fields = args.fields.split(",") if args.fields else []
@@ -184,6 +244,7 @@ def main(argv=None):
     if not args.writer:
         mode_to_uri = {
             "csv": "csvfile://",
+            "csv-no-header": "csvfile://?header=false",
             "json": "jsonfile://?indent=2&descriptors=false",
             "jsonlines": "jsonfile://?descriptors=false",
             "line": "line://",
@@ -196,7 +257,7 @@ def main(argv=None):
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
-        uri += "&" if urlparse(uri).query else "?" + query
+        uri += f"&{query}" if urlparse(uri).query else f"?{query}"
 
     if args.split:
         if not args.writer:
@@ -207,7 +268,7 @@ def main(argv=None):
         query_dict = dict(parse_qsl(parsed.query))
         query_dict.update({"count": args.split, "suffix-length": args.suffix_length})
         query = urlencode(query_dict)
-        uri = parsed.scheme + "://" + parsed.netloc + parsed.path + "?" + query
+        uri = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{query}"
 
     record_field_rewriter = None
     if fields or fields_to_exclude or args.exec_expression:
@@ -217,11 +278,19 @@ def main(argv=None):
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
+
+    if args.progress:
+        if not HAS_TQDM:
+            parser.error("tqdm is required for progress bar")
+        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=sys.float_info.min)
+
     count = 0
+    record_writer = None
+    ret = 0
 
     try:
         record_writer = RecordWriter(uri)
-        for count, rec in enumerate(record_iterator, start=1):
+        for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
             if args.record_source is not None:
                 rec._source = args.record_source
             if args.record_classification is not None:
@@ -245,11 +314,33 @@ def main(argv=None):
                 else:
                     record_writer.write(rec)
 
-    finally:
-        record_writer.__exit__()
+    except Exception as e:
+        print_error(e)
 
-    if args.list:
-        print("Processed {} records".format(count))
+        # Prevent throwing an exception twice when deconstructing the record writer.
+        if hasattr(record_writer, "exception") and record_writer.exception is e:
+            record_writer.exception = None
+
+        ret = 1
+
+    finally:
+        if record_writer:
+            # Exceptions raised in threads can be thrown when deconstructing the writer.
+            try:
+                record_writer.__exit__()
+            except Exception as e:
+                print_error(e)
+
+    if (args.list or args.stats) and not args.progress:
+        print(f"Processed {count} records", file=sys.stdout if args.list else sys.stderr)
+
+    return ret
+
+
+def print_error(e: Exception) -> None:
+    log.error("rdump encountered a fatal error: %s", e)
+    if log.isEnabledFor(LOGGING_TRACE_LEVEL):
+        log.exception("Full traceback")
 
 
 if __name__ == "__main__":

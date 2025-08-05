@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 
 import pytest
@@ -10,7 +12,7 @@ from flow.record.packer import RECORD_PACK_EXT_TYPE
 UTC = timezone.utc
 
 
-def test_uri_packing():
+def test_uri_packing() -> None:
     packer = RecordPacker()
 
     TestRecord = RecordDescriptor(
@@ -20,7 +22,7 @@ def test_uri_packing():
         ],
     )
 
-    # construct with an url
+    # Construct with an url
     record = TestRecord("http://www.google.com/evil.bin")
     data = packer.pack(record)
     record = packer.unpack(data)
@@ -28,8 +30,9 @@ def test_uri_packing():
     assert record.path.filename == "evil.bin"
     assert record.path.dirname == "/"
 
-    # construct from uri() -> for windows=True
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(
+        DeprecationWarning, match=r"Do not use class uri\(...\) for filesystem paths, use class path\(...\)"
+    ):
         path = uri.from_windows(r"c:\Program Files\Fox-IT\flow is awesome.exe")
     record = TestRecord(path)
     data = packer.pack(record)
@@ -38,8 +41,9 @@ def test_uri_packing():
     assert record.path.filename == "flow is awesome.exe"
     assert record.path.dirname == "/Program Files/Fox-IT"
 
-    # construct using uri.from_windows()
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns(
+        DeprecationWarning, match=r"Do not use class uri\(...\) for filesystem paths, use class path\(...\)"
+    ):
         path = uri.from_windows(r"c:\Users\Hello World\foo.bar.exe")
     record = TestRecord(path)
     data = packer.pack(record)
@@ -49,7 +53,7 @@ def test_uri_packing():
     assert record.path.dirname == "/Users/Hello World"
 
 
-def test_typedlist_packer():
+def test_typedlist_packer() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/typedlist",
@@ -69,7 +73,7 @@ def test_typedlist_packer():
     assert len(r1.uri_value) == 2
     assert r1.string_value[2] == "c"
     assert r1.uint32_value[1] == 2
-    assert all([isinstance(v, uri) for v in r1.uri_value])
+    assert all(isinstance(v, uri) for v in r1.uri_value)
     assert r1.uri_value[1].filename == "shadow"
 
     assert len(r2.string_value) == 3
@@ -77,11 +81,11 @@ def test_typedlist_packer():
     assert len(r2.uri_value) == 2
     assert r2.string_value[2] == "c"
     assert r2.uint32_value[1] == 2
-    assert all([isinstance(v, uri) for v in r2.uri_value])
+    assert all(isinstance(v, uri) for v in r2.uri_value)
     assert r2.uri_value[1].filename == "shadow"
 
 
-def test_dictlist_packer():
+def test_dictlist_packer() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/dictlist",
@@ -109,7 +113,7 @@ def test_dictlist_packer():
     assert r2.hits[1]["b"] == 4
 
 
-def test_dynamic_packer():
+def test_dynamic_packer() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/dynamic",
@@ -162,7 +166,7 @@ def test_dynamic_packer():
     assert isinstance(r.value, fieldtypes.datetime)
 
 
-def test_pack_record_desc():
+def test_pack_record_desc() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/pack",
@@ -179,7 +183,7 @@ def test_pack_record_desc():
     assert desc._pack() == TestRecord._pack()
 
 
-def test_pack_digest():
+def test_pack_digest() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/digest",
@@ -195,7 +199,7 @@ def test_pack_digest():
     assert record.digest.sha256 is None
 
 
-def test_record_in_record():
+def test_record_in_record() -> None:
     packer = RecordPacker()
     dt = datetime.now(UTC)
 
@@ -223,7 +227,7 @@ def test_record_in_record():
     assert record_a == record_b_unpacked.record
 
 
-def test_record_array():
+def test_record_array() -> None:
     packer = RecordPacker()
 
     EmbeddedRecord = RecordDescriptor(
@@ -241,7 +245,7 @@ def test_record_array():
 
     parent = ParentRecord()
     for i in range(3):
-        emb_record = EmbeddedRecord(some_field="embedded record {}".format(i))
+        emb_record = EmbeddedRecord(some_field=f"embedded record {i}")
         parent.subrecords.append(emb_record)
 
     data_record_parent = packer.pack(parent)
@@ -250,7 +254,7 @@ def test_record_array():
     assert parent == parent_unpacked
 
 
-def test_record_descriptor_not_found():
+def test_record_descriptor_not_found() -> None:
     TestRecord = RecordDescriptor(
         "test/descriptor_not_found",
         [

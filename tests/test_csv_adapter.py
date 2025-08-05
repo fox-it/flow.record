@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from flow.record import RecordReader
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.parametrize("delimiter", [",", ";", "\t", "|"])

@@ -1,8 +1,15 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from flow.record.adapter import AbstractWriter
 from flow.record.base import RecordWriter
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
+
 
 DEFAULT_RECORD_COUNT = 1000
 DEFAULT_SUFFIX_LENGTH = 2
@@ -20,7 +27,7 @@ Write usage: rdump -w split://[PATH]?count=[COUNT]&suffix-length=[SUFFIX-LENGTH]
 class SplitWriter(AbstractWriter):
     writer = None
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, path: str | Path, **kwargs):
         self.path = str(path)
         self.kwargs = kwargs
 
@@ -34,7 +41,7 @@ class SplitWriter(AbstractWriter):
 
         self.writer = RecordWriter(self._next_path(), **self.kwargs)
 
-    def _next_path(self):
+    def _next_path(self) -> str:
         if self.is_stdout:
             return self.path
 
@@ -51,7 +58,7 @@ class SplitWriter(AbstractWriter):
         self.file_count += 1
         return scheme + sep + str(path)
 
-    def write(self, r):
+    def write(self, r: Record) -> None:
         self.writer.write(r)
 
         if self.is_stdout:
@@ -64,11 +71,11 @@ class SplitWriter(AbstractWriter):
             self.written = 0
             self.writer = RecordWriter(self._next_path(), **self.kwargs)
 
-    def flush(self):
+    def flush(self) -> None:
         if self.writer:
             self.writer.flush()
 
-    def close(self):
+    def close(self) -> None:
         if self.writer:
             self.writer.close()
         self.writer = None

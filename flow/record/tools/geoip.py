@@ -1,17 +1,22 @@
-# Python imports
+from __future__ import annotations
+
 import argparse
 import logging
 import random
 import re
 import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-# Third party imports
 import maxminddb
 
 from flow.record import RecordDescriptor, RecordWriter, extend_record, record_stream
-
-# Flow imports
 from flow.record.utils import catch_sigpipe
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flow.record.base import Record
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +51,7 @@ DEFAULT_ASN_DB = "/usr/share/GeoIP/GeoLite2-ASN.mmdb"
 REGEX_IPV4 = re.compile(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
 
 
-def georecord_for_ip(city_db, ip):
+def georecord_for_ip(city_db: maxminddb.Reader, ip: str) -> Record:
     r = city_db.get(ip) if city_db else None
     if not r:
         return GeoRecord()
@@ -70,7 +75,7 @@ def georecord_for_ip(city_db, ip):
     )
 
 
-def asnrecord_for_ip(asn_db, ip):
+def asnrecord_for_ip(asn_db: maxminddb.Reader, ip: str) -> Record:
     r = asn_db.get(ip) if asn_db else None
     if not r:
         return AsnRecord()
@@ -79,17 +84,17 @@ def asnrecord_for_ip(asn_db, ip):
     return AsnRecord(asn=asn, org=org)
 
 
-def ip_records_from_text_files(files):
+def ip_records_from_text_files(files: list[str]) -> Iterator[Record]:
     """Yield IPv4Records by extracting IP addresses from `files` using a regex."""
     for fname in files:
-        with open(fname, "r") if fname != "-" else sys.stdin as f:
+        with Path(fname).open() if fname != "-" else sys.stdin as f:
             for line in f:
                 for ip in REGEX_IPV4.findall(line):
                     yield IPv4Record(ip)
 
 
 @catch_sigpipe
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Annotate records with GeoIP and ASN data",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -154,12 +159,8 @@ def main():
         )
         return 1
 
-    if args.text:
-        # Input are text files, extract IPv4Records from text using a regex
-        record_iterator = ip_records_from_text_files(args.input)
-    else:
-        # Input are Record files
-        record_iterator = record_stream(args.input)
+    # Input are text files, extract IPv4Records from text using a regex or record files
+    record_iterator = ip_records_from_text_files(args.input) if args.text else record_stream(args.input)
 
     with RecordWriter(args.writer) as writer:
         for record in record_iterator:
@@ -175,6 +176,8 @@ def main():
 
             record = extend_record(record, annotated_records)
             writer.write(record)
+
+    return 0
 
 
 if __name__ == "__main__":

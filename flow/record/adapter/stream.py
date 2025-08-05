@@ -1,9 +1,15 @@
-from typing import Iterator, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from flow.record import Record, RecordOutput, RecordStreamReader, open_path_or_stream
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.selector import Selector
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flow.record.selector import Selector
 
 __usage__ = """
 Binary stream adapter (default adapter if none are specified)
@@ -18,7 +24,7 @@ class StreamWriter(AbstractWriter):
     fp = None
     stream = None
 
-    def __init__(self, path: str, clobber=True, **kwargs):
+    def __init__(self, path: str, clobber: bool = True, **kwargs):
         self.fp = open_path_or_stream(path, "wb", clobber=clobber)
         self.stream = RecordOutput(self.fp)
 
@@ -45,7 +51,7 @@ class StreamReader(AbstractReader):
     fp = None
     stream = None
 
-    def __init__(self, path: str, selector: Union[str, Selector] = None, **kwargs):
+    def __init__(self, path: str, selector: str | Selector = None, **kwargs):
         self.fp = open_path_or_stream(path, "rb")
         self.stream = RecordStreamReader(self.fp, selector=selector)
 

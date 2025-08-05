@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 WHITELIST = [
     "boolean",
     "command",
@@ -22,6 +24,7 @@ WHITELIST = [
     "bytes",
     "record",
     "net.ipaddress",
+    "net.ipinterface",
     "net.ipnetwork",
     "net.IPAddress",
     "net.IPNetwork",

@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from io import BytesIO
 
 from flow.record import RecordDescriptor
 from flow.record.adapter.text import TextWriter
 
 
-def test_text_writer_write_surrogateescape():
+def test_text_writer_write_surrogateescape() -> None:
     output = BytesIO()
 
     tw = TextWriter(

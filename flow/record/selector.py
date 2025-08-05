@@ -1,12 +1,17 @@
+from __future__ import annotations
 import __future__
 
 import ast
 import operator
 import re
+from typing import TYPE_CHECKING, Any, Callable
 
 from flow.record.base import GroupedRecord, Record, dynamic_fieldtype
 from flow.record.fieldtypes import net
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     import astor
@@ -14,8 +19,6 @@ try:
     HAVE_ASTOR = True
 except ImportError:
     HAVE_ASTOR = False
-
-string_types = (str, type(""))
 
 
 AST_OPERATORS = {
@@ -56,31 +59,31 @@ class NoneObject:
     NoneObject is used to override some comparators like __contains__.
     """
 
-    def __eq__(a, b):
+    def __eq__(a, b: object) -> bool:
         return False
 
-    def __ne__(a, b):
+    def __ne__(a, b: object) -> bool:
         return False
 
-    def __lt__(a, b):
+    def __lt__(a, b: object) -> bool:
         return False
 
-    def __gt__(a, b):
+    def __gt__(a, b: object) -> bool:
         return False
 
-    def __lte__(a, b):
+    def __lte__(a, b: object) -> bool:
         return False
 
-    def __gte__(a, b):
+    def __gte__(a, b: object) -> bool:
         return False
 
-    def __noteq__(a, b):
+    def __noteq__(a, b: object) -> bool:
         return False
 
-    def __contains__(a, b):
+    def __contains__(a, b: object) -> bool:
         return False
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0
 
 
@@ -95,42 +98,42 @@ class InvalidOperation(Exception):
     pass
 
 
-def lower(s):
+def lower(s: str | Any) -> str:
     """Return lowercased string, otherwise `s` if not string type."""
-    if isinstance(s, string_types):
+    if isinstance(s, str):
         return s.lower()
     return s
 
 
-def upper(s):
+def upper(s: str | Any) -> str | Any:
     """Return uppercased string, otherwise `s` if not string type."""
-    if isinstance(s, string_types):
+    if isinstance(s, str):
         return s.upper()
     return s
 
 
-def names(r):
+def names(r: Record | WrappedRecord | GroupedRecord) -> set[str]:
     """Return the available names as a set in the Record otherwise ['UnknownRecord']."""
     if isinstance(r, GroupedRecord):
-        return set(sub_record._desc.name for sub_record in r.records)
+        return {sub_record._desc.name for sub_record in r.records}
     if isinstance(r, (Record, WrappedRecord)):
-        return set([r._desc.name])
+        return {r._desc.name}
     return ["UnknownRecord"]
 
 
-def name(r):
+def name(r: Record | WrappedRecord) -> str:
     """Return the name of the Record otherwise 'UnknownRecord'."""
     if isinstance(r, (Record, WrappedRecord)):
         return r._desc.name
     return "UnknownRecord"
 
 
-def get_type(obj):
+def get_type(obj: Any) -> str:
     """Return the type of the Object as 'str'."""
     return str(type(obj))
 
 
-def has_field(r, field):
+def has_field(r: Record, field: str) -> bool:
     """Check if field exists on Record object.
 
     Args:
@@ -144,7 +147,7 @@ def has_field(r, field):
     return field in r._desc.fields
 
 
-def field_regex(r, fields, regex):
+def field_regex(r: Record, fields: list[str], regex: str) -> bool:
     """Check a regex against fields of a Record object.
 
     Args:
@@ -168,7 +171,7 @@ def field_regex(r, fields, regex):
     return False
 
 
-def field_equals(r, fields, strings, nocase=True):
+def field_equals(r: Record, fields: list[str], strings: list[str], nocase: bool = True) -> bool:
     """Check for exact string matches on fields of a Record object.
 
     Args:
@@ -181,10 +184,7 @@ def field_equals(r, fields, strings, nocase=True):
         (bool): True or False
 
     """
-    if nocase:
-        strings_to_check = [lower(s) for s in strings]
-    else:
-        strings_to_check = strings
+    strings_to_check = [lower(s) for s in strings] if nocase else strings
 
     for field in fields:
         fvalue = getattr(r, field, NONE_OBJECT)
@@ -198,7 +198,9 @@ def field_equals(r, fields, strings, nocase=True):
     return False
 
 
-def field_contains(r, fields, strings, nocase=True, word_boundary=False):
+def field_contains(
+    r: Record, fields: list[str], strings: list[str], nocase: bool = True, word_boundary: bool = False
+) -> bool:
     """Check if the string matches on fields of a Record object.
 
     Only supports strings for now and partial matches using the __contains__ operator.
@@ -209,10 +211,7 @@ def field_contains(r, fields, strings, nocase=True, word_boundary=False):
     * Non existing fields on the Record object are skipped.
     * Defaults to case-insensitive matching, use `nocase=False` if you want to be case sensitive.
     """
-    if nocase:
-        strings_to_check = [lower(s) for s in strings]
-    else:
-        strings_to_check = strings
+    strings_to_check = [lower(s) for s in strings] if nocase else strings
 
     for field in fields:
         fvalue = getattr(r, field, NONE_OBJECT)
@@ -230,10 +229,10 @@ def field_contains(r, fields, strings, nocase=True, word_boundary=False):
                         return True
                     continue
 
-                if not isinstance(fvalue, string_types):
+                if not isinstance(fvalue, str):
                     continue
 
-                s_pattern = "\\b{}\\b".format(re.escape(s))
+                s_pattern = f"\\b{re.escape(s)}\\b"
                 match = re.search(s_pattern, fvalue)
                 if match is not None:
                     return True
@@ -254,7 +253,7 @@ FUNCTION_WHITELIST = [
 ]
 
 
-def resolve_attr_path(node):
+def resolve_attr_path(node: ast.Call) -> str:
     """Resolve a node attribute to full path, eg: net.ipv4.Subnet."""
     x = node.func
     attr_path = []
@@ -267,20 +266,19 @@ def resolve_attr_path(node):
 
 
 class SelectorResult:
-    def __init__(self, expression_str, match_result, backtrace, referenced_fields):
+    def __init__(
+        self, expression_str: str, match_result: Any, backtrace: list[tuple[int, Any]], referenced_fields: list
+    ):
         self.expresssion_str = expression_str
         self.result = match_result
         self.backtrace_info = backtrace
         self.referenced_fields = referenced_fields
 
-    def backtrace(self):
+    def backtrace(self) -> str:
         result = ""
         max_source_line_length = len(self.expresssion_str)
         for row in self.backtrace_info[::-1]:
-            result += "{}-> {}\n".format(
-                row[0].rstrip().ljust(max_source_line_length + 15),
-                row[1],
-            )
+            result += f"{row[0].rstrip().ljust(max_source_line_length + 15)}-> {row[1]}\n"
         return result
 
 
@@ -289,7 +287,7 @@ class Selector:
     VERBOSITY_BRANCHES = 2
     VERBOSITY_NONE = 3
 
-    def __init__(self, expression):
+    def __init__(self, expression: str):
         expression = expression or "True"
         self.expression_str = expression
         self.expression = compile(
@@ -300,16 +298,16 @@ class Selector:
         )
         self.matcher = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.expression_str
 
-    def __repr__(self):
-        return "Selector({!r})".format(self.expression_str)
+    def __repr__(self) -> str:
+        return f"Selector({self.expression_str!r})"
 
-    def __contains__(self, record):
+    def __contains__(self, record: Record) -> bool:
         return self.match(record)
 
-    def explain_selector(self, record, verbosity=VERBOSITY_ALL):
+    def explain_selector(self, record: Record, verbosity: int = VERBOSITY_ALL) -> SelectorResult:
         matcher = RecordContextMatcher(self.expression, self.expression_str, backtrace_verbosity=verbosity)
         match_result = matcher.matches(record)
         backtrace_info = matcher.selector_backtrace
@@ -317,12 +315,11 @@ class Selector:
             backtrace_info.append(("WARNING: astor module not installed, trace not available", False))
         return SelectorResult(self.expression_str, match_result, backtrace_info, [])
 
-    def match(self, record):
+    def match(self, record: Record) -> bool:
         if not self.matcher:
             self.matcher = RecordContextMatcher(self.expression, self.expression_str)
 
-        result = self.matcher.matches(record)
-        return result
+        return self.matcher.matches(record)
 
 
 class WrappedRecord:
@@ -330,10 +327,10 @@ class WrappedRecord:
 
     __slots__ = ("record",)
 
-    def __init__(self, record):
+    def __init__(self, record: Record):
         self.record = record
 
-    def __getattr__(self, k):
+    def __getattr__(self, k: str) -> Any:
         return getattr(self.record, k, NONE_OBJECT)
 
     def __str__(self) -> str:
@@ -346,7 +343,7 @@ class WrappedRecord:
 class CompiledSelector:
     """CompiledSelector is faster than Selector but unsafe if you don't trust the query."""
 
-    def __init__(self, expression):
+    def __init__(self, expression: str):
         self.expression = expression or None
         self.code = None
         self.ns = {func.__name__: func for func in FUNCTION_WHITELIST}
@@ -360,16 +357,16 @@ class CompiledSelector:
                 flags=__future__.unicode_literals.compiler_flag,
             )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.expression
 
-    def __repr__(self):
-        return "CompiledSelector({!r})".format(self.expression)
+    def __repr__(self) -> str:
+        return f"CompiledSelector({self.expression!r})"
 
-    def __contains__(self, record):
+    def __contains__(self, record: Record) -> bool:
         return self.match(record)
 
-    def match(self, record):
+    def match(self, record: Record) -> bool:
         if self.code is None:
             return True
         ns = self.ns.copy()
@@ -406,10 +403,10 @@ class TypeMatcher:
     when overriding this behaviour.
     """
 
-    def __init__(self, rec):
+    def __init__(self, rec: Record):
         self._rec = rec
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> TypeMatcherInstance | NoneObject:
         if attr in WHITELIST_TREE:
             return TypeMatcherInstance(self._rec, [attr])
 
@@ -417,7 +414,7 @@ class TypeMatcher:
 
 
 class TypeMatcherInstance:
-    def __init__(self, rec, ftypeparts=None, attrs=None):
+    def __init__(self, rec: Record, ftypeparts: list[str] | None = None, attrs: list[str] | None = None):
         self._rec = rec
         self._ftypeparts = ftypeparts or []
         self._attrs = attrs or []
@@ -430,27 +427,27 @@ class TypeMatcherInstance:
         if self._ftypetree is True:
             self._ftype = ".".join(ftypeparts)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> TypeMatcherInstance | NoneObject:
         if not self._ftype:
             if attr not in self._ftypetree:
                 return NONE_OBJECT
 
-            ftypeparts = self._ftypeparts + [attr]
+            ftypeparts = [*self._ftypeparts, attr]
             return TypeMatcherInstance(self._rec, ftypeparts)
-        elif not attr.startswith("_"):
-            attrs = self._attrs + [attr]
+        if not attr.startswith("_"):
+            attrs = [*self._attrs, attr]
             return TypeMatcherInstance(self._rec, self._ftypeparts, attrs)
 
         return NONE_OBJECT
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return self._fields()
 
-    def _fields(self):
+    def _fields(self) -> Iterator[str]:
         for f in self._rec._desc.getfields(self._ftype):
             yield f.name
 
-    def _values(self):
+    def _values(self) -> Iterator[Any]:
         for f in self._fields():
             obj = getattr(self._rec, f, NONE_OBJECT)
             for a in self._attrs:
@@ -461,7 +458,7 @@ class TypeMatcherInstance:
 
             yield obj
 
-    def _subrecords(self):
+    def _subrecords(self) -> Iterator[Record]:
         """Return all fields that are records (records in records).
 
         Returns: list of records
@@ -476,10 +473,9 @@ class TypeMatcherInstance:
         for f in fields:
             records = getattr(self._rec, f.name)
             if records is not None:
-                for r in records:
-                    yield r
+                yield from records
 
-    def _op(self, op, other):
+    def _op(self, op: Callable[[object, object], bool], other: object) -> bool:
         for v in self._values():
             if op(v, other):
                 return True
@@ -492,33 +488,33 @@ class TypeMatcherInstance:
 
         return False
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return self._op(operator.eq, other)
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return self._op(operator.ne, other)
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         return self._op(operator.lt, other)
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
         return self._op(operator.gt, other)
 
-    def __lte__(self, other):
+    def __lte__(self, other: object) -> bool:
         return self._op(operator.le, other)
 
-    def __gte__(self, other):
+    def __gte__(self, other: object) -> bool:
         return self._op(operator.ge, other)
 
-    def __noteq__(self, other):
+    def __noteq__(self, other: object) -> bool:
         return self._op(operator.ne, other)
 
-    def __contains__(self, other):
+    def __contains__(self, other: object) -> bool:
         return self._op(operator.contains, other)
 
 
 class RecordContextMatcher:
-    def __init__(self, expr, expr_str, backtrace_verbosity=Selector.VERBOSITY_NONE):
+    def __init__(self, expr: ast.Expression, expr_str: str, backtrace_verbosity: int = Selector.VERBOSITY_NONE):
         self.expression = expr
         self.expression_str = expr_str
         self.selector_backtrace = []
@@ -526,7 +522,7 @@ class RecordContextMatcher:
         self.data = {}
         self.rec = None
 
-    def matches(self, rec):
+    def matches(self, rec: Record) -> bool:
         self.selector_backtrace = []
         self.data = {
             "None": None,
@@ -550,7 +546,7 @@ class RecordContextMatcher:
 
         return self.eval(self.expression.body)
 
-    def eval(self, node):
+    def eval(self, node: ast.expr) -> Any:
         r = self._eval(node)
         verbosity = self.selector_backtrace_verbosity
         log_trace = (verbosity == Selector.VERBOSITY_ALL) or (
@@ -561,28 +557,26 @@ class RecordContextMatcher:
             self.selector_backtrace.append((source_line, r))
         return r
 
-    def _eval(self, node):
+    def _eval(self, node: ast.expr) -> Any:
         if isinstance(node, ast.Constant):
             return node.value
-        elif isinstance(node, ast.List):
+        if isinstance(node, ast.List):
             return list(map(self.eval, node.elts))
-        elif isinstance(node, ast.Tuple):
+        if isinstance(node, ast.Tuple):
             return tuple(map(self.eval, node.elts))
-        elif isinstance(node, ast.Name):
+        if isinstance(node, ast.Name):
             if node.id not in self.data:
                 return getattr(dynamic_fieldtype, node.id)
 
             return self.data[node.id]
-        elif isinstance(node, ast.Attribute):
+        if isinstance(node, ast.Attribute):
             if node.attr.startswith("__"):
-                raise InvalidOperation(
-                    "Selector {!r} contains invalid attribute: {!r}".format(self.expression_str, node.attr)
-                )
+                raise InvalidOperation(f"Selector {self.expression_str!r} contains invalid attribute: {node.attr!r}")
 
             obj = self.eval(node.value)
 
             return getattr(obj, node.attr, NONE_OBJECT)
-        elif isinstance(node, ast.BoolOp):
+        if isinstance(node, ast.BoolOp):
             values = []
             for expr in node.values:
                 try:
@@ -598,15 +592,15 @@ class RecordContextMatcher:
             for value in values:
                 result = AST_OPERATORS[type(node.op)](result, value)
             return result
-        elif isinstance(node, ast.BinOp):
+        if isinstance(node, ast.BinOp):
             left = self.eval(node.left)
             right = self.eval(node.right)
             if isinstance(left, NoneObject) or isinstance(right, NoneObject):
                 return False
             return AST_OPERATORS[type(node.op)](left, right)
-        elif isinstance(node, ast.UnaryOp):
+        if isinstance(node, ast.UnaryOp):
             return AST_OPERATORS[type(node.op)](self.eval(node.operand))
-        elif isinstance(node, ast.Compare):
+        if isinstance(node, ast.Compare):
             left = self.eval(node.left)
             right = self.eval(node.comparators[0])
 
@@ -618,35 +612,31 @@ class RecordContextMatcher:
 
             # Special case for __contains__, where we need to first unwrap all values matching the Type query
             if comptype in (ast.In, ast.NotIn) and isinstance(left, TypeMatcherInstance):
-                for v in left._values():
-                    if comp(v, right):
-                        return True
-                return False
+                return any(comp(v, right) for v in left._values())
             return comp(left, right)
-        elif isinstance(node, ast.Call):
+        if isinstance(node, ast.Call):
             if not isinstance(node.func, (ast.Attribute, ast.Name)):
                 raise InvalidOperation("Error, only ast.Attribute or ast.Name are expected")
 
             func_name = resolve_attr_path(node)
             if not (callable(self.data.get(func_name)) or func_name in WHITELIST):
                 raise InvalidOperation(
-                    "Call '{}' not allowed. No calls other then whitelisted 'global' calls allowed!".format(func_name)
+                    f"Call '{func_name}' not allowed. No calls other then whitelisted 'global' calls allowed!"
                 )
 
             func = self.eval(node.func)
 
             args = list(map(self.eval, node.args))
-            kwargs = dict((kw.arg, self.eval(kw.value)) for kw in node.keywords)
+            kwargs = {kw.arg: self.eval(kw.value) for kw in node.keywords}
 
             return func(*args, **kwargs)
 
-        elif isinstance(node, ast.comprehension):
-            iter = self.eval(node.iter)
-            return iter
+        if isinstance(node, ast.comprehension):
+            return self.eval(node.iter)
 
-        elif isinstance(node, ast.GeneratorExp):
+        if isinstance(node, ast.GeneratorExp):
 
-            def recursive_generator(gens):
+            def recursive_generator(gens: list[ast.comprehension]) -> Iterator[Any]:
                 """
                 Yield all the values in the most deepest generator.
 
@@ -668,12 +658,11 @@ class RecordContextMatcher:
                     for val in resolved_gen:
                         self.data[loop_index_var_name] = val
                         if len(gens) > 0:
-                            for subval in recursive_generator(gens):
-                                yield subval
+                            yield from recursive_generator(gens)
                         else:
                             yield val
 
-            def generator_expr():
+            def generator_expr() -> Iterator[Any]:
                 """
                 Embedded generator logic for ast.GeneratorExp.
 
@@ -685,11 +674,9 @@ class RecordContextMatcher:
                 """
                 for gen in node.generators:
                     if gen.target.id in self.data:
-                        raise InvalidOperation(
-                            "Generator variable '{}' overwrites existing variable!".format(gen.target.id)
-                        )
+                        raise InvalidOperation(f"Generator variable '{gen.target.id}' overwrites existing variable!")
                 values = recursive_generator(node.generators[::-1])
-                for val in values:
+                for _ in values:
                     result = self.eval(node.elt)
                     yield result
 
@@ -698,14 +685,13 @@ class RecordContextMatcher:
         raise TypeError(node)
 
 
-def make_selector(selector, force_compiled=False):
+def make_selector(selector: str | Selector | None, force_compiled: bool = False) -> Selector | CompiledSelector | None:
     """Return a Selector object (either CompiledSelector or Selector)."""
     ret = selector
     if not selector:
         ret = None
-    elif isinstance(selector, string_types):
+    elif isinstance(selector, str):
         ret = CompiledSelector(selector) if force_compiled else Selector(selector)
-    elif isinstance(selector, Selector):
-        if force_compiled:
-            ret = CompiledSelector(selector.expression_str)
+    elif isinstance(selector, Selector) and force_compiled:
+        ret = CompiledSelector(selector.expression_str)
     return ret

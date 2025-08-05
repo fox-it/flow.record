@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime, timezone
 
@@ -7,7 +9,7 @@ from flow.record import JsonRecordPacker, RecordDescriptor, fieldtypes
 from flow.record.exceptions import RecordDescriptorNotFound
 
 
-def test_record_in_record():
+def test_record_in_record() -> None:
     packer = JsonRecordPacker()
     dt = datetime.now(timezone.utc)
 
@@ -35,7 +37,7 @@ def test_record_in_record():
     assert record_a == record_b_unpacked.record
 
 
-def test_pack_path_fieldtype():
+def test_pack_path_fieldtype() -> None:
     packer = JsonRecordPacker()
     TestRecord = RecordDescriptor(
         "test/pack_path",
@@ -51,7 +53,7 @@ def test_pack_path_fieldtype():
     assert json.loads(packer.pack(r))["path"] == "/root/.bash_history"
 
 
-def test_record_descriptor_not_found():
+def test_record_descriptor_not_found() -> None:
     TestRecord = RecordDescriptor(
         "test/descriptor_not_found",
         [

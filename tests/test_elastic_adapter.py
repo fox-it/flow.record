@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 import pytest
 
 from flow.record import RecordDescriptor
 from flow.record.adapter.elastic import ElasticWriter
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
 
 MyRecord = RecordDescriptor(
     "my/record",

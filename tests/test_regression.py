@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import codecs
 import json
 import os
@@ -6,7 +8,9 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from io import BytesIO
-from unittest.mock import MagicMock, mock_open, patch
+from pathlib import Path
+from typing import Callable
+from unittest.mock import MagicMock, patch
 
 import msgpack
 import pytest
@@ -30,7 +34,7 @@ from flow.record.tools import rdump
 from flow.record.utils import is_stdout
 
 
-def test_datetime_serialization():
+def test_datetime_serialization() -> None:
     packer = RecordPacker()
 
     now = datetime.now(timezone.utc)
@@ -52,7 +56,7 @@ def test_datetime_serialization():
         assert r.datetime == now
 
 
-def test_long_int_serialization():
+def test_long_int_serialization() -> None:
     packer = RecordPacker()
 
     long_types = RecordDescriptor(
@@ -83,7 +87,7 @@ def test_long_int_serialization():
     assert r.max_int_as_long == max_int_as_long
 
 
-def test_unicode_serialization():
+def test_unicode_serialization() -> None:
     packer = RecordPacker()
 
     descriptor = RecordDescriptor(
@@ -105,7 +109,7 @@ def test_unicode_serialization():
         assert record.text == domain
 
 
-def test_pack_long_int_serialization():
+def test_pack_long_int_serialization() -> None:
     packer = RecordPacker()
     # test if 'long int' that fit in the 'int' type would be packed as int internally
 
@@ -114,10 +118,10 @@ def test_pack_long_int_serialization():
     assert (
         d
         == b"\x94\xcd\x04\xd2\xce\x00\x01\xe2@\xd3\x80\x00\x00\x00\x00\x00\x00\x00\xcf\x7f\xff\xff\xff\xff\xff\xff\xff"
-    )  # noqa: E501
+    )
 
 
-def test_non_existing_field():
+def test_non_existing_field() -> None:
     # RecordDescriptor that is used to test locally in the Broker client
     TestRecord = RecordDescriptor(
         "test/record",
@@ -150,7 +154,7 @@ def test_non_existing_field():
     assert Selector('lower("NOT SECURE") not in lower(r.text)').match(x)
 
 
-def test_set_field_type():
+def test_set_field_type() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -164,7 +168,7 @@ def test_set_field_type():
     r.value = 2
     assert isinstance(r.value, fieldtypes.uint32)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid literal for int"):
         r.value = "lalala"
     r.value = 2
 
@@ -176,7 +180,7 @@ def test_set_field_type():
         r.value = [1, 2, 3, 4, 5]
 
 
-def test_packer_unpacker_none_values():
+def test_packer_unpacker_none_values() -> None:
     """Tests packing and unpacking of Empty records (default values of None)."""
     packer = RecordPacker()
 
@@ -196,7 +200,7 @@ def test_packer_unpacker_none_values():
     assert isinstance(r, Record)
 
 
-def test_fieldname_regression():
+def test_fieldname_regression() -> None:
     TestRecord = RecordDescriptor(
         "test/uri_typed",
         [
@@ -211,7 +215,7 @@ def test_fieldname_regression():
         assert rec not in Selector("fieldname == 'omg regression'")
 
 
-def test_version_field_regression():
+def test_version_field_regression() -> None:
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
         "test/record",
@@ -241,7 +245,7 @@ def test_version_field_regression():
     assert record[0].message.args[0].startswith("Got other version record")
 
 
-def test_reserved_field_count_regression():
+def test_reserved_field_count_regression() -> None:
     del base.RESERVED_FIELDS["_version"]
     base.RESERVED_FIELDS["_extra"] = "varint"
     base.RESERVED_FIELDS["_version"] = "varint"
@@ -278,13 +282,13 @@ def test_reserved_field_count_regression():
     unpacked = packer.unpack(data)
 
     with pytest.raises(AttributeError):
-        unpacked._extra
+        assert unpacked._extra
 
     assert unpacked.value == 1
     assert unpacked._version == 1
 
 
-def test_no_version_field_regression():
+def test_no_version_field_regression() -> None:
     # Emulate old style record
     packer = RecordPacker()
     TestRecord = RecordDescriptor(
@@ -312,7 +316,7 @@ def test_no_version_field_regression():
     assert unpacked._version == 1  # Version field implicitly added
 
 
-def test_mixed_case_name():
+def test_mixed_case_name() -> None:
     assert is_valid_field_name("Test")
     assert is_valid_field_name("test")
     assert is_valid_field_name("TEST")
@@ -330,7 +334,7 @@ def test_mixed_case_name():
     assert r.Value == 1
 
 
-def test_multi_grouped_record_serialization(tmp_path):
+def test_multi_grouped_record_serialization(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "Test/Record",
         [
@@ -383,13 +387,13 @@ def test_multi_grouped_record_serialization(tmp_path):
 
 
 @pytest.mark.parametrize("PSelector", [Selector, CompiledSelector])
-def test_ast_unicode_literals(PSelector):
+def test_ast_unicode_literals(PSelector: type[Selector | CompiledSelector]) -> None:
     TestRecord = RecordDescriptor("Test/Record", [])
     assert TestRecord() in PSelector("get_type('string literal') == get_type(u'hello')")
     assert TestRecord() in PSelector("get_type('not bytes') != get_type(b'hello')")
 
 
-def test_grouped_replace():
+def test_grouped_replace() -> None:
     TestRecord = RecordDescriptor(
         "test/adapter",
         [
@@ -430,12 +434,11 @@ def test_grouped_replace():
     assert replaced_grouped_record._source == "testcase"
 
     # Replacement with non existing field should raise a ValueError
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ValueError, match=".*Got unexpected field names:.*non_existing_field.*"):
         grouped_record._replace(number=100, other="changed", non_existing_field="oops")
-    excinfo.match(".*Got unexpected field names:.*non_existing_field.*")
 
 
-def test_bytes_line_adapter(capsys):
+def test_bytes_line_adapter(capsys: pytest.CaptureFixture) -> None:
     TestRecord = RecordDescriptor(
         "test/bytes_hex",
         [
@@ -450,14 +453,14 @@ def test_bytes_line_adapter(capsys):
     assert "data = b'hello world'" in captured.out
 
 
-def test_is_stdout(tmp_path, capsysbinary):
+def test_is_stdout(tmp_path: pathlib.Path, capsysbinary: pytest.CaptureFixture) -> None:
     assert is_stdout(sys.stdout)
     assert is_stdout(sys.stdout.buffer)
 
     assert not is_stdout(sys.stderr)
     assert not is_stdout(sys.stderr.buffer)
 
-    with open(tmp_path / "test", "w") as f:
+    with (tmp_path / "test").open("w") as f:
         assert not is_stdout(f)
 
     with RecordWriter() as writer:
@@ -476,7 +479,7 @@ def test_is_stdout(tmp_path, capsysbinary):
         assert is_stdout(writer.fp)
 
 
-def test_rdump_fieldtype_path_json(tmp_path):
+def test_rdump_fieldtype_path_json(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -530,7 +533,7 @@ def test_rdump_fieldtype_path_json(tmp_path):
         fieldtypes.path.from_windows,
     ],
 )
-def test_windows_path_regression(path_initializer):
+def test_windows_path_regression(path_initializer: Callable[[str], pathlib.PurePath]) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -543,7 +546,7 @@ def test_windows_path_regression(path_initializer):
 
 
 @pytest.mark.parametrize(
-    "record_count,count,expected_count",
+    ("record_count", "count", "expected_count"),
     [
         (10, 10, 10),
         (0, 10, 0),
@@ -553,7 +556,9 @@ def test_windows_path_regression(path_initializer):
         (5, 10, 5),
     ],
 )
-def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_count):
+def test_rdump_count_list(
+    tmp_path: pathlib.Path, capsysbinary: pytest.CaptureFixture, record_count: int, count: int, expected_count: int
+) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -580,7 +585,7 @@ def test_rdump_count_list(tmp_path, capsysbinary, record_count, count, expected_
     assert f"Processed {expected_count} records".encode() in captured.out
 
 
-def test_record_adapter_windows_path(tmp_path):
+def test_record_adapter_windows_path(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -592,23 +597,25 @@ def test_record_adapter_windows_path(tmp_path):
         writer.write(TestRecord("foo"))
         writer.write(TestRecord("bar"))
 
-    test_read_buf = BytesIO(path_records.read_bytes())
-    mock_reader = MagicMock(wraps=test_read_buf, spec=BytesIO)
+    mock_reader = MagicMock(wraps=BytesIO(path_records.read_bytes()), spec=BytesIO)
+    mock_reader.closed = False
 
-    with patch("io.open", MagicMock(return_value=mock_reader)) as m:
-        m.return_value.closed = False
+    with patch.object(pathlib.Path, "open", autospec=True) as m:
+        m.return_value = mock_reader
         adapter = RecordReader(r"c:\users\user\test.records")
         assert type(adapter).__name__ == "StreamReader"
-        m.assert_called_once_with(r"c:\users\user\test.records", "rb")
+
+        m.assert_called_once_with(pathlib.Path(r"c:\users\user\test.records"), "rb")
         assert [r.text for r in adapter] == ["foo", "bar"]
 
-    with patch("io.open", mock_open()) as m:
+    with patch.object(pathlib.Path, "open", autospec=True) as m:
+        m.return_value = MagicMock(spec=BytesIO)
         adapter = RecordWriter(r"c:\users\user\test.records")
         assert type(adapter).__name__ == "StreamWriter"
-        m.assert_called_once_with(r"c:\users\user\test.records", "wb")
+        m.assert_called_once_with(pathlib.Path(r"c:\users\user\test.records"), "wb")
 
 
-def test_datetime_as_fieldname():
+def test_datetime_as_fieldname() -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -618,7 +625,7 @@ def test_datetime_as_fieldname():
     TestRecord()
 
 
-def test_string_surrogateescape_serialization(tmp_path):
+def test_string_surrogateescape_serialization(tmp_path: pathlib.Path) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -641,14 +648,14 @@ def test_string_surrogateescape_serialization(tmp_path):
         assert record.str_value.encode(errors="surrogateescape") == b"hello \xa7 world"
 
 
-def test_fieldtype_typedlist_net_ipaddress():
+def test_fieldtype_typedlist_net_ipaddress() -> None:
     assert fieldtype("net.ipaddress[]")
     assert fieldtype("net.ipaddress[]").__type__ == fieldtypes.net.ipaddress
     assert issubclass(fieldtype("net.ipaddress[]"), list)
     assert issubclass(fieldtype("net.ipaddress[]"), fieldtypes.FieldType)
 
 
-def test_record_reader_default_stdin(tmp_path):
+def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
     """RecordWriter should default to stdin if no path is given"""
     TestRecord = RecordDescriptor(
         "test/record",
@@ -663,13 +670,12 @@ def test_record_reader_default_stdin(tmp_path):
         writer.write(TestRecord("foo"))
 
     # Test stdin
-    with patch("sys.stdin", BytesIO(records_path.read_bytes())):
-        with RecordReader() as reader:
-            for record in reader:
-                assert record.text == "foo"
+    with patch("sys.stdin", BytesIO(records_path.read_bytes())), RecordReader() as reader:
+        for record in reader:
+            assert record.text == "foo"
 
 
-def test_record_writer_default_stdout(capsysbinary):
+def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> None:
     """RecordWriter should default to stdout if no path is given"""
     TestRecord = RecordDescriptor(
         "test/record",
@@ -684,6 +690,35 @@ def test_record_writer_default_stdout(capsysbinary):
 
     stdout = capsysbinary.readouterr().out
     assert stdout.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
+
+
+def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
+    """Test rdump regression where selected fields was not propagated properly to adapter."""
+
+    # Pastebin record used for this test
+    example_records_json_path = Path(__file__).parent.parent / "examples" / "records.json"
+
+    # rdump --fields key,title,syntax --csv
+    rdump.main([str(example_records_json_path), "--fields", "key,title,syntax", "--csv"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out == b"key,title,syntax\r\nQ42eWSaF,A sample pastebin record,text\r\n"
+
+    # rdump --fields key,title,syntax --csv
+    rdump.main([str(example_records_json_path), "--fields", "key,title,syntax", "--csv-no-header"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert captured.out == b"Q42eWSaF,A sample pastebin record,text\r\n"
+
+
+def test_rdump_csv_sniff(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
+    csv_path = tmp_path / "test.csv"
+    csv_path.write_text("ip,common_name,vulnerable\n127.0.0.1,localhost,1\n192.168.4.20,")
+    rdump.main([str(csv_path)])
+
+    captured = capsysbinary.readouterr()
+    assert b"<csv/reader ip='127.0.0.1' common_name='localhost' vulnerable='1'>" in captured.out
+    assert b"<csv/reader ip='192.168.4.20' common_name='' vulnerable=None>" in captured.out
 
 
 if __name__ == "__main__":

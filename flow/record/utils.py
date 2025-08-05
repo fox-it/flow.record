@@ -5,7 +5,9 @@ import os
 import sys
 import warnings
 from functools import wraps
-from typing import BinaryIO, TextIO
+from typing import Any, BinaryIO, Callable, TextIO
+
+LOGGING_TRACE_LEVEL = 5
 
 
 def get_stdout(binary: bool = False) -> TextIO | BinaryIO:
@@ -45,7 +47,7 @@ def is_stdout(fp: TextIO | BinaryIO) -> bool:
     return fp in (sys.stdout, sys.stdout.buffer) or hasattr(fp, "_is_stdout")
 
 
-def to_bytes(value):
+def to_bytes(value: Any) -> bytes:
     """Convert a value to a byte string."""
     if value is None or isinstance(value, bytes):
         return value
@@ -54,7 +56,7 @@ def to_bytes(value):
     return bytes(value)
 
 
-def to_str(value):
+def to_str(value: Any) -> str:
     """Convert a value to a unicode string."""
     if value is None or isinstance(value, str):
         return value
@@ -63,7 +65,7 @@ def to_str(value):
     return str(value)
 
 
-def to_native_str(value):
+def to_native_str(value: str) -> str:
     warnings.warn(
         (
             "The to_native_str() function is deprecated, "
@@ -71,20 +73,21 @@ def to_native_str(value):
             "use to_str() instead"
         ),
         DeprecationWarning,
+        stacklevel=2,
     )
     return to_str(value)
 
 
-def to_base64(value):
+def to_base64(value: str) -> str:
     """Convert a value to a base64 string."""
     return base64.b64encode(value).decode()
 
 
-def catch_sigpipe(func):
+def catch_sigpipe(func: Callable[..., int]) -> Callable[..., int]:
     """Catches KeyboardInterrupt and BrokenPipeError (OSError 22 on Windows)."""
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> int:
         try:
             return func(*args, **kwargs)
         except KeyboardInterrupt:
@@ -107,12 +110,41 @@ class EventHandler:
     def __init__(self):
         self.handlers = []
 
-    def add_handler(self, callback):
+    def add_handler(self, callback: Callable[..., None]) -> None:
         self.handlers.append(callback)
 
-    def remove_handler(self, callback):
+    def remove_handler(self, callback: Callable[..., None]) -> None:
         self.handlers.remove(callback)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> None:
         for h in self.handlers:
             h(*args, **kwargs)
+
+
+def boolean_argument(value: str | bool | int) -> bool:
+    """Convert a string, boolean, or integer to a boolean value.
+
+    This function interprets various string representations of boolean values,
+    such as "true", "false", "1", "0", "yes", "no".
+    It also accepts boolean and integer values directly.
+
+    Arguments:
+        value: The value to convert. Can be a string, boolean, or integer.
+
+    Returns:
+        bool: The converted boolean value.
+
+    Raises:
+        ValueError: If the value cannot be interpreted as a boolean.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return bool(value)
+    if isinstance(value, str):
+        value = value.lower()
+        if value in ("true", "1", "y", "yes", "on"):
+            return True
+        if value in ("false", "0", "n", "no", "off"):
+            return False
+    raise ValueError(f"Invalid boolean argument: {value}")
