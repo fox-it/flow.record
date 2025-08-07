@@ -90,6 +90,28 @@ def test_rdump_pipe(tmp_path: Path) -> None:
     assert len(records) == 3
     assert {r.count for r in records} == {1, 3, 9}
 
+    # Test if rdump exits with exit code 1 when no records can be read from stdin
+    p1 = subprocess.Popen(["echo", ""], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(["rdump", "-"], stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p2.communicate()
+
+    assert p2.returncode == 1
+    assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
+
+    # Test if rdump exits with exit code 0 when no records can be read from stdin
+    # and --ignore-empty-record-stream is set
+    p1 = subprocess.Popen(["echo", ""], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(
+        ["rdump", "-v", "-", "--ignore-empty-record-stream"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p2.communicate()
+
+    assert p2.returncode == 0
+    assert b"No records were read from the input stream" in stderr
+
 
 def test_rdump_format_template(tmp_path: Path) -> None:
     TestRecord = RecordDescriptor(
