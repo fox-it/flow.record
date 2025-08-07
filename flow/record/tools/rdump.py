@@ -330,6 +330,7 @@ def main(argv: list[str] | None = None) -> int:
                 record_writer.__exit__()
             except Exception as e:
                 print_error(e)
+                ret = 1
 
     if (args.list or args.stats) and not args.progress:
         print(f"Processed {count} records", file=sys.stdout if args.list else sys.stderr)
