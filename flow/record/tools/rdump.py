@@ -13,6 +13,7 @@ from zipimport import zipimporter
 
 import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
+from flow.record.exceptions import RecordAdapterNotFound
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
 from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
@@ -142,6 +143,11 @@ def main(argv: list[str] | None = None) -> int:
         "--stats",
         action="store_true",
         help="Show count of processed records",
+    )
+    output.add_argument(
+        "--ignore-empty-record-stream",
+        action="store_true",
+        help="Exit successfully if no records can be read",
     )
 
     advanced = parser.add_argument_group("advanced")
@@ -315,13 +321,17 @@ def main(argv: list[str] | None = None) -> int:
                     record_writer.write(rec)
 
     except Exception as e:
-        print_error(e)
+        if args.ignore_empty_record_stream and count == 0 and isinstance(e, RecordAdapterNotFound):
+            log.warning("No records were read from the input stream")
+            ret = 0
+        else:
+            print_error(e)
 
-        # Prevent throwing an exception twice when deconstructing the record writer.
-        if hasattr(record_writer, "exception") and record_writer.exception is e:
-            record_writer.exception = None
+            # Prevent throwing an exception twice when deconstructing the record writer.
+            if hasattr(record_writer, "exception") and record_writer.exception is e:
+                record_writer.exception = None
 
-        ret = 1
+            ret = 1
 
     finally:
         if record_writer:
