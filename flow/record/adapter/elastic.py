@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import queue
 import threading
@@ -279,7 +280,15 @@ def enrich_elastic_exception(exception: Exception) -> Exception:
                 error_type = error_dict.get("type")
                 error_reason = error_dict.get("reason", "")
 
-                errors.add(f"({status} {error_type} {error_reason})")
+                try:
+                    data = json.loads(index_dict.get("data", "{}"))
+                    record_metadata = data.get("_record_metadata", {})
+                    descriptor = record_metadata.get("descriptor", {})
+                    descriptor_name = descriptor.get("name", "unknown_descriptor")
+                except json.JSONDecodeError:
+                    descriptor_name = "unknown_descriptor"
+
+                errors.add(f"({descriptor_name}: {status} {error_type} {error_reason})")
         except Exception:
             errors.add("unable to extend errors")
 
