@@ -173,7 +173,7 @@ def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
                 """
                 INSERT INTO 'test/record' VALUES (?, ?, ?, ?)
                 """,
-                (f"record{i}", f"foobar{i}".encode(), datetime(2023, 10, i, 13, 37, tzinfo=timezone.utc), 3.14 + i),
+                (f"record{i}", f"foobar{i}".encode(), datetime(2023, 10, i, 13, 37, tzinfo=timezone.utc).isoformat(), 3.14 + i),
             )
 
     # Read the SQLite database using flow.record
