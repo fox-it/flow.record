@@ -28,8 +28,7 @@ from flow.record.base import (
     ZSTD_MAGIC,
 )
 from flow.record.selector import CompiledSelector, Selector
-
-from ._utils import generate_records
+from tests._utils import generate_records
 
 if TYPE_CHECKING:
     from pathlib import Path
