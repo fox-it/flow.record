@@ -97,7 +97,8 @@ class JsonRecordPacker:
                 del obj["_type"]
                 for field_type, field_name in record_descriptor.get_field_tuples():
                     if field_type == "bytes":
-                        obj[field_name] = base64.b64decode(obj[field_name])
+                        value = obj[field_name]
+                        obj[field_name] = base64.b64decode(value) if value is not None else None
                 return record_descriptor.recordType(**obj)
             if _type == "recorddescriptor":
                 data = obj["_data"]

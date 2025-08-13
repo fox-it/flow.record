@@ -112,3 +112,29 @@ def test_record_pack_surrogateescape() -> None:
 
     # pack the json string back to a record and make sure it is the same as before
     assert packer.unpack(data) == record
+
+
+def test_json_packer_bytes_type() -> None:
+    TestRecord = RecordDescriptor(
+        "test/bytes",
+        [
+            ("bytes", "data"),
+        ],
+    )
+
+    packer = JsonRecordPacker()
+
+    record = TestRecord(b"hello world")
+    data = packer.pack(record)
+    assert data.startswith('{"data": "aGVsbG8gd29ybGQ="')
+    assert packer.unpack(data) == record
+
+    record = TestRecord(data=None)
+    data = packer.pack(record)
+    assert data.startswith('{"data": null')
+    assert packer.unpack(data) == record
+
+    record = TestRecord(data=b"")
+    data = packer.pack(record)
+    assert data.startswith('{"data": ""')
+    assert packer.unpack(data) == record
