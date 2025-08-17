@@ -47,7 +47,7 @@ geoip = [
 ]
 avro = [
     "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # on PyPy we pin to last cramjam that still has a wheel
-    "cramjam>=2.8.4; platform_python_implementation != 'PyPy'", # on non PyPy we can install latest cramjam
+    "cramjam>=2.8.4; python_implementation != 'PyPy'", # on non PyPy we can install latest cramjam
     "fastavro[snappy]",
 ]
 duckdb = [
@@ -65,7 +65,7 @@ test = [
     "flow.record[avro]",
     "flow.record[elastic]",
     "flow.record[xlsx]",
-    "flow.record[duckdb]; platform_python_implementation != 'PyPy'", # only install duckdb on non PyPy
+    "flow.record[duckdb]; python_implementation != 'PyPy'", # only install duckdb on non PyPy
     "tqdm",
     "structlog",
     "pytest",
