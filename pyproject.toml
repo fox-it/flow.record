@@ -65,7 +65,8 @@ test = [
     "flow.record[avro]",
     "flow.record[elastic]",
     "flow.record[xlsx]",
-    "flow.record[duckdb]; python_implementation != 'PyPy'", # only install duckdb on non PyPy
+    "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # Don't install duckdb on PyPy
+    "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # Don't install duckdb on PyPy
     "tqdm",
     "structlog",
     "pytest",
