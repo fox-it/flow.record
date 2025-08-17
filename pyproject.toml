@@ -37,7 +37,8 @@ repository = "https://github.com/fox-it/flow.record"
 # Note: these compression libraries do not work well with pypy
 compression = [
     "lz4",
-    "zstandard",
+    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # last wheel for PyPy3.9
+    "zstandard>=0.23.0; platform_python_implementation != 'PyPy'"
 ]
 elastic = [
     "elasticsearch",
@@ -46,7 +47,7 @@ geoip = [
     "maxminddb",
 ]
 avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # on PyPy we pin to last cramjam that still has a wheel
+    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # last wheel for PyPy3.9
     "cramjam>=2.8.4; python_implementation != 'PyPy'", # on non PyPy we can install latest cramjam
     "fastavro[snappy]",
 ]
