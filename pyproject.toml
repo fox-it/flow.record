@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "flow.record"
 description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
 readme = "README.md"
-requires-python = "~=3.9"
+requires-python = ">=3.9.0"
 license.text = "Affero General Public License v3"
 authors = [
   {name = "Dissect Team", email = "dissect@fox-it.com"}
@@ -47,6 +47,8 @@ geoip = [
 ]
 avro = [
     "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'",
+    "cramjam>=2.8.4; platform_python_implementation != 'PyPy'",
+    #"cramjam>=2.11.0"; platform_python_implementation != 'PyPy'",
     "fastavro[snappy]",
 ]
 duckdb = [
@@ -64,10 +66,11 @@ test = [
     "flow.record[avro]",
     "flow.record[elastic]",
     "flow.record[xlsx]",
-    "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
-    "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
+    "flow.record[duckdb]",
     "tqdm",
     "structlog",
+    "pytest",
+    "ruff==0.9.2",
 ]
 full = [
     "flow.record[compression]",
@@ -138,3 +141,8 @@ include = ["flow.*"]
 
 [tool.setuptools_scm]
 version_file = "flow/record/version.py"
+
+[dependency-groups]
+dev = [
+    "flow.record[test]",
+]
