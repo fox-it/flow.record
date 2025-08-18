@@ -28,6 +28,7 @@ from flow.record import (
     whitelist,
 )
 from flow.record.base import _generate_record_class, fieldtype, is_valid_field_name
+from flow.record.context import fresh_app_context
 from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import CompiledSelector, Selector
 from flow.record.tools import rdump
@@ -533,7 +534,9 @@ def test_rdump_fieldtype_path_json(tmp_path: pathlib.Path) -> None:
         fieldtypes.path.from_windows,
     ],
 )
-def test_windows_path_regression(path_initializer: Callable[[str], pathlib.PurePath]) -> None:
+def test_windows_path_regression(
+    path_initializer: Callable[[str], pathlib.PurePath],
+) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -546,18 +549,30 @@ def test_windows_path_regression(path_initializer: Callable[[str], pathlib.PureP
 
 
 @pytest.mark.parametrize(
-    ("record_count", "count", "expected_count"),
+    (
+        "record_count",
+        "count",
+        "expected_processed_count",
+        "expected_matched_count",
+        "expected_excluded_count",
+    ),
     [
-        (10, 10, 10),
-        (0, 10, 0),
-        (1, 10, 1),
-        (5, 0, 5),  # --count 0 should be ignored
-        (5, 1, 1),
-        (5, 10, 5),
+        (10, 10, 10, 10, 0),
+        (0, 10, 0, 0, 0),
+        (1, 10, 1, 1, 0),
+        (5, 0, 5, 5, 0),  # --count 0 should be ignored
+        (5, 1, 1, 1, 0),
+        (5, 10, 5, 5, 0),
     ],
 )
 def test_rdump_count_list(
-    tmp_path: pathlib.Path, capsysbinary: pytest.CaptureFixture, record_count: int, count: int, expected_count: int
+    tmp_path: pathlib.Path,
+    capsysbinary: pytest.CaptureFixture,
+    record_count: int,
+    count: int,
+    expected_processed_count: int,
+    expected_matched_count: int,
+    expected_excluded_count: int,
 ) -> None:
     TestRecord = RecordDescriptor(
         "test/record",
@@ -576,13 +591,15 @@ def test_rdump_count_list(
     rdump.main([str(record_path), "--count", str(count)])
     captured = capsysbinary.readouterr()
     assert captured.err == b""
-    assert len(captured.out.splitlines()) == expected_count
+    assert len(captured.out.splitlines()) == expected_matched_count
 
-    # rdump --list --count <count>
-    rdump.main([str(record_path), "--list", "--count", str(count)])
-    captured = capsysbinary.readouterr()
-    assert captured.err == b""
-    assert f"Processed {expected_count} records".encode() in captured.out
+    with fresh_app_context():
+        # rdump --list --count <count>
+        rdump.main([str(record_path), "--list", "--count", str(count)])
+        captured = capsysbinary.readouterr()
+        assert captured.err == b""
+        assert f"Processed {expected_processed_count} records".encode() in captured.out
+        assert f"matched={expected_matched_count}, excluded=0".encode() in captured.out
 
 
 def test_record_adapter_windows_path(tmp_path: pathlib.Path) -> None:
@@ -670,7 +687,10 @@ def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
         writer.write(TestRecord("foo"))
 
     # Test stdin
-    with patch("sys.stdin", BytesIO(records_path.read_bytes())), RecordReader() as reader:
+    with (
+        patch("sys.stdin", BytesIO(records_path.read_bytes())),
+        RecordReader() as reader,
+    ):
         for record in reader:
             assert record.text == "foo"
 
@@ -705,7 +725,14 @@ def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
     assert captured.out == b"key,title,syntax\r\nQ42eWSaF,A sample pastebin record,text\r\n"
 
     # rdump --fields key,title,syntax --csv
-    rdump.main([str(example_records_json_path), "--fields", "key,title,syntax", "--csv-no-header"])
+    rdump.main(
+        [
+            str(example_records_json_path),
+            "--fields",
+            "key,title,syntax",
+            "--csv-no-header",
+        ]
+    )
     captured = capsysbinary.readouterr()
     assert captured.err == b""
     assert captured.out == b"Q42eWSaF,A sample pastebin record,text\r\n"

@@ -12,6 +12,7 @@ from typing import IO, TYPE_CHECKING, BinaryIO
 
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.base import Record, RecordDescriptor, RecordReader
+from flow.record.context import get_app_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
 from flow.record.selector import make_selector
@@ -129,6 +130,8 @@ class RecordStreamReader:
         self.closed = True
 
     def __iter__(self) -> Iterator[Record]:
+        ctx = get_app_context()
+        selector_match = self.selector.match if self.selector else None
         try:
             while not self.closed:
                 obj = self.read()
@@ -137,8 +140,12 @@ class RecordStreamReader:
                 if isinstance(obj, RecordDescriptor):
                     self.packer.register(obj)
                 else:
-                    if not self.selector or self.selector.match(obj):
+                    ctx.records_read += 1
+                    if not selector_match or selector_match(obj):
+                        ctx.records_matched += 1
                         yield obj
+                    else:
+                        ctx.records_excluded += 1
         except EOFError:
             pass
 
@@ -150,9 +157,11 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
     """
 
     trace = log.isEnabledFor(LOGGING_TRACE_LEVEL)
+    ctx = get_app_context()
 
     log.debug("Record stream with selector: %r", selector)
     for src in sources:
+        ctx.source_count += 1
         # Inform user that we are reading from stdin
         if src in ("-", ""):
             print("[reading from stdin]", file=sys.stderr)

@@ -7,6 +7,7 @@ from pymongo import MongoClient
 
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.context import get_app_context
 from flow.record.selector import make_selector
 
 if TYPE_CHECKING:
@@ -91,6 +92,7 @@ class MongoReader(AbstractReader):
 
     def __iter__(self) -> Iterator[Record]:
         desc = None
+        ctx = get_app_context()
         for r in self.collection.find():
             if r["_type"] not in self.descriptors:
                 packed_desc = self.coll_descriptors.find({"name": r["_type"]})[0]["descriptor"]
@@ -106,5 +108,9 @@ class MongoReader(AbstractReader):
                     r[k] = int(r[k])
 
             obj = desc(**r)
+            ctx.records_read += 1
             if not self.selector or self.selector.match(obj):
+                ctx.records_matched += 1
                 yield obj
+            else:
+                ctx.records_excluded += 1
