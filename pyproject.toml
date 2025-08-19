@@ -7,7 +7,8 @@ name = "flow.record"
 description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
 readme = "README.md"
 requires-python = ">=3.9.0"
-license.text = "Affero General Public License v3"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "COPYRIGHT"]
 authors = [
   {name = "Dissect Team", email = "dissect@fox-it.com"}
 ]
@@ -16,7 +17,6 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
-  "License :: OSI Approved",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Information Analysis",
@@ -120,9 +120,6 @@ ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM1
 
 [tool.ruff.lint.isort]
 known-first-party = ["flow.record"]
-
-[tool.setuptools]
-license-files = ["LICENSE", "COPYRIGHT"]
 
 [tool.setuptools.packages.find]
 include = ["flow.*"]
