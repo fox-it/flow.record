@@ -287,6 +287,6 @@ def enrich_elastic_exception(exception: Exception) -> Exception:
     error_str = ", ".join(errors)
     original_message = exception.args[0] if exception.args else ""
     new_message = f"{original_message} {error_str}"
-    exception.args = (new_message,) + exception.args[1:]
+    exception.args = (new_message, *exception.args[1:])
 
     return exception
