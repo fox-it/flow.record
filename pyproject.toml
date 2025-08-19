@@ -60,18 +60,6 @@ splunk = [
 xlsx = [
     "openpyxl",
 ]
-test = [
-    "flow.record[compression]",
-    "flow.record[avro]",
-    "flow.record[elastic]",
-    "flow.record[xlsx]",
-    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
-    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
-    "tqdm",
-    "structlog",
-    "pytest",
-    "ruff==0.9.2",
-]
 full = [
     "flow.record[compression]",
     "tqdm",
