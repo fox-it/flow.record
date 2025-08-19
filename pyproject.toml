@@ -142,7 +142,7 @@ include = ["flow.*"]
 [tool.setuptools_scm]
 version_file = "flow/record/version.py"
 
-# This list is duplicated due to https://github.com/fox-it/flow.record/pull/182
+# This list is duplicated due to https://github.com/fox-it/flow.record/pull/182#discussion_r2284582481
 [dependency-groups]
 compression = [
     "lz4",
