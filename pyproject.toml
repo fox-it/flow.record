@@ -169,6 +169,9 @@ full = [
     "tqdm",
     "structlog",
 ]
+build = [
+    "build",
+]
 lint = [
     "ruff==0.12.9",
     "vermin",
