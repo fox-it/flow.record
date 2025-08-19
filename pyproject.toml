@@ -1,13 +1,14 @@
 [build-system]
-requires = ["setuptools>=65.5.0", "setuptools_scm[toml]>=6.4.0"]
+requires = ["setuptools>=80.9.0", "setuptools_scm[toml]>=6.4.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "flow.record"
 description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
 readme = "README.md"
-requires-python = "~=3.9"
-license.text = "Affero General Public License v3"
+requires-python = ">=3.9.0"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "COPYRIGHT"]
 authors = [
   {name = "Dissect Team", email = "dissect@fox-it.com"}
 ]
@@ -16,7 +17,6 @@ classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
-  "License :: OSI Approved",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Information Analysis",
@@ -38,6 +38,7 @@ repository = "https://github.com/fox-it/flow.record"
 compression = [
     "lz4",
     "zstandard",
+    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
 ]
 elastic = [
     "elasticsearch",
@@ -46,7 +47,7 @@ geoip = [
     "maxminddb",
 ]
 avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'",
+    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
     "fastavro[snappy]",
 ]
 duckdb = [
@@ -58,16 +59,6 @@ splunk = [
 ]
 xlsx = [
     "openpyxl",
-]
-test = [
-    "flow.record[compression]",
-    "flow.record[avro]",
-    "flow.record[elastic]",
-    "flow.record[xlsx]",
-    "duckdb; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
-    "pytz; platform_python_implementation != 'PyPy' and python_version < '3.12'", # duckdb
-    "tqdm",
-    "structlog",
 ]
 full = [
     "flow.record[compression]",
@@ -130,11 +121,62 @@ ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM1
 [tool.ruff.lint.isort]
 known-first-party = ["flow.record"]
 
-[tool.setuptools]
-license-files = ["LICENSE", "COPYRIGHT"]
-
 [tool.setuptools.packages.find]
 include = ["flow.*"]
 
 [tool.setuptools_scm]
 version_file = "flow/record/version.py"
+
+# This list is duplicated due to https://github.com/fox-it/flow.record/pull/182#discussion_r2284582481
+[dependency-groups]
+compression = [
+    "lz4",
+    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
+    "zstandard",
+]
+elastic = [
+    "elasticsearch",
+]
+geoip = [
+    "maxminddb",
+]
+avro = [
+    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
+    "fastavro[snappy]",
+]
+duckdb = [
+    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+]
+splunk = [
+    "httpx",
+]
+xlsx = [
+    "openpyxl",
+]
+test = [
+    {include-group = "compression"},
+    {include-group = "avro"},
+    {include-group = "elastic"},
+    {include-group = "xlsx"},
+    {include-group = "duckdb"},
+    "tqdm",
+    "structlog",
+    "pytest",
+]
+full = [
+    {include-group = "compression"},
+    "tqdm",
+    "structlog",
+]
+build = [
+    "build",
+]
+lint = [
+    "ruff==0.12.9",
+    "vermin",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+]
