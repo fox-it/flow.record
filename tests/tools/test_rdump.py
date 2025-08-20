@@ -720,3 +720,39 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
     # stdout should contain the RecordDescriptor definition and count
     assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
+
+
+def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
+    """Test if rdump properly suppresses BrokenPipeError when writing to a closed file handle."""
+    if platform.system() == "Windows":
+        pytest.skip("skipping this test on windows")
+
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    with RecordWriter(path) as writer:
+        for i in range(10):
+            writer.write(TestRecord(count=i, foo="bar"))
+
+    # rdump test.records | head -n 2
+    proc = subprocess.Popen(
+        f"rdump {path} | head -n 2",
+        shell=True,
+        text=True,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    )
+
+    stdout, stderr = proc.communicate()
+    exit_code = proc.wait()
+    assert exit_code == 0
+    assert stderr == ""  # We don't expect any BrokenPipeError
+    assert "test/record count=0" in stdout
+    assert "test/record count=1" in stdout
+    assert len(stdout.splitlines()) == 2
