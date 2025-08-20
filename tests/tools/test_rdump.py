@@ -722,10 +722,9 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
     assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
 
 
+@pytest.mark.skipif(platform.system() == "Windows", "skipping this test on Windows")
 def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
     """Test if rdump properly suppresses BrokenPipeError when writing to a closed file handle."""
-    if platform.system() == "Windows":
-        pytest.skip("skipping this test on windows")
 
     TestRecord = RecordDescriptor(
         "test/record",
