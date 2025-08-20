@@ -29,6 +29,7 @@ from flow.record.base import (
     set_ignored_fields_for_comparison,
 )
 from flow.record.exceptions import RecordDescriptorError
+from flow.record.fieldtypes import windows_path
 from flow.record.stream import RecordFieldRewriter
 
 if TYPE_CHECKING:
@@ -317,9 +318,13 @@ def test_record_printer_stdout_surrogateescape(capsys: pytest.CaptureFixture) ->
         "test/a",
         [
             ("string", "name"),
+            ("path", "value"),
         ],
     )
-    record = Record(b"R\xc3\xa9\xeamy")
+    record = Record(
+        b"R\xc3\xa9\xeamy\xc3\xa4\xc3\x84",
+        windows_path("\udce4"),
+    )
 
     # fake capsys to be a tty.
     def isatty() -> bool:
