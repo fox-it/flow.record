@@ -10,7 +10,7 @@ from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, normalize_fieldname
 from flow.record.context import get_app_context
-from flow.record.selector import make_selector
+from flow.record.selector import make_selector, match_record_with_context
 from flow.record.utils import boolean_argument, is_stdout
 
 if TYPE_CHECKING:
@@ -116,12 +116,10 @@ class CsvfileReader(AbstractReader):
 
     def __iter__(self) -> Iterator[Record]:
         ctx = get_app_context()
+        selector = self.selector
         for row in self.reader:
             rdict = dict(zip(self.fields, row))
             record = self.desc.init_from_dict(rdict)
-            ctx.records_read += 1
-            if not self.selector or self.selector.match(record):
-                ctx.records_matched += 1
+            ctx.read += 1
+            if match_record_with_context(record, selector, ctx):
                 yield record
-            else:
-                ctx.records_excluded += 1

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from flow.record.base import GroupedRecord, Record, dynamic_fieldtype
 from flow.record.fieldtypes import net
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
+from flow.record.context import AppContext
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -695,3 +696,22 @@ def make_selector(selector: str | Selector | None, force_compiled: bool = False)
     elif isinstance(selector, Selector) and force_compiled:
         ret = CompiledSelector(selector.expression_str)
     return ret
+
+
+def match_record_with_context(record: Record, selector: Selector | None, context: AppContext) -> bool:
+    """Return True if `record` matches the `selector`, also keeps track of relevant metrics in `context`.
+    If selector is None, it will always return True.
+
+    Arguments:
+        record: The record to match against the selector.
+        selector: The selector to use for matching.
+        context: The context in which the record is being matched.
+
+    Returns:
+        True if record matches the selector, or if selector is None
+    """
+    if selector is None or selector.match(record):
+        context.matched += 1
+        return True
+    context.excluded += 1
+    return False

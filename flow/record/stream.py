@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, BinaryIO
 
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
+from flow.record.adapter import AbstractReader
 from flow.record.base import Record, RecordDescriptor, RecordReader
 from flow.record.context import get_app_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
-from flow.record.selector import make_selector
+from flow.record.selector import make_selector, match_record_with_context
 from flow.record.utils import LOGGING_TRACE_LEVEL, is_stdout
 
 if TYPE_CHECKING:
@@ -97,7 +98,7 @@ class RecordStreamWriter:
         self.write(RECORDSTREAM_MAGIC)
 
 
-class RecordStreamReader:
+class RecordStreamReader(AbstractReader):
     fp = None
     recordtype = None
     descs = None
@@ -130,8 +131,8 @@ class RecordStreamReader:
         self.closed = True
 
     def __iter__(self) -> Iterator[Record]:
+        selector = self.selector
         ctx = get_app_context()
-        selector_match = self.selector.match if self.selector else None
         try:
             while not self.closed:
                 obj = self.read()
@@ -140,12 +141,9 @@ class RecordStreamReader:
                 if isinstance(obj, RecordDescriptor):
                     self.packer.register(obj)
                 else:
-                    ctx.records_read += 1
-                    if not selector_match or selector_match(obj):
-                        ctx.records_matched += 1
+                    ctx.read += 1
+                    if match_record_with_context(obj, selector, ctx):
                         yield obj
-                    else:
-                        ctx.records_excluded += 1
         except EOFError:
             pass
 

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-APP_CONTEXT: ContextVar[AppContext] = ContextVar("app_context")
+APP_CONTEXT: ContextVar[AppContext] = ContextVar("APP_CONTEXT")
 
 
 def get_app_context() -> AppContext:
@@ -46,8 +46,8 @@ else:
 class AppContext:
     """Context for the application, holding metrics like amount of processed records."""
 
-    records_read: int = 0
-    records_matched: int = 0
-    records_excluded: int = 0
+    read: int = 0
+    matched: int = 0
+    excluded: int = 0
     source_count: int = 0
     source_total: int = 0

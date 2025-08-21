@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import urllib3
 
+from flow.record.selector import match_record_with_context
+
 try:
     import elasticsearch
     import elasticsearch.helpers
@@ -248,6 +250,7 @@ class ElasticReader(AbstractReader):
 
     def __iter__(self) -> Iterator[Record]:
         ctx = get_app_context()
+        selector = self.selector
         res = self.es.search(index=self.index)
         log.debug("ElasticSearch returned %u hits", res["hits"]["total"]["value"])
         for hit in res["hits"]["hits"]:
@@ -257,12 +260,9 @@ class ElasticReader(AbstractReader):
             fields = [(fieldtype_for_value(val, "string"), key) for key, val in source.items()]
             desc = RecordDescriptor("elastic/record", fields)
             obj = desc(**source)
-            ctx.records_read += 1
-            if not self.selector or self.selector.match(obj):
-                ctx.records_matched += 1
+            ctx.read += 1
+            if match_record_with_context(obj, selector, ctx):
                 yield obj
-            else:
-                ctx.records_excluded += 1
 
     def close(self) -> None:
         if hasattr(self, "es"):

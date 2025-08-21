@@ -3,6 +3,8 @@ from __future__ import annotations
 __path__ = __import__("pkgutil").extend_path(__path__, __name__)  # make this namespace extensible from other packages
 import abc
 from typing import TYPE_CHECKING
+from flow.record.context import AppContext
+from flow.record.selector import Selector, make_selector
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

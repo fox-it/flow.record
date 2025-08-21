@@ -10,7 +10,7 @@ from flow.record import Record, RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS, normalize_fieldname
 from flow.record.context import get_app_context
-from flow.record.selector import Selector, make_selector
+from flow.record.selector import Selector, make_selector, match_record_with_context
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -197,16 +197,13 @@ class SqliteReader(AbstractReader):
     def __iter__(self) -> Iterator[Record]:
         """Iterate over all tables in the database and yield records."""
         ctx = get_app_context()
+        selector = self.selector
         for table_name in self.table_names():
             self.logger.debug("Reading table: %s", table_name)
             for record in self.read_table(table_name):
-                ctx.records_read += 1
-                if not self.selector or self.selector.match(record):
-                    ctx.records_matched += 1
+                ctx.read += 1
+                if match_record_with_context(record, selector, ctx):
                     yield record
-                else:
-                    ctx.records_excluded += 1
-
 
 class SqliteWriter(AbstractWriter):
     """SQLite writer."""

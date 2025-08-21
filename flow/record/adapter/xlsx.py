@@ -12,7 +12,7 @@ from flow.record import fieldtypes
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.context import get_app_context
 from flow.record.fieldtypes.net import ipaddress
-from flow.record.selector import make_selector
+from flow.record.selector import make_selector, match_record_with_context
 from flow.record.utils import is_stdout
 
 if TYPE_CHECKING:
@@ -128,6 +128,7 @@ class XlsxReader(AbstractReader):
 
     def __iter__(self) -> Iterator[Record]:
         ctx = get_app_context()
+        selector = self.selector
         for worksheet in self.wb.worksheets:
             desc = None
             desc_name = worksheet.title.replace("-", "/")
@@ -158,9 +159,6 @@ class XlsxReader(AbstractReader):
                             value = b64decode(value[7:])
                     record_values.append(value)
                 obj = desc(*record_values)
-                ctx.records_read += 1
-                if not self.selector or self.selector.match(obj):
-                    ctx.records_matched += 1
+                ctx.read += 1
+                if match_record_with_context(obj, selector, ctx):
                     yield obj
-                else:
-                    ctx.records_excluded += 1

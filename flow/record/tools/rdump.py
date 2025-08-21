@@ -111,9 +111,9 @@ if HAS_TQDM:
         def update_progress_bar(self) -> None:
             source_count = self.ctx.source_count
             source_total = self.ctx.source_total
-            read = self.ctx.records_read
-            matched = self.ctx.records_matched
-            excluded = self.ctx.records_excluded
+            read = self.ctx.read
+            matched = self.ctx.matched
+            excluded = self.ctx.excluded
 
             self.progress_bar.n = read
             postfix = f"source={source_count}/{source_total}, {read=}, {matched=}, {excluded=}"
@@ -437,7 +437,7 @@ def main(argv: list[str] | None = None) -> int:
                 ret = 1
 
     if (args.list or args.stats) and not args.progress:
-        stats = f"Processed {ctx.records_read} records (matched={ctx.records_matched}, excluded={ctx.records_excluded})"
+        stats = f"Processed {ctx.read} records (matched={ctx.matched}, excluded={ctx.excluded})"
         print(stats, file=sys.stdout if args.list else sys.stderr)
 
     return ret
