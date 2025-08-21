@@ -1033,6 +1033,24 @@ def test_datetime_comparisions() -> None:
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
 
 
+@pytest.mark.parametrize(
+    "command_cls",
+    [
+        fieldtypes.posix_command,
+        fieldtypes.windows_command,
+        fieldtypes.command,
+    ],
+)
+def test_empty_command(command_cls: type[command]) -> None:
+    command = command_cls()
+    assert command.executable is None
+    assert command.args is None
+
+    command = command_cls("")
+    assert command.executable == ""
+    assert command.args == []
+
+
 def test_command_record() -> None:
     TestRecord = RecordDescriptor(
         "test/command",
