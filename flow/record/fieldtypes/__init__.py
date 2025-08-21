@@ -722,6 +722,16 @@ class posix_path(pathlib.PurePosixPath, path):
 class windows_path(pathlib.PureWindowsPath, path):
     def __repr__(self) -> str:
         s = str(self)
+        # Only use repr() if we have surrogates that need escaping
+        try:
+            s.encode("utf-8")
+        except UnicodeEncodeError:
+            # Has surrogates - use repr but fix the over-escaping
+            s = repr(s)[1:-1]  # This escapes surrogates as \udcXX
+            s = s.replace("\\\\", "\\")  # Fix double backslashes
+            s = s.replace("\\'", "'")  # Fix over-escaped quotes
+            s = s.replace('\\"', '"')  # Fix over-escaped double quotes
+
         quote = "'"
         if "'" in s:
             if '"' in s:

@@ -29,6 +29,7 @@ from flow.record.base import (
     set_ignored_fields_for_comparison,
 )
 from flow.record.exceptions import RecordDescriptorError
+from flow.record.fieldtypes import windows_path
 from flow.record.stream import RecordFieldRewriter
 
 if TYPE_CHECKING:
@@ -307,7 +308,7 @@ def test_record_printer_stdout(capsys: pytest.CaptureFixture) -> None:
     writer = RecordPrinter(getattr(sys.stdout, "buffer", sys.stdout))
     writer.write(record)
 
-    out, err = capsys.readouterr()
+    out, _ = capsys.readouterr()
     expected = "<test/a a_string='hello' common='world' a_count=10>\n"
     assert out == expected
 
@@ -317,9 +318,13 @@ def test_record_printer_stdout_surrogateescape(capsys: pytest.CaptureFixture) ->
         "test/a",
         [
             ("string", "name"),
+            ("path", "value"),
         ],
     )
-    record = Record(b"R\xc3\xa9\xeamy")
+    record = Record(
+        b"R\xc3\xa9\xeamy",
+        windows_path(b"\x43\x3a\x5c\xc3\xa4\xc3\x84\xe4".decode(errors="surrogateescape")),
+    )
 
     # fake capsys to be a tty.
     def isatty() -> bool:
@@ -330,8 +335,8 @@ def test_record_printer_stdout_surrogateescape(capsys: pytest.CaptureFixture) ->
     writer = RecordPrinter(getattr(sys.stdout, "buffer", sys.stdout))
     writer.write(record)
 
-    out, err = capsys.readouterr()
-    expected = "<test/a name='Ré\\udceamy'>\n"
+    out, _ = capsys.readouterr()
+    expected = "<test/a name='Ré\\udceamy' value='C:\\äÄ\\udce4'>\n"
     assert out == expected
 
 
