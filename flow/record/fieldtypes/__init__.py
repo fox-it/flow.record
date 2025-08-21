@@ -740,8 +740,8 @@ class command(FieldType):
     _path_type: type[path] = None
     _posix: bool = True
 
-    def __new__(cls, value: str | None):
-        if cls is not command:
+    def __new__(cls, value: str | None = None):
+        if cls is not command or value is None:
             return super().__new__(cls)
 
         if not isinstance(value, str):
@@ -758,7 +758,7 @@ class command(FieldType):
         cls = windows_command if windows else posix_command
         return super().__new__(cls)
 
-    def __init__(self, value: str | None):
+    def __init__(self, value: str | None = None):
         if value is None:
             return
 
@@ -779,8 +779,12 @@ class command(FieldType):
         return False
 
     def _split(self, value: str) -> tuple[path, list[str]]:
-        executable, *args = shlex.split(value, posix=self._posix)
-        executable = executable.strip("'\" ")
+        if value:
+            executable, *args = shlex.split(value, posix=self._posix)
+            executable = executable.strip("'\" ")
+        else:
+            executable = ""
+            args = []
 
         return self._path_type(executable), args
 
