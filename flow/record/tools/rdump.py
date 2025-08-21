@@ -114,9 +114,10 @@ if HAS_TQDM:
             read = self.ctx.read
             matched = self.ctx.matched
             unmatched = self.ctx.unmatched
+            source = f"{source_count}/{source_total}"
 
             self.progress_bar.n = read
-            postfix = f"source={source_count}/{source_total}, {read=}, {matched=}, {unmatched=}"
+            postfix = f"{source=!s}, {read=}, {matched=}, {unmatched=}"
             self.progress_bar.set_postfix_str(postfix, refresh=False)
             self.progress_bar.update(0)
 
