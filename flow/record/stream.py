@@ -13,10 +13,10 @@ from typing import IO, TYPE_CHECKING, BinaryIO
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.adapter import AbstractReader
 from flow.record.base import Record, RecordDescriptor, RecordReader
-from flow.record.context import get_app_context
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
-from flow.record.selector import make_selector, match_record_with_context
+from flow.record.selector import make_selector
 from flow.record.utils import LOGGING_TRACE_LEVEL, is_stdout
 
 if TYPE_CHECKING:
@@ -141,7 +141,6 @@ class RecordStreamReader(AbstractReader):
                 if isinstance(obj, RecordDescriptor):
                     self.packer.register(obj)
                 else:
-                    ctx.read += 1
                     if match_record_with_context(obj, selector, ctx):
                         yield obj
         except EOFError:

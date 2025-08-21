@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from flow.record import Record
+    from flow.record.selector import Selector
+
 APP_CONTEXT: ContextVar[AppContext] = ContextVar("APP_CONTEXT")
 
 
@@ -48,6 +51,28 @@ class AppContext:
 
     read: int = 0
     matched: int = 0
-    excluded: int = 0
+    unmatched: int = 0
     source_count: int = 0
     source_total: int = 0
+
+
+def match_record_with_context(record: Record, selector: Selector | None, context: AppContext) -> bool:
+    """Return True if `record` matches the `selector`, also keeps track of relevant metrics in `context`.
+    If selector is None, it will always return True.
+
+    When calling this function, it also increases the ``context.read`` property.
+
+    Arguments:
+        record: The record to match against the selector.
+        selector: The selector to use for matching.
+        context: The context in which the record is being matched.
+
+    Returns:
+        True if record matches the selector, or if selector is None
+    """
+    context.read += 1
+    if selector is None or selector.match(record):
+        context.matched += 1
+        return True
+    context.unmatched += 1
+    return False

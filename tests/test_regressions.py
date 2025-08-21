@@ -599,7 +599,7 @@ def test_rdump_count_list(
         captured = capsysbinary.readouterr()
         assert captured.err == b""
         assert f"Processed {expected_processed_count} records".encode() in captured.out
-        assert f"matched={expected_matched_count}, excluded=0".encode() in captured.out
+        assert f"matched={expected_matched_count}, unmatched=0".encode() in captured.out
 
 
 def test_record_adapter_windows_path(tmp_path: pathlib.Path) -> None:

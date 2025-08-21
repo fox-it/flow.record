@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 
 import urllib3
 
-from flow.record.selector import match_record_with_context
-
 try:
     import elasticsearch
     import elasticsearch.helpers
@@ -22,7 +20,7 @@ except ImportError:
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
-from flow.record.context import get_app_context
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.utils import boolean_argument
@@ -260,7 +258,6 @@ class ElasticReader(AbstractReader):
             fields = [(fieldtype_for_value(val, "string"), key) for key, val in source.items()]
             desc = RecordDescriptor("elastic/record", fields)
             obj = desc(**source)
-            ctx.read += 1
             if match_record_with_context(obj, selector, ctx):
                 yield obj
 

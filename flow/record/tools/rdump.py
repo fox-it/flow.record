@@ -113,10 +113,10 @@ if HAS_TQDM:
             source_total = self.ctx.source_total
             read = self.ctx.read
             matched = self.ctx.matched
-            excluded = self.ctx.excluded
+            unmatched = self.ctx.unmatched
 
             self.progress_bar.n = read
-            postfix = f"source={source_count}/{source_total}, {read=}, {matched=}, {excluded=}"
+            postfix = f"source={source_count}/{source_total}, {read=}, {matched=}, {unmatched=}"
             self.progress_bar.set_postfix_str(postfix, refresh=False)
             self.progress_bar.update(0)
 
@@ -437,7 +437,7 @@ def main(argv: list[str] | None = None) -> int:
                 ret = 1
 
     if (args.list or args.stats) and not args.progress:
-        stats = f"Processed {ctx.read} records (matched={ctx.matched}, excluded={ctx.excluded})"
+        stats = f"Processed {ctx.read} records (matched={ctx.matched}, unmatched={ctx.unmatched})"
         print(stats, file=sys.stdout if args.list else sys.stderr)
 
     return ret

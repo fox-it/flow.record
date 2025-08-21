@@ -7,8 +7,8 @@ from pymongo import MongoClient
 
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.context import get_app_context
-from flow.record.selector import make_selector, match_record_with_context
+from flow.record.context import get_app_context, match_record_with_context
+from flow.record.selector import make_selector
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -109,6 +109,5 @@ class MongoReader(AbstractReader):
                     r[k] = int(r[k])
 
             obj = desc(**r)
-            ctx.read += 1
             if match_record_with_context(obj, selector, ctx):
                 yield obj

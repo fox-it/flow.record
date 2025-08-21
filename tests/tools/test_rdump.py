@@ -734,7 +734,7 @@ def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.Capture
     captured = capsys.readouterr()
     assert "Processed: 2000 records" in captured.err
     assert "matched=1" in captured.err
-    assert "excluded=1999" in captured.err
+    assert "unmatched=1999" in captured.err
 
 
 def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
@@ -749,7 +749,7 @@ def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, caps
     assert "Processed: 100%" in captured.err
     assert "100/100" in captured.err
     assert "matched=100" in captured.err
-    assert "excluded=0" in captured.err
+    assert "unmatched=0" in captured.err
 
 
 def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
@@ -761,4 +761,4 @@ def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> No
 
     rdump.main(["--list", "--stats", str(tmp_path / "test.records")])
     captured = capsys.readouterr()
-    assert "Processed 100 records (matched=100, excluded=0)" in captured.out
+    assert "Processed 100 records (matched=100, unmatched=0)" in captured.out

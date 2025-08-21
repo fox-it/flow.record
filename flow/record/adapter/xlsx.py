@@ -10,9 +10,9 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from flow import record
 from flow.record import fieldtypes
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.context import get_app_context
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes.net import ipaddress
-from flow.record.selector import make_selector, match_record_with_context
+from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
 
 if TYPE_CHECKING:
@@ -159,6 +159,5 @@ class XlsxReader(AbstractReader):
                             value = b64decode(value[7:])
                     record_values.append(value)
                 obj = desc(*record_values)
-                ctx.read += 1
                 if match_record_with_context(obj, selector, ctx):
                     yield obj

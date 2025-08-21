@@ -9,8 +9,8 @@ import fastavro
 
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.context import get_app_context
-from flow.record.selector import make_selector, match_record_with_context
+from flow.record.context import get_app_context, match_record_with_context
+from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
 
 if TYPE_CHECKING:
@@ -124,7 +124,6 @@ class AvroReader(AbstractReader):
                     obj[field_name] = EPOCH + timedelta(microseconds=value)
 
             rec = self.desc.recordType(**obj)
-            ctx.read += 1
             if match_record_with_context(rec, selector, ctx):
                 yield rec
 
