@@ -1115,7 +1115,11 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         # Test weird command strings for windows
         ("windows.dll something,or,somethingelse", "windows.dll", ["something,or,somethingelse"]),
         # Test environment variables
-        (r"%WINDIR%\\windows.dll something,or,somethingelse", r"%WINDIR%\\windows.dll", ["something,or,somethingelse"]),
+        (
+            r"%WINDIR%\\windows.dll something,or,somethingelse",
+            r"%WINDIR%\\windows.dll",
+            ["something,or,somethingelse"],
+        ),
         # Test a quoted path
         (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
         # Test a unquoted path
