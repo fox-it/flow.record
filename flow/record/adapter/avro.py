@@ -9,6 +9,7 @@ import fastavro
 
 from flow import record
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
 
@@ -113,6 +114,8 @@ class AvroReader(AbstractReader):
         }
 
     def __iter__(self) -> Iterator[record.Record]:
+        ctx = get_app_context()
+        selector = self.selector
         for obj in self.reader:
             # Convert timestamp-micros fields back to datetime fields
             for field_name in self.datetime_fields:
@@ -121,7 +124,7 @@ class AvroReader(AbstractReader):
                     obj[field_name] = EPOCH + timedelta(microseconds=value)
 
             rec = self.desc.recordType(**obj)
-            if not self.selector or self.selector.match(rec):
+            if match_record_with_context(rec, selector, ctx):
                 yield rec
 
     def close(self) -> None:

@@ -20,6 +20,7 @@ except ImportError:
 
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, RecordDescriptor
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.utils import boolean_argument
@@ -246,6 +247,8 @@ class ElasticReader(AbstractReader):
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:
+        ctx = get_app_context()
+        selector = self.selector
         res = self.es.search(index=self.index)
         log.debug("ElasticSearch returned %u hits", res["hits"]["total"]["value"])
         for hit in res["hits"]["hits"]:
@@ -255,7 +258,7 @@ class ElasticReader(AbstractReader):
             fields = [(fieldtype_for_value(val, "string"), key) for key, val in source.items()]
             desc = RecordDescriptor("elastic/record", fields)
             obj = desc(**source)
-            if not self.selector or self.selector.match(obj):
+            if match_record_with_context(obj, selector, ctx):
                 yield obj
 
     def close(self) -> None:
