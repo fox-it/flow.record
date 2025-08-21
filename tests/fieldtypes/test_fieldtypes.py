@@ -22,10 +22,8 @@ from flow.record.fieldtypes import (
     command,
     fieldtype_for_value,
     net,
-    posix_command,
     posix_path,
     uri,
-    windows_command,
     windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
@@ -1033,20 +1031,16 @@ def test_datetime_comparisions() -> None:
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
 
 
-@pytest.mark.parametrize(
-    "command_cls",
-    [
-        fieldtypes.posix_command,
-        fieldtypes.windows_command,
-        fieldtypes.command,
-    ],
-)
-def test_empty_command(command_cls: type[command]) -> None:
-    command = command_cls()
-    assert command.executable is None
-    assert command.args is None
+def test_empty_command() -> None:
+    command = fieldtypes.command()
+    assert command.executable == ""
+    assert command.args == []
 
-    command = command_cls("")
+    command = fieldtypes.command("")
+    assert command.executable == ""
+    assert command.args == []
+
+    command = fieldtypes.command("        ")
     assert command.executable == ""
     assert command.args == []
 
@@ -1060,12 +1054,12 @@ def test_command_record() -> None:
     )
 
     record = TestRecord(commando="help.exe -h")
-    assert isinstance(record.commando, posix_command)
+    assert isinstance(record.commando.executable, posix_path)
     assert record.commando.executable == "help.exe"
     assert record.commando.args == ["-h"]
 
     record = TestRecord(commando="something.so -h -q -something")
-    assert isinstance(record.commando, posix_command)
+    assert isinstance(record.commando.executable, posix_path)
     assert record.commando.executable == "something.so"
     assert record.commando.args == ["-h", "-q", "-something"]
 
@@ -1103,8 +1097,26 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         writer.write(record)
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable is None
-            assert record.commando.args is None
+            assert record.commando.executable == ""
+            assert record.commando.args == []
+
+
+def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=command.from_windows("hello.exe -d"))
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable == "hello.exe"
+            assert isinstance(record.commando.executable, windows_path)
+            assert record.commando.args == ["-d"]
 
 
 @pytest.mark.parametrize(
@@ -1133,13 +1145,14 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         # Test an empty command string
         (r"''", r"", []),
         # Test None
-        (None, None, None),
+        (None, "", []),
     ],
 )
 def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
-    cmd = windows_command(command_string)
+    cmd = command.from_windows(command_string)
 
     assert cmd.executable == expected_executable
+    assert isinstance(cmd.executable, windows_path)
     assert cmd.args == expected_argument
 
 
@@ -1150,12 +1163,14 @@ def test_command_windows(command_string: str, expected_executable: str, expected
         ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
         # Test command with spaces
         (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+        (r"     /bin/hello\ world", r"/bin/hello world", []),
     ],
 )
 def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
-    cmd = posix_command(command_string)
+    cmd = command(command_string)
 
     assert cmd.executable == expected_executable
+    assert isinstance(cmd.executable, fieldtypes.posix_path)
     assert cmd.args == expected_argument
 
 

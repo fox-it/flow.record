@@ -755,33 +755,24 @@ class command(FieldType):
     executable: path | None = None
     args: list[str] | None = None
 
-    _raw: str | None = None
-    _path_type: type[path] = None
-    _posix: bool = True
+    _raw: str
+    _path_type: path
 
-    def __new__(cls, value: str | None = None):
-        if cls is not command or value is None:
+    def __new__(cls, value: str | None = None, path_type: type[path] = path):
+        if cls is not command:
             return super().__new__(cls)
 
-        if not isinstance(value, str):
+        if not isinstance(value, str) and value is not None:
             raise TypeError(f"Expected a value of type 'str' not {type(value)}")
 
-        # pre checking for windows like paths
-        # This checks for windows like starts of a path:
-        #   an '%' for an environment variable
-        #   r'\\' for a UNC path
-        #   the strip and check for ":" on the second line is for `<drive_letter>:`
-        stripped_value = value.lstrip("\"'")
-        windows = value.startswith((r"\\", "%")) or (len(stripped_value) >= 2 and stripped_value[1] == ":")
-
-        cls = windows_command if windows else posix_command
         return super().__new__(cls)
 
-    def __init__(self, value: str | None = None):
-        if value is None:
-            return
+    def __init__(self, value: str | None = None, path_type: type[path] = path):
+        self._raw = (value or "").strip()
 
-        self._raw = value
+        # Detect the kind of path from the passed value
+        self._path_type = type(path(self._raw.lstrip("\"'"))) if path_type is path else path_type
+
         self.executable, self.args = self._split(self._raw)
 
     def __repr__(self) -> str:
@@ -798,52 +789,38 @@ class command(FieldType):
         return False
 
     def _split(self, value: str) -> tuple[path, list[str]]:
-        if value:
-            executable, *args = shlex.split(value, posix=self._posix)
-            executable = executable.strip("'\" ")
-        else:
-            executable = ""
-            args = []
+        if not (value):
+            return self._path_type(), []
 
-        return self._path_type(executable), args
+        executable, *args = shlex.split(value, posix=self._path_type is posix_path)
+        executable = self._path_type(executable.strip("'\" "))
+
+        if self._path_type is windows_path:
+            args = [" ".join(args)] if args else args
+
+        return executable, args
 
     def _join(self) -> str:
         return self._raw
 
     def _pack(self) -> tuple[str, int]:
-        command_type = TYPE_WINDOWS if isinstance(self, windows_command) else TYPE_POSIX
-        if self.executable:
-            return (self._raw, command_type)
-        return (None, command_type)
+        path_type = TYPE_WINDOWS if self._path_type is windows_path else TYPE_POSIX
+        return self._raw, path_type
 
     @classmethod
-    def _unpack(cls, data: tuple[str | None, int]) -> command:
-        _value, _type = data
-        if _type == TYPE_WINDOWS:
-            return windows_command(_value)
-
-        return posix_command(_value)
+    def _unpack(cls, data: tuple[str, int]) -> command:
+        raw_str, path_type = data
+        if path_type == TYPE_POSIX:
+            return command(raw_str, posix_path)
+        if path_type == TYPE_WINDOWS:
+            return command(raw_str, windows_path)
+        # default, infer type of path from str
+        return command(raw_str)
 
     @classmethod
     def from_posix(cls, value: str) -> command:
-        return posix_command(value)
+        return command(value, posix_path)
 
     @classmethod
     def from_windows(cls, value: str) -> command:
-        return windows_command(value)
-
-
-class posix_command(command):
-    _posix = True
-    _path_type = posix_path
-
-
-class windows_command(command):
-    _posix = False
-    _path_type = windows_path
-
-    def _split(self, value: str) -> tuple[path, list[str]]:
-        executable, _args = super()._split(value)
-        args = [" ".join(_args)] if _args else _args
-
-        return executable, args
+        return command(value, windows_path)

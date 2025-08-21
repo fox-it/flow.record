@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from flow.record import RecordReader, RecordWriter, fieldtypes
+from flow.record import RecordReader, RecordWriter
 from flow.record.base import RecordDescriptor
 from tests._utils import generate_records
 
@@ -134,12 +134,12 @@ def test_json_command_fieldtype(tmp_path: Path) -> None:
 
     writer.write(
         TestRecord(
-            commando=fieldtypes.windows_command("C:\\help.exe data"),
+            commando="C:\\help.exe data",
         )
     )
     writer.write(
         TestRecord(
-            commando=fieldtypes.posix_command("/usr/bin/env bash"),
+            commando="/usr/bin/env bash",
         )
     )
     writer.write(TestRecord())
