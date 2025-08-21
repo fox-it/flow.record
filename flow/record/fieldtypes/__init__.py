@@ -609,6 +609,12 @@ def _is_windowslike_path(path: Any) -> bool:
     if isinstance(path, pathlib.PurePath):
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" in (obj.sep, obj.altsep)
+    if isinstance(path, str):
+        # pre checking for windows like paths
+        # This checks for windows like starts of a path:
+        #   an '%' for an environment variable
+        #   r'\\' for a UNC path
+        return path.startswith((r"\\", "%")) or (len(path) >= 2 and path[1] == ":")
     return False
 
 
