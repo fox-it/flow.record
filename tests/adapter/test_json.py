@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import TYPE_CHECKING
 
 import pytest
@@ -121,7 +120,7 @@ def test_json_adapter_with_record_descriptors(tmp_path: Path, record_adapter_pat
     assert descriptor_seen == 2
 
 
-def test_json_command_fieldtype(tmp_path: pathlib.Path) -> None:
+def test_json_command_fieldtype(tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("records.json")
     record_adapter_path = f"jsonfile://{json_file}"
     writer = RecordWriter(record_adapter_path)
