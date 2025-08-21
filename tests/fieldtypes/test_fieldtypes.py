@@ -1167,7 +1167,7 @@ def test_command_windows(command_string: str, expected_executable: str, expected
     ],
 )
 def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
-    cmd = command(command_string)
+    cmd = command.from_posix(command_string)
 
     assert cmd.executable == expected_executable
     assert isinstance(cmd.executable, fieldtypes.posix_path)
