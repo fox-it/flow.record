@@ -719,7 +719,3 @@ def test_rdump_csv_sniff(tmp_path: Path, capsysbinary: pytest.CaptureFixture) ->
     captured = capsysbinary.readouterr()
     assert b"<csv/reader ip='127.0.0.1' common_name='localhost' vulnerable='1'>" in captured.out
     assert b"<csv/reader ip='192.168.4.20' common_name='' vulnerable=None>" in captured.out
-
-
-if __name__ == "__main__":
-    __import__("standalone_test").main(globals())
