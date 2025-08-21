@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 from typing import TYPE_CHECKING
 
 import pytest
@@ -146,12 +147,12 @@ def test_json_command_fieldtype(tmp_path: pathlib.Path) -> None:
     writer.flush()
 
     reader = RecordReader(record_adapter_path)
-    records = [record for record in reader]
+    records = list(reader)
 
-    records[0].commando.executable == "C:\\help.exe"
-    records[0].commando.args == ["data"]
+    assert records[0].commando.executable == "C:\\help.exe"
+    assert records[0].commando.args == ["data"]
 
-    records[1].commando.executable == "/usr/bin/env"
-    records[1].commando.args == ["bash"]
+    assert records[1].commando.executable == "/usr/bin/env"
+    assert records[1].commando.args == ["bash"]
 
     assert len(records) == 3
