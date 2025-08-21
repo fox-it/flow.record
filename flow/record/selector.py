@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING, Any, Callable
 from flow.record.base import GroupedRecord, Record, dynamic_fieldtype
 from flow.record.fieldtypes import net
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
-from flow.record.context import AppContext
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flow.record.context import AppContext
 
 try:
     import astor
