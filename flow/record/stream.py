@@ -45,7 +45,7 @@ class RecordPrinter:
         self.auto_flush = flush
 
     def write(self, obj: Record) -> None:
-        buf = repr(obj).encode(errors="surrogateescape") + b"\n"
+        buf = repr(obj).encode() + b"\n"
         self.fp.write(buf)
         if self.auto_flush:
             self.flush()
