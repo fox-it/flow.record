@@ -1062,9 +1062,10 @@ def test_command_record() -> None:
     assert record.commando.args == ["-h"]
 
     record = TestRecord(commando="something.so -h -q -something")
+    args = ["-h", "-q", "-something"]
     assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "something.so"
-    assert record.commando.args == ["-h", "-q", "-something"]
+    assert record.commando.args == [" ".join(args)] if os.name == "nt" else args
 
 
 def test_command_integration(tmp_path: pathlib.Path) -> None:

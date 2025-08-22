@@ -760,6 +760,8 @@ class command(FieldType):
 
     Example:
 
+    .. code-block:: text
+
         'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ['/info']
         '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ['bash']
 
