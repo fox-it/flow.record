@@ -767,11 +767,11 @@ class command(FieldType):
 
         return super().__new__(cls)
 
-    def __init__(self, value: str | None = None, path_type: type[path] = path):
+    def __init__(self, value: str | None = None, path_type: type[path] | None = None):
         self._raw = (value or "").strip()
 
-        # Detect the kind of path from the passed value
-        self._path_type = type(path(self._raw.lstrip("\"'"))) if path_type is path else path_type
+        # Detect the kind of path from value if not specified
+        self._path_type = path_type or type(path(self._raw.lstrip("\"'")))
 
         self.executable, self.args = self._split(self._raw)
 
