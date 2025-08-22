@@ -1053,13 +1053,16 @@ def test_command_record() -> None:
         ],
     )
 
+    # path defaults to type depending on the os it runs on, se we emulate this here
+    _type = windows_path if os.name == "nt" else posix_path
+
     record = TestRecord(commando="help.exe -h")
-    assert isinstance(record.commando.executable, posix_path)
+    assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "help.exe"
     assert record.commando.args == ["-h"]
 
     record = TestRecord(commando="something.so -h -q -something")
-    assert isinstance(record.commando.executable, posix_path)
+    assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "something.so"
     assert record.commando.args == ["-h", "-q", "-something"]
 
