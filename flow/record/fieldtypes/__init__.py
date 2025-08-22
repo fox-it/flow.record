@@ -752,13 +752,29 @@ class windows_path(pathlib.PureWindowsPath, path):
 
 
 class command(FieldType):
+    """The command fieldtype splits a command string into an ``executable`` and its arguments.
+
+    Args:
+        value: the string that contains the command and arguments
+        path_type: When specified it forces the command to use a specific path type
+
+    Example:
+
+        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ['/info']
+        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ['bash']
+
+        # In this situation, the executable path needs to be quoted.
+        'c:\\user\\John Doe\\malware.exe /all /the /things'   ->   windows_path('c:\\user\\John')
+                                                                   ['Doe\\malware.exe /all /the /things']
+    """
+
     executable: path | None = None
     args: list[str] | None = None
 
     _raw: str
-    _path_type: path
+    _path_type: type[path]
 
-    def __new__(cls, value: str | None = None, path_type: type[path] = path):
+    def __new__(cls, value: str | None = None, path_type: type[path] | None = None):
         if cls is not command:
             return super().__new__(cls)
 
