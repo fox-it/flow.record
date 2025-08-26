@@ -13,7 +13,6 @@ from flow.record.whitelist import WHITELIST, WHITELIST_TREE
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-
 try:
     import astor
 
@@ -696,5 +695,3 @@ def make_selector(selector: str | Selector | None, force_compiled: bool = False)
     elif isinstance(selector, Selector) and force_compiled:
         ret = CompiledSelector(selector.expression_str)
     return ret
-
-
