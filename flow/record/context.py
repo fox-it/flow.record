@@ -57,7 +57,7 @@ class AppContext:
 
 
 def match_record_with_context(record: Record, selector: Selector | None, context: AppContext) -> bool:
-    """Return True if `record` matches the `selector`, also keeps track of relevant metrics in `context`.
+    """Return True if ``record`` matches the ``selector``, also keeps track of relevant metrics in ``context``.
     If selector is None, it will always return True.
 
     When calling this function, it also increases the ``context.read`` property.
