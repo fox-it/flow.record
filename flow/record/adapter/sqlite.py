@@ -204,6 +204,7 @@ class SqliteReader(AbstractReader):
                 if match_record_with_context(record, selector, ctx):
                     yield record
 
+
 class SqliteWriter(AbstractWriter):
     """SQLite writer."""
 

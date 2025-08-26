@@ -83,6 +83,7 @@ if HAS_TQDM:
 
     class ProgressMonitor:
         """Periodically update ``progress_bar`` with the record metrics from ``ctx``."""
+
         def __init__(self, ctx: AppContext, progress_bar: tqdm, update_interval: float = 0.2) -> None:
             self.ctx = ctx
             self.progress_bar = progress_bar
