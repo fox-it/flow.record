@@ -19,7 +19,7 @@ def get_app_context() -> AppContext:
     """Retrieve the application context, creating it if it does not exist.
 
     Returns:
-        AppContext: The application context.
+        The application context.
     """
     if (ctx := APP_CONTEXT.get(None)) is None:
         ctx = AppContext()

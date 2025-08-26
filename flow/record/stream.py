@@ -131,8 +131,8 @@ class RecordStreamReader(AbstractReader):
         self.closed = True
 
     def __iter__(self) -> Iterator[Record]:
-        selector = self.selector
         ctx = get_app_context()
+        selector = self.selector
         try:
             while not self.closed:
                 obj = self.read()
