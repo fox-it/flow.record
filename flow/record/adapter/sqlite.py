@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from flow.record import Record, RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS, normalize_fieldname
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.selector import Selector, make_selector
 
 if TYPE_CHECKING:
@@ -195,10 +196,12 @@ class SqliteReader(AbstractReader):
 
     def __iter__(self) -> Iterator[Record]:
         """Iterate over all tables in the database and yield records."""
+        ctx = get_app_context()
+        selector = self.selector
         for table_name in self.table_names():
             self.logger.debug("Reading table: %s", table_name)
             for record in self.read_table(table_name):
-                if not self.selector or self.selector.match(record):
+                if match_record_with_context(record, selector, ctx):
                     yield record
 
 

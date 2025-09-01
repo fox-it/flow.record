@@ -20,6 +20,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.line import field_types_for_record_descriptor
 from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
+from tests._utils import generate_plain_records
 
 
 def test_rdump_pipe(tmp_path: Path) -> None:
@@ -715,8 +716,49 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
     # stderr should contain tqdm progress bar
     #   100 records [00:00, 64987.67 records/s]
-    assert "\r100 records [" in captured.err
-    assert " records/s]" in captured.err
+    assert "\rProcessed: 100 records [" in captured.err
+    assert " records/s," in captured.err
 
     # stdout should contain the RecordDescriptor definition and count
     assert "# <RecordDescriptor test/rdump/progress, hash=eeb21156>" in captured.out
+
+
+def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """Test progress bar in app context."""
+
+    with RecordWriter(tmp_path / "test.records") as writer:
+        for record in generate_plain_records(2000):
+            writer.write(record)
+
+    rdump.main(["--list", "--progress", str(tmp_path / "test.records"), "--selector", "r.number == 1337"])
+    captured = capsys.readouterr()
+    assert "Processed: 2000 records" in captured.err
+    assert "matched=1" in captured.err
+    assert "unmatched=1999" in captured.err
+
+
+def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """Test progress bar in app context with known totals (creates a percentage progress bar)."""
+
+    with RecordWriter(tmp_path / "test.records") as writer:
+        for record in generate_plain_records(100):
+            writer.write(record)
+
+    rdump.main(["--list", "--progress", str(tmp_path / "test.records"), "--total", "100"])
+    captured = capsys.readouterr()
+    assert "Processed: 100%" in captured.err
+    assert "100/100" in captured.err
+    assert "matched=100" in captured.err
+    assert "unmatched=0" in captured.err
+
+
+def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    """Test stats output in app context. Stats line is printed to stdout and not stderr"""
+
+    with RecordWriter(tmp_path / "test.records") as writer:
+        for record in generate_plain_records(100):
+            writer.write(record)
+
+    rdump.main(["--list", "--stats", str(tmp_path / "test.records")])
+    captured = capsys.readouterr()
+    assert "Processed 100 records (matched=100, unmatched=0)" in captured.out

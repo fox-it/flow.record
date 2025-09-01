@@ -13,6 +13,7 @@ from zipimport import zipimporter
 
 import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
+from flow.record.context import AppContext, get_app_context
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
 from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
@@ -77,6 +78,51 @@ def list_adapters() -> None:
         print("\n".join(indent(f"{adapter}: {reason}", prefix="  ") for adapter, reason in failed))
 
 
+if HAS_TQDM:
+    import threading
+
+    class ProgressMonitor:
+        """Periodically update ``progress_bar`` with the record metrics from ``ctx``."""
+
+        def __init__(self, ctx: AppContext, progress_bar: tqdm, update_interval: float = 0.2) -> None:
+            self.ctx = ctx
+            self.progress_bar = progress_bar
+            self.update_interval = update_interval
+            self.should_stop = threading.Event()
+            self.thread = None
+
+        def start(self) -> None:
+            self.thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self.thread.start()
+
+        def stop(self) -> None:
+            self.update_progress_bar()
+            self.progress_bar.set_description_str("Processed")
+            self.progress_bar.refresh()
+            self.progress_bar.close()
+
+            if self.thread:
+                self.should_stop.set()
+                self.thread.join(timeout=2.0)
+
+        def _monitor_loop(self) -> None:
+            while not self.should_stop.wait(self.update_interval):
+                self.update_progress_bar()
+
+        def update_progress_bar(self) -> None:
+            source_count = self.ctx.source_count
+            source_total = self.ctx.source_total
+            read = self.ctx.read
+            matched = self.ctx.matched
+            unmatched = self.ctx.unmatched
+            source = f"{source_count}/{source_total}"
+
+            self.progress_bar.n = read
+            postfix = f"{source=!s}, {read=}, {matched=}, {unmatched=}"
+            self.progress_bar.set_postfix_str(postfix, refresh=False)
+            self.progress_bar.update(0)
+
+
 @catch_sigpipe
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -97,22 +143,49 @@ def main(argv: list[str] | None = None) -> int:
     )
     misc.add_argument("-l", "--list", action="store_true", help="List unique Record Descriptors")
     misc.add_argument(
-        "-n", "--no-compile", action="store_true", help="Don't use a compiled selector (safer, but slower)"
+        "-n",
+        "--no-compile",
+        action="store_true",
+        help="Don't use a compiled selector (safer, but slower)",
     )
     misc.add_argument("--record-source", default=None, help="Overwrite the record source field")
-    misc.add_argument("--record-classification", default=None, help="Overwrite the record classification field")
+    misc.add_argument(
+        "--record-classification",
+        default=None,
+        help="Overwrite the record classification field",
+    )
 
     selection = parser.add_argument_group("selection")
-    selection.add_argument("-F", "--fields", metavar="FIELDS", help="Fields (comma seperated) to output in dumping")
-    selection.add_argument("-X", "--exclude", metavar="FIELDS", help="Fields (comma seperated) to exclude in dumping")
     selection.add_argument(
-        "-s", "--selector", metavar="SELECTOR", default=None, help="Only output records matching Selector"
+        "-F",
+        "--fields",
+        metavar="FIELDS",
+        help="Fields (comma seperated) to output in dumping",
+    )
+    selection.add_argument(
+        "-X",
+        "--exclude",
+        metavar="FIELDS",
+        help="Fields (comma seperated) to exclude in dumping",
+    )
+    selection.add_argument(
+        "-s",
+        "--selector",
+        metavar="SELECTOR",
+        default=None,
+        help="Only output records matching Selector",
     )
 
     output = parser.add_argument_group("output control")
     output.add_argument("-f", "--format", metavar="FORMAT", help="Format string")
     output.add_argument("-c", "--count", type=int, help="Exit after COUNT records")
-    output.add_argument("--skip", metavar="COUNT", type=int, default=0, help="Skip the first COUNT records")
+    output.add_argument(
+        "--skip",
+        metavar="COUNT",
+        type=int,
+        default=0,
+        help="Skip the first COUNT records",
+    )
     output.add_argument("-w", "--writer", metavar="OUTPUT", default=None, help="Write records to output")
     output.add_argument(
         "-m",
@@ -122,7 +195,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Output mode",
     )
     output.add_argument(
-        "--split", metavar="COUNT", default=None, type=int, help="Write record files smaller than COUNT records"
+        "--split",
+        metavar="COUNT",
+        default=None,
+        type=int,
+        help="Write record files smaller than COUNT records",
     )
     output.add_argument(
         "--suffix-length",
@@ -131,12 +208,23 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         help="Generate suffixes of length LEN for splitted output files",
     )
-    output.add_argument("--multi-timestamp", action="store_true", help="Create records for datetime fields")
+    output.add_argument(
+        "--multi-timestamp",
+        action="store_true",
+        help="Create records for datetime fields",
+    )
     output.add_argument(
         "-p",
         "--progress",
         action="store_true",
         help="Show progress bar (requires tqdm)",
+    )
+    output.add_argument(
+        "-t",
+        "--total",
+        type=int,
+        default=None,
+        help="The number of expected records, used for progress bar (requires tqdm)",
     )
     output.add_argument(
         "--stats",
@@ -279,10 +367,26 @@ def main(argv: list[str] | None = None) -> int:
     islice_stop = (args.count + args.skip) if args.count else None
     record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
 
+    ctx = get_app_context()
+    ctx.source_total = len(args.src)
+    progress_monitor = None
+    progress_bar = None
+
+    if args.total and not HAS_TQDM:
+        parser.error("tqdm is required for -t/--total option")
+
     if args.progress:
         if not HAS_TQDM:
-            parser.error("tqdm is required for progress bar")
-        record_iterator = tqdm.tqdm(record_iterator, unit=" records", delay=sys.float_info.min)
+            parser.error("tqdm is required for -p/--progress option")
+
+        progress_bar = tqdm.tqdm(
+            total=args.total,
+            unit=" records",
+            delay=sys.float_info.min,
+            desc="Processing",
+        )
+        progress_monitor = ProgressMonitor(ctx, progress_bar, update_interval=0.2)
+        progress_monitor.start()
 
     count = 0
     record_writer = None
@@ -324,6 +428,8 @@ def main(argv: list[str] | None = None) -> int:
         ret = 1
 
     finally:
+        if progress_monitor:
+            progress_monitor.stop()
         if record_writer:
             # Exceptions raised in threads can be thrown when deconstructing the writer.
             try:
@@ -333,7 +439,8 @@ def main(argv: list[str] | None = None) -> int:
                 ret = 1
 
     if (args.list or args.stats) and not args.progress:
-        print(f"Processed {count} records", file=sys.stdout if args.list else sys.stderr)
+        stats = f"Processed {ctx.read} records (matched={ctx.matched}, unmatched={ctx.unmatched})"
+        print(stats, file=sys.stdout if args.list else sys.stderr)
 
     return ret
 

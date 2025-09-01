@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import Record, normalize_fieldname
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.selector import make_selector
 from flow.record.utils import boolean_argument, is_stdout
 
@@ -114,8 +115,10 @@ class CsvfileReader(AbstractReader):
         self.fp = None
 
     def __iter__(self) -> Iterator[Record]:
+        ctx = get_app_context()
+        selector = self.selector
         for row in self.reader:
             rdict = dict(zip(self.fields, row))
             record = self.desc.init_from_dict(rdict)
-            if not self.selector or self.selector.match(record):
+            if match_record_with_context(record, selector, ctx):
                 yield record

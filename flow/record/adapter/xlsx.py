@@ -10,6 +10,7 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from flow import record
 from flow.record import fieldtypes
 from flow.record.adapter import AbstractReader, AbstractWriter
+from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes.net import ipaddress
 from flow.record.selector import make_selector
 from flow.record.utils import is_stdout
@@ -126,6 +127,8 @@ class XlsxReader(AbstractReader):
         self.fp = None
 
     def __iter__(self) -> Iterator[Record]:
+        ctx = get_app_context()
+        selector = self.selector
         for worksheet in self.wb.worksheets:
             desc = None
             desc_name = worksheet.title.replace("-", "/")
@@ -156,5 +159,5 @@ class XlsxReader(AbstractReader):
                             value = b64decode(value[7:])
                     record_values.append(value)
                 obj = desc(*record_values)
-                if not self.selector or self.selector.match(obj):
+                if match_record_with_context(obj, selector, ctx):
                     yield obj
