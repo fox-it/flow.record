@@ -393,50 +393,38 @@ def main(argv: list[str] | None = None) -> int:
     ret = 0
 
     try:
-        record_writer = RecordWriter(uri)
-        for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
-            if args.record_source is not None:
-                rec._source = args.record_source
-            if args.record_classification is not None:
-                rec._classification = args.record_classification
-            if record_field_rewriter:
-                rec = record_field_rewriter.rewrite(rec)
+        with RecordWriter(uri) as record_writer:
+            for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
+                if args.record_source is not None:
+                    rec._source = args.record_source
+                if args.record_classification is not None:
+                    rec._classification = args.record_classification
+                if record_field_rewriter:
+                    rec = record_field_rewriter.rewrite(rec)
 
-            if args.list:
-                # Dump RecordDescriptors
-                desc = rec._desc
-                if desc.descriptor_hash not in seen_desc:
-                    seen_desc.add(desc.descriptor_hash)
-                    print(f"# {desc}")
-                    print(desc.definition())
-                    print()
-            else:
-                # Dump Records
-                if args.multi_timestamp:
-                    for record in iter_timestamped_records(rec):
-                        record_writer.write(record)
+                if args.list:
+                    # Dump RecordDescriptors
+                    desc = rec._desc
+                    if desc.descriptor_hash not in seen_desc:
+                        seen_desc.add(desc.descriptor_hash)
+                        print(f"# {desc}")
+                        print(desc.definition())
+                        print()
                 else:
-                    record_writer.write(rec)
-
+                    # Dump Records
+                    if args.multi_timestamp:
+                        for record in iter_timestamped_records(rec):
+                            record_writer.write(record)
+                    else:
+                        record_writer.write(rec)
+    except (BrokenPipeError, OSError):
+        raise
     except Exception as e:
         print_error(e)
-
-        # Prevent throwing an exception twice when deconstructing the record writer.
-        if hasattr(record_writer, "exception") and record_writer.exception is e:
-            record_writer.exception = None
-
         ret = 1
-
     finally:
         if progress_monitor:
             progress_monitor.stop()
-        if record_writer:
-            # Exceptions raised in threads can be thrown when deconstructing the writer.
-            try:
-                record_writer.__exit__()
-            except Exception as e:
-                print_error(e)
-                ret = 1
 
     if (args.list or args.stats) and not args.progress:
         stats = f"Processed {ctx.read} records (matched={ctx.matched}, unmatched={ctx.unmatched})"
