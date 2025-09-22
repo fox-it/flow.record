@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "flow.record"
 description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
 readme = "README.md"
-requires-python = ">=3.9.0"
+requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE", "COPYRIGHT"]
 authors = [
