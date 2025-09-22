@@ -18,7 +18,7 @@ def test_field_ipaddress() -> None:
     a = net.IPAddress("192.168.1.1")
     assert a == "192.168.1.1"
 
-    with pytest.raises(ValueError, match=".* does not appear to be an IPv4 or IPv6 address"):
+    with pytest.raises(ValueError, match=r".* does not appear to be an IPv4 or IPv6 address"):
         net.IPAddress("a.a.a.a")
 
 
@@ -27,7 +27,7 @@ def test_field_ipnetwork() -> None:
     assert a == "192.168.1.0/24"
 
     # Host bits set
-    with pytest.raises(ValueError, match=".* has host bits set"):
+    with pytest.raises(ValueError, match=r".* has host bits set"):
         net.IPNetwork("192.168.1.10/24")
 
 

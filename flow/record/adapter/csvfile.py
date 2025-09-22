@@ -118,7 +118,7 @@ class CsvfileReader(AbstractReader):
         ctx = get_app_context()
         selector = self.selector
         for row in self.reader:
-            rdict = dict(zip(self.fields, row))
+            rdict = dict(zip(self.fields, row, strict=False))
             record = self.desc.init_from_dict(rdict)
             if match_record_with_context(record, selector, ctx):
                 yield record

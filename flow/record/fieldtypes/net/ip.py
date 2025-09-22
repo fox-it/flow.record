@@ -11,16 +11,15 @@ from ipaddress import (
     ip_interface,
     ip_network,
 )
-from typing import Union
 
 from flow.record.base import FieldType
 from flow.record.fieldtypes import defang
 
-_IPNetwork = Union[IPv4Network, IPv6Network]
-_IPAddress = Union[IPv4Address, IPv6Address]
-_IPInterface = Union[IPv4Interface, IPv6Interface]
-_ConversionTypes = Union[str, int, bytes]
-_IPTypes = Union[_IPNetwork, _IPAddress, _IPInterface]
+_IPNetwork = IPv4Network | IPv6Network
+_IPAddress = IPv4Address | IPv6Address
+_IPInterface = IPv4Interface | IPv6Interface
+_ConversionTypes = str | int | bytes
+_IPTypes = _IPNetwork | _IPAddress | _IPInterface
 
 
 class ipaddress(FieldType):

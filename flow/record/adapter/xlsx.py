@@ -144,7 +144,7 @@ class XlsxReader(AbstractReader):
                         for col in row
                         if col.value and not col.value.startswith("_")
                     ]
-                    desc = record.RecordDescriptor(desc_name, list(zip(field_types, field_names)))
+                    desc = record.RecordDescriptor(desc_name, list(zip(field_types, field_names, strict=False)))
                     continue
 
                 record_values = []

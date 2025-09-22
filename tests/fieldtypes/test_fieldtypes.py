@@ -6,7 +6,7 @@ import pathlib
 import posixpath
 import types
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -29,6 +29,9 @@ from flow.record.fieldtypes import (
     windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 UTC = timezone.utc
 
@@ -1006,10 +1009,10 @@ def test_datetime_timezone_aware(tmp_path: pathlib.Path, record_filename: str) -
 
 
 def test_datetime_comparisions() -> None:
-    with pytest.raises(TypeError, match=".* compare .*naive"):
+    with pytest.raises(TypeError, match=r".* compare .*naive"):
         assert dt("2023-01-01") > datetime(2022, 1, 1)  # noqa: DTZ001
 
-    with pytest.raises(TypeError, match=".* compare .*naive"):
+    with pytest.raises(TypeError, match=r".* compare .*naive"):
         assert datetime(2022, 1, 1) < dt("2023-01-01")  # noqa: DTZ001
 
     assert dt("2023-01-01") > datetime(2022, 1, 1, tzinfo=UTC)

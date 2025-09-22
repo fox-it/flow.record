@@ -56,7 +56,11 @@ escaped_fields = list(
 
 
 @pytest.mark.parametrize(
-    ("field", "escaped"), [*list(zip(escaped_fields, [True] * len(escaped_fields))), ("not_escaped", False)]
+    ("field", "escaped"),
+    [
+        *list(zip(escaped_fields, [True] * len(escaped_fields), strict=False)),
+        ("not_escaped", False),
+    ],
 )
 def test_escape_field_name(field: str, escaped: bool) -> None:
     if escaped:

@@ -192,7 +192,7 @@ class SqliteReader(AbstractReader):
                             row[idx] = None
                         elif isinstance(value, str):
                             row[idx] = value.encode(errors="surrogateescape")
-                yield descriptor_cls.init_from_dict(dict(zip(fnames, row)))
+                yield descriptor_cls.init_from_dict(dict(zip(fnames, row, strict=False)))
 
     def __iter__(self) -> Iterator[Record]:
         """Iterate over all tables in the database and yield records."""

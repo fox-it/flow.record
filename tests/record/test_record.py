@@ -225,7 +225,7 @@ def test_grouped_records_packing(tmp_path: Path) -> None:
     assert not isinstance(a, GroupedRecord)
 
     grouped = GroupedRecord("grouped/ab", [a, b])
-    assert isinstance(grouped, (Record, GroupedRecord))
+    assert isinstance(grouped, Record | GroupedRecord)
     assert [(f.typename, f.name) for f in grouped._desc.fields.values()] == [
         ("string", "a_string"),
         ("string", "common"),
@@ -523,7 +523,7 @@ def test_record_replace() -> None:
     assert t4._source == "pytest"
     assert t4._generated == t2._generated
 
-    with pytest.raises(ValueError, match=".*Got unexpected field names:.*foobar.*"):
+    with pytest.raises(ValueError, match=r".*Got unexpected field names:.*foobar.*"):
         t._replace(foobar="keyword does not exist")
 
 

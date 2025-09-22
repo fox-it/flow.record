@@ -269,5 +269,5 @@ def test_record_descriptor_not_found() -> None:
 
     # create a new packer and try to unpack the bytes
     packer = RecordPacker()
-    with pytest.raises(RecordDescriptorNotFound, match="No RecordDescriptor found for: .*test/descriptor_not_found"):
+    with pytest.raises(RecordDescriptorNotFound, match=r"No RecordDescriptor found for: .*test/descriptor_not_found"):
         packer.unpack(data)

@@ -327,7 +327,7 @@ def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) ->
 
     # However, these field names are invalid in flow.record and should raise an exception
     with (
-        pytest.raises(RecordDescriptorError, match="Field .* is an invalid or reserved field name."),
+        pytest.raises(RecordDescriptorError, match=r"Field .* is an invalid or reserved field name."),
         RecordReader(f"sqlite://{db}") as reader,
     ):
         _ = next(iter(reader))

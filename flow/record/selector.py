@@ -4,14 +4,14 @@ import __future__
 import ast
 import operator
 import re
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from flow.record.base import GroupedRecord, Record, dynamic_fieldtype
 from flow.record.fieldtypes import net
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 try:
     import astor

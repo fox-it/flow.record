@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import msgpack
@@ -33,6 +33,9 @@ from flow.record.packer import RECORD_PACK_EXT_TYPE, RECORD_PACK_TYPE_RECORD
 from flow.record.selector import CompiledSelector, Selector
 from flow.record.tools import rdump
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def test_datetime_serialization() -> None:
@@ -435,7 +438,7 @@ def test_grouped_replace() -> None:
     assert replaced_grouped_record._source == "testcase"
 
     # Replacement with non existing field should raise a ValueError
-    with pytest.raises(ValueError, match=".*Got unexpected field names:.*non_existing_field.*"):
+    with pytest.raises(ValueError, match=r".*Got unexpected field names:.*non_existing_field.*"):
         grouped_record._replace(number=100, other="changed", non_existing_field="oops")
 
 
@@ -467,7 +470,7 @@ def test_is_stdout(tmp_path: pathlib.Path, capsysbinary: pytest.CaptureFixture) 
     with RecordWriter() as writer:
         assert is_stdout(writer.fp)
 
-    out, err = capsysbinary.readouterr()
+    out, _err = capsysbinary.readouterr()
     assert out.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
     with RecordWriter(tmp_path / "output.records") as writer:

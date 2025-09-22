@@ -5,7 +5,10 @@ import os
 import sys
 import warnings
 from functools import wraps
-from typing import Any, BinaryIO, Callable, TextIO
+from typing import TYPE_CHECKING, Any, BinaryIO, TextIO
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 LOGGING_TRACE_LEVEL = 5
 
