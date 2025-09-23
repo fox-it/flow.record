@@ -37,8 +37,7 @@ repository = "https://github.com/fox-it/flow.record"
 # Note: these compression libraries do not work well with pypy
 compression = [
     "lz4",
-    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
-    "zstandard; platform_python_implementation != 'PyPy' and python_version != '3.9'", # Otherwise, pick the latest
+    "zstandard; platform_python_implementation != 'PyPy'",
 ]
 elastic = [
     "elasticsearch",
@@ -47,12 +46,11 @@ geoip = [
     "maxminddb",
 ]
 avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
     "fastavro[snappy]",
 ]
 duckdb = [
-    "duckdb",
-    "pytz", # duckdb requires pytz for timezone support
+    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
 ]
 splunk = [
     "httpx",
@@ -70,8 +68,7 @@ full = [
 [dependency-groups]
 compression = [
     "lz4",
-    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
-    "zstandard; platform_python_implementation != 'PyPy' and python_version != '3.9'", # Otherwise, pick the latest
+    "zstandard; platform_python_implementation != 'PyPy'",
 ]
 elastic = [
     "elasticsearch",
@@ -80,7 +77,6 @@ geoip = [
     "maxminddb",
 ]
 avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
     "fastavro[snappy]",
 ]
 duckdb = [
