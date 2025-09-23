@@ -173,7 +173,7 @@ build = [
     "build",
 ]
 lint = [
-    "ruff==0.12.9",
+    "ruff==0.13.1",
     "vermin",
 ]
 dev = [
