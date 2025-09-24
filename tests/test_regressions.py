@@ -470,7 +470,7 @@ def test_is_stdout(tmp_path: pathlib.Path, capsysbinary: pytest.CaptureFixture) 
     with RecordWriter() as writer:
         assert is_stdout(writer.fp)
 
-    out, _err = capsysbinary.readouterr()
+    out, _ = capsysbinary.readouterr()
     assert out.startswith(b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n")
 
     with RecordWriter(tmp_path / "output.records") as writer:

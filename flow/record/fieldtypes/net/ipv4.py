@@ -29,7 +29,7 @@ def addr_str(s: address | int | str) -> str:
 
 
 def mask_to_bits(n: int) -> int:
-    return (n).bit_count()
+    return n.bit_count()
 
 
 def bits_to_mask(b: int) -> int:
@@ -51,7 +51,7 @@ class subnet(FieldType):
             raise TypeError(f"Subnet() argument 1 must be string, not {type(addr).__name__}")
 
         if netmask is None:
-            ip, _sep, mask = addr.partition("/")
+            ip, _, mask = addr.partition("/")
             self.mask = bits_to_mask(int(mask)) if mask else 0xFFFFFFFF
             self.net = addr_long(ip)
         else:
@@ -93,7 +93,7 @@ class SubnetList:
     def load(self, path: str | Path) -> None:
         with Path(path).open() as fh:
             for line in fh:
-                entry, _desc = line.split(" ", 1)
+                entry, _ = line.split(" ", 1)
                 self.subnets.append(subnet(entry))
 
     def add(self, entry: str) -> None:
