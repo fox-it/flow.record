@@ -36,12 +36,7 @@ def fresh_app_context() -> Generator[AppContext, None, None]:
         APP_CONTEXT.reset(token)
 
 
-# Use slots=True on dataclass for better performance which requires Python 3.10 or later.
-# This can be removed when we drop support for Python 3.9.
-app_dataclass = dataclass(slots=True)
-
-
-@app_dataclass
+@dataclass(slots=True)
 class AppContext:
     """Context for the application, holding metrics like amount of processed records."""
 
