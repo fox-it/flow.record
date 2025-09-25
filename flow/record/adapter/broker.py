@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flow.broker import Publisher, Subscriber
+
 from flow.record.adapter import AbstractReader, AbstractWriter
 
 if TYPE_CHECKING:

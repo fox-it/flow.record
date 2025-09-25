@@ -21,7 +21,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    Callable,
 )
 from urllib.parse import parse_qsl, urlparse
 
@@ -60,7 +59,7 @@ from flow.record.utils import to_str
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from flow.record.adapter import AbstractReader, AbstractWriter
 
@@ -1000,7 +999,7 @@ def merge_record_descriptors(
             field_map[fname] = ftype
     if name is None and descriptors:
         name = descriptors[0].name
-    return RecordDescriptor(name, zip(field_map.values(), field_map.keys()))
+    return RecordDescriptor(name, zip(field_map.values(), field_map.keys(), strict=False))
 
 
 def extend_record(

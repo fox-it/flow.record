@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -228,13 +229,15 @@ def test_selector_function_call_whitelisting() -> None:
     assert rec in Selector("'pe32' in lower(r.filetype)")
     # But functions on types are not
     with pytest.raises(
-        Exception, match="Call 'r.filetype.lower' not allowed. No calls other then whitelisted 'global' calls allowed!"
+        Exception,
+        match=re.escape("Call 'r.filetype.lower' not allowed. No calls other then whitelisted 'global' calls allowed!"),
     ):
         assert rec in Selector("'pe' in r.filetype.lower()")
 
     assert rec in Selector("'EXECUTABLE' in upper(r.filetype)")
     with pytest.raises(
-        Exception, match="Call 'r.filetype.upper' not allowed. No calls other then whitelisted 'global' calls allowed!"
+        Exception,
+        match=re.escape("Call 'r.filetype.upper' not allowed. No calls other then whitelisted 'global' calls allowed!"),
     ):
         assert rec in Selector("'EXECUTABLE' in r.filetype.upper()")
 
@@ -251,7 +254,8 @@ def test_selector_function_call_whitelisting() -> None:
 
     # We call net.ipv4 instead of net.ipv4.Subnet, which should fail
     with pytest.raises(
-        Exception, match="Call 'net.ipv4' not allowed. No calls other then whitelisted 'global' calls allowed!"
+        Exception,
+        match=re.escape("Call 'net.ipv4' not allowed. No calls other then whitelisted 'global' calls allowed!"),
     ):
         assert rec in Selector("r.ip in net.ipv4('192.168.1.0/24')")
 

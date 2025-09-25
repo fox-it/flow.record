@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -37,15 +36,7 @@ def fresh_app_context() -> Generator[AppContext, None, None]:
         APP_CONTEXT.reset(token)
 
 
-# Use slots=True on dataclass for better performance which requires Python 3.10 or later.
-# This can be removed when we drop support for Python 3.9.
-if sys.version_info >= (3, 10):
-    app_dataclass = dataclass(slots=True)  # novermin
-else:
-    app_dataclass = dataclass
-
-
-@app_dataclass
+@dataclass(slots=True)
 class AppContext:
     """Context for the application, holding metrics like amount of processed records."""
 

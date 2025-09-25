@@ -113,7 +113,7 @@ def test_rdump_format_template(tmp_path: Path) -> None:
     args = ["rdump", str(path), "-f", "TEST: {count},{foo}"]
     print(args)
     res = subprocess.Popen(args, stdout=subprocess.PIPE)
-    stdout, stderr = res.communicate()
+    stdout, _ = res.communicate()
     for i, line in enumerate(stdout.decode().splitlines()):
         assert line == f"TEST: {i},bar"
 
@@ -155,7 +155,7 @@ def test_rdump_json(tmp_path: Path) -> None:
     # dump records as JSON lines
     args = ["rdump", str(record_path), "-w", "jsonfile://-?descriptors=true"]
     process = subprocess.Popen(args, stdout=subprocess.PIPE)
-    stdout, stderr = process.communicate()
+    stdout, _ = process.communicate()
 
     assert process.returncode == 0
 

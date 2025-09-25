@@ -357,13 +357,13 @@ def test_text_record_adapter(capsys: pytest.CaptureFixture) -> None:
         # Format string with existing variables
         rec = TestRecordWithFooBar(name="world", foo="foo", bar="bar")
         writer.write(rec)
-        out, err = capsys.readouterr()
+        out, _ = capsys.readouterr()
         assert out == "Hello world, foo is bar!\n"
 
         # Format string with non-existing variables
         rec = TestRecordWithoutFooBar(name="planet")
         writer.write(rec)
-        out, err = capsys.readouterr()
+        out, _ = capsys.readouterr()
         assert out == "Hello planet, {foo} is {bar}!\n"
 
 
@@ -405,23 +405,23 @@ def test_recordstream_header(tmp_path: Path) -> None:
 def test_recordstream_header_stdout(capsysbinary: pytest.CaptureFixture) -> None:
     with RecordWriter() as writer:
         pass
-    out, err = capsysbinary.readouterr()
+    out, _ = capsysbinary.readouterr()
     assert out == b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n"
 
     writer = RecordWriter()
     del writer
-    out, err = capsysbinary.readouterr()
+    out, _ = capsysbinary.readouterr()
     assert out == b""
 
     writer = RecordWriter()
     writer.close()
-    out, err = capsysbinary.readouterr()
+    out, _ = capsysbinary.readouterr()
     assert out == b""
 
     writer = RecordWriter()
     writer.flush()
     writer.close()
-    out, err = capsysbinary.readouterr()
+    out, _ = capsysbinary.readouterr()
     assert out == b"\x00\x00\x00\x0f\xc4\rRECORDSTREAM\n"
 
 

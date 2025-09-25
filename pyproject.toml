@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "flow.record"
 description = "A library for defining and creating structured data (called records) that can be streamed to disk or piped to other tools that use flow.record"
 readme = "README.md"
-requires-python = ">=3.9.0"
+requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE", "COPYRIGHT"]
 authors = [
@@ -37,8 +37,7 @@ repository = "https://github.com/fox-it/flow.record"
 # Note: these compression libraries do not work well with pypy
 compression = [
     "lz4",
-    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
-    "zstandard; platform_python_implementation != 'PyPy' and python_version != '3.9'", # Otherwise, pick the latest
+    "zstandard; platform_python_implementation != 'PyPy'",
 ]
 elastic = [
     "elasticsearch",
@@ -47,12 +46,11 @@ geoip = [
     "maxminddb",
 ]
 avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
     "fastavro[snappy]",
 ]
 duckdb = [
-    "duckdb",
-    "pytz", # duckdb requires pytz for timezone support
+    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
 ]
 splunk = [
     "httpx",
@@ -66,13 +64,65 @@ full = [
     "structlog",
 ]
 
+# This list is duplicated due to https://github.com/fox-it/flow.record/pull/182#discussion_r2284582481
+[dependency-groups]
+compression = [
+    "lz4",
+    "zstandard; platform_python_implementation != 'PyPy'",
+]
+elastic = [
+    "elasticsearch",
+]
+geoip = [
+    "maxminddb",
+]
+avro = [
+    "fastavro[snappy]",
+]
+duckdb = [
+    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
+]
+splunk = [
+    "httpx",
+]
+xlsx = [
+    "openpyxl",
+]
+test = [
+    {include-group = "compression"},
+    {include-group = "avro"},
+    {include-group = "elastic"},
+    {include-group = "xlsx"},
+    {include-group = "duckdb"},
+    "tqdm",
+    "structlog",
+    "pytest",
+]
+full = [
+    {include-group = "compression"},
+    "tqdm",
+    "structlog",
+]
+build = [
+    "build",
+]
+lint = [
+    "ruff==0.13.1",
+    "vermin",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+]
+
 [project.scripts]
 rdump = "flow.record.tools.rdump:main"
 rgeoip = "flow.record.tools.geoip:main"
 
 [tool.ruff]
 line-length = 120
-required-version = ">=0.9.0"
+required-version = ">=0.13.1"
 extend-exclude = ["flow/record/version.py"]
 
 [tool.ruff.format]
@@ -127,56 +177,3 @@ include = ["flow.*"]
 [tool.setuptools_scm]
 version_file = "flow/record/version.py"
 
-# This list is duplicated due to https://github.com/fox-it/flow.record/pull/182#discussion_r2284582481
-[dependency-groups]
-compression = [
-    "lz4",
-    "zstandard==0.23.0; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
-    "zstandard; platform_python_implementation != 'PyPy' and python_version != '3.9'", # Otherwise, pick the latest
-]
-elastic = [
-    "elasticsearch",
-]
-geoip = [
-    "maxminddb",
-]
-avro = [
-    "cramjam<2.8.4; platform_python_implementation == 'PyPy' and python_version == '3.9'", # Pin to last working for PyPy3.9
-    "fastavro[snappy]",
-]
-duckdb = [
-    "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
-    "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
-]
-splunk = [
-    "httpx",
-]
-xlsx = [
-    "openpyxl",
-]
-test = [
-    {include-group = "compression"},
-    {include-group = "avro"},
-    {include-group = "elastic"},
-    {include-group = "xlsx"},
-    {include-group = "duckdb"},
-    "tqdm",
-    "structlog",
-    "pytest",
-]
-full = [
-    {include-group = "compression"},
-    "tqdm",
-    "structlog",
-]
-build = [
-    "build",
-]
-lint = [
-    "ruff==0.12.9",
-    "vermin",
-]
-dev = [
-    {include-group = "test"},
-    {include-group = "lint"},
-]
