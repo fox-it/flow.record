@@ -225,7 +225,7 @@ def test_grouped_records_packing(tmp_path: Path) -> None:
     assert not isinstance(a, GroupedRecord)
 
     grouped = GroupedRecord("grouped/ab", [a, b])
-    assert isinstance(grouped, Record | GroupedRecord)
+    assert isinstance(grouped, (Record, GroupedRecord))
     assert [(f.typename, f.name) for f in grouped._desc.fields.values()] == [
         ("string", "a_string"),
         ("string", "common"),
