@@ -762,3 +762,38 @@ def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> No
     rdump.main(["--list", "--stats", str(tmp_path / "test.records")])
     captured = capsys.readouterr()
     assert "Processed 100 records (matched=100, unmatched=0)" in captured.out
+
+
+@pytest.mark.skipif(platform.system() == "Windows", reason="skipping this test on Windows")
+def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
+    """Test if rdump properly suppresses BrokenPipeError when writing to a closed file handle."""
+
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    with RecordWriter(path) as writer:
+        for i in range(10):
+            writer.write(TestRecord(count=i, foo="bar"))
+
+    # rdump test.records | head -n 2
+    proc = subprocess.Popen(
+        f"rdump {path} | head -n 2",
+        shell=True,
+        text=True,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    )
+
+    stdout, stderr = proc.communicate()
+    exit_code = proc.wait()
+    assert exit_code == 0
+    assert stderr == ""  # We don't expect any BrokenPipeError
+    assert "test/record count=0" in stdout
+    assert "test/record count=1" in stdout
+    assert len(stdout.splitlines()) == 2
