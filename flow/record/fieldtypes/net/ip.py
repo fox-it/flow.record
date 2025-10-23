@@ -73,20 +73,9 @@ class ipnetwork(FieldType):
     def __hash__(self) -> int:
         return hash(self.val)
 
-    @staticmethod
-    def _is_subnet_of(a: _IPNetwork, b: _IPNetwork) -> bool:
-        try:
-            # Always false if one is v4 and the other is v6.
-            if a._version != b._version:
-                raise TypeError(f"{a} and {b} are not of the same version")
-        except AttributeError:
-            raise TypeError(f"Unable to test subnet containment between {a} and {b}")
-        else:
-            return b.network_address <= a.network_address and b.broadcast_address >= a.broadcast_address
-
     def __contains__(self, b: object) -> bool:
         try:
-            return self._is_subnet_of(ip_network(b), self.val)
+            return ip_network(b).subnet_of(self.val)
         except (ValueError, TypeError):
             return False
 
