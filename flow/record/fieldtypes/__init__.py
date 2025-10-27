@@ -777,7 +777,6 @@ class command(FieldType):
     _path_type: type[path]
 
     def __init__(self, value: str = "", *, path_type: type[path] | None = None):
-
         if not isinstance(value, str):
             raise TypeError(f"Expected a value of type 'str' not {type(value)}")
 
