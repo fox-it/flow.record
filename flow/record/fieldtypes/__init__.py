@@ -776,17 +776,12 @@ class command(FieldType):
     _raw: str
     _path_type: type[path]
 
-    def __new__(cls, value: str | None = None, path_type: type[path] | None = None):
-        if cls is not command:
-            return super().__new__(cls)
+    def __init__(self, value: str = "", *, path_type: type[path] | None = None):
 
-        if not isinstance(value, str) and value is not None:
+        if not isinstance(value, str):
             raise TypeError(f"Expected a value of type 'str' not {type(value)}")
 
-        return super().__new__(cls)
-
-    def __init__(self, value: str | None = None, path_type: type[path] | None = None):
-        self._raw = (value or "").strip()
+        self._raw = value.strip()
 
         # Detect the kind of path from value if not specified
         self._path_type = path_type or type(path(self._raw.lstrip("\"'")))
@@ -829,16 +824,16 @@ class command(FieldType):
     def _unpack(cls, data: tuple[str, int]) -> command:
         raw_str, path_type = data
         if path_type == TYPE_POSIX:
-            return command(raw_str, posix_path)
+            return command(raw_str, path_type=posix_path)
         if path_type == TYPE_WINDOWS:
-            return command(raw_str, windows_path)
+            return command(raw_str, path_type=windows_path)
         # default, infer type of path from str
         return command(raw_str)
 
     @classmethod
     def from_posix(cls, value: str) -> command:
-        return command(value, posix_path)
+        return command(value, path_type=posix_path)
 
     @classmethod
     def from_windows(cls, value: str) -> command:
-        return command(value, windows_path)
+        return command(value, path_type=windows_path)

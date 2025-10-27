@@ -1053,7 +1053,7 @@ def test_command_record() -> None:
         ],
     )
 
-    # path defaults to type depending on the os it runs on, se we emulate this here
+    # path defaults to type depending on the os it runs on, so we emulate this here
     _type = windows_path if os.name == "nt" else posix_path
 
     record = TestRecord(commando="help.exe -h")
@@ -1096,11 +1096,21 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         ],
     )
 
+    # None
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=command.from_posix(None))
+        record = TestRecord(commando=None)
         writer.write(record)
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
+            assert record.commando is None
+
+    # empty string
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando="")
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando == ""
             assert record.commando.executable == ""
             assert record.commando.args == []
 
@@ -1148,8 +1158,6 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
         (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", [r"/d /a"]),
         # Test an empty command string
         (r"''", r"", []),
-        # Test None
-        (None, "", []),
     ],
 )
 def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
