@@ -1140,8 +1140,10 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
             r"%WINDIR%\\windows.dll",
             ["something,or,somethingelse"],
         ),
-        # Test a quoted path
+        # Test a single quoted path
         (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
+        # Test a double quoted path
+        (r'"c:\path to some exe" /d /a', r"c:\path to some exe", [r"/d /a"]),
         # Test a unquoted path
         (r"\Users\test\hello.exe", r"\Users\test\hello.exe", []),
         # Test an unquoted path with a path as argument
@@ -1170,6 +1172,10 @@ def test_command_windows(command_string: str, expected_executable: str, expected
         # Test command with spaces
         (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
         (r"     /bin/hello\ world", r"/bin/hello world", []),
+        # Test single quoted command
+        (r"'/tmp/ /test/hello' -h -word", r"/tmp/ /test/hello", ["-h", "-word"]),
+        # Test double quoted command
+        (r'"/tmp/ /test/hello" -h -word', r"/tmp/ /test/hello", ["-h", "-word"]),
     ],
 )
 def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
