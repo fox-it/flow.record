@@ -149,9 +149,9 @@ def test_json_command_fieldtype(tmp_path: Path) -> None:
     records = list(reader)
 
     assert records[0].commando.executable == "C:\\help.exe"
-    assert records[0].commando.args == ["data"]
+    assert records[0].commando.args == ("data",)
 
     assert records[1].commando.executable == "/usr/bin/env"
-    assert records[1].commando.args == ["bash"]
+    assert records[1].commando.args == ("bash",)
 
     assert len(records) == 3

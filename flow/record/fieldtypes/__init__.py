@@ -771,7 +771,7 @@ class command(FieldType):
     """
 
     executable: path | None = None
-    args: list[str] | None = None
+    args: tuple[str] | None = None
 
     _raw: str
     _path_type: type[path]
@@ -796,13 +796,13 @@ class command(FieldType):
         if isinstance(other, str):
             return self._raw == other
         if isinstance(other, (tuple, list)):
-            return self.executable == other[0] and self.args == list(other[1:])
+            return self.executable == other[0] and self.args == (*other[1:],)
 
         return False
 
-    def _split(self, value: str) -> tuple[path, list[str]]:
+    def _split(self, value: str) -> tuple[path, tuple[str, ...]]:
         if not (value):
-            return self._path_type(), []
+            return self._path_type(), ()
 
         executable, *args = shlex.split(value, posix=self._path_type is posix_path)
         executable = self._path_type(executable.strip("'\" "))
@@ -810,7 +810,7 @@ class command(FieldType):
         if self._path_type is windows_path:
             args = [" ".join(args)] if args else args
 
-        return executable, args
+        return executable, (*args,)
 
     def _join(self) -> str:
         return self._raw
