@@ -813,9 +813,9 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
             if not HAS_ZSTD:
                 raise RuntimeError("zstd python module not available")
             if not out:
-                fp = zstd.ZstdFile(pathobj.open("rb"), mode="rb")
+                fp = zstd.ZstdFile(path, mode)
             else:
-                fp = zstd.ZstdFile(pathobj.open("wb"), mode="wb")
+                fp = zstd.ZstdFile(path, mode)
 
     # normal file or stdio for reading or writing
     if not fp:
