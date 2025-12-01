@@ -85,12 +85,10 @@ def test_compressed_writer_reader(tmp_path: Path, compression: str) -> None:
     if compression == "lz4" and not HAS_LZ4:
         pytest.skip("lz4 module not installed")
     if compression == "zstd" and not HAS_ZSTD:
-        pytest.skip("zstandard module not installed")
+        pytest.skip("backports.zstd module not installed")
 
     if compression == "lz4" and platform.python_implementation() == "PyPy":
         pytest.skip("lz4 module not supported on PyPy")
-    if compression == "zstd" and platform.python_implementation() == "PyPy":
-        pytest.skip("zstandard module not supported on PyPy")
 
     p = tmp_path.joinpath(f"{compression}-test")
     p.mkdir()
