@@ -27,25 +27,33 @@ from urllib.parse import parse_qsl, urlparse
 from flow.record.exceptions import RecordAdapterNotFound, RecordDescriptorError
 from flow.record.utils import get_stdin, get_stdout
 
+# lz4
 try:
     import lz4.frame as lz4
 
     HAS_LZ4 = True
 except ImportError:
     HAS_LZ4 = False
+
+# bzip2
 try:
     import bz2
 
     HAS_BZ2 = True
 except ImportError:
     HAS_BZ2 = False
-try:
-    import zstandard as zstd
 
+# zstandard
+try:
+    if sys.version_info >= (3, 14):
+        from compression import zstd  # novermin
+    else:
+        from backports import zstd
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
 
+# fastavro
 try:
     import fastavro as avro  # noqa
 
@@ -727,8 +735,7 @@ def open_stream(fp: BinaryIO, mode: str) -> BinaryIO:
     elif HAS_LZ4 and peek_data[:4] == LZ4_MAGIC:
         fp = lz4.open(fp, mode=mode)
     elif HAS_ZSTD and peek_data[:4] == ZSTD_MAGIC:
-        dctx = zstd.ZstdDecompressor()
-        fp = dctx.stream_reader(fp)
+        fp = zstd.ZstdFile(fp, mode=mode)
 
     return fp
 
@@ -804,13 +811,8 @@ def open_path(path: str, mode: str, clobber: bool = True) -> IO:
             fp = lz4.open(path, mode)
         elif path.endswith((".zstd", ".zst")):
             if not HAS_ZSTD:
-                raise RuntimeError("zstandard python module not available")
-            if not out:
-                dctx = zstd.ZstdDecompressor()
-                fp = dctx.stream_reader(pathobj.open("rb"))
-            else:
-                cctx = zstd.ZstdCompressor()
-                fp = cctx.stream_writer(pathobj.open("wb"))
+                raise RuntimeError("backports.zstd python module not available")
+            fp = zstd.ZstdFile(path, mode)
 
     # normal file or stdio for reading or writing
     if not fp:
