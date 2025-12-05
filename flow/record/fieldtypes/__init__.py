@@ -603,6 +603,8 @@ def _is_posixlike_path(path: Any) -> bool:
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" not in (obj.sep, obj.altsep)
     if isinstance(path, str):
+        if re.match(r"^[a-zA-Z]:[\\/]", path):
+            return False
         return "/" in path and "\\" not in path
     return False
 
