@@ -602,6 +602,8 @@ def _is_posixlike_path(path: Any) -> bool:
     if isinstance(path, pathlib.PurePath):
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" not in (obj.sep, obj.altsep)
+    if isinstance(path, str):
+        return "/" in path and "\\" not in path
     return False
 
 
@@ -609,6 +611,11 @@ def _is_windowslike_path(path: Any) -> bool:
     if isinstance(path, pathlib.PurePath):
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" in (obj.sep, obj.altsep)
+    if isinstance(path, str):
+        if re.match(r"^[a-zA-Z]:[\\/]", path):
+            return True
+        if "\\" in path:
+            return True
     return False
 
 

@@ -578,7 +578,7 @@ def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
         (custom_pure_path(sep="/", altsep="")("/foo/bar"), True),
         (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), False),
         (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), False),
-        ("/foo/bar", False),
+        ("/foo/bar", True),
     ],
 )
 def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> None:
@@ -677,7 +677,7 @@ def test_path() -> None:
         ),
         (
             ("/some/path", pathlib.PureWindowsPath("win/path"), pathlib.PurePosixPath("pos/path")),
-            flow.record.fieldtypes.windows_path,
+            flow.record.fieldtypes.posix_path,
         ),
         (
             (pathlib.PurePosixPath("pos/path"), pathlib.PureWindowsPath("win/path")),
