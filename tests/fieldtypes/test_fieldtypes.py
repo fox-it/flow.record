@@ -579,6 +579,7 @@ def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
         (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), False),
         (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), False),
         ("/foo/bar", True),
+        (r"C:\foo\bar", False),
     ],
 )
 def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> None:
@@ -594,6 +595,7 @@ def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> No
         (custom_pure_path(sep="\\", altsep="/")(r"C:\foo\bar"), True),
         (custom_pure_path(sep=":", altsep="\\")(r"C:\foo\bar"), True),
         ("/foo/bar", False),
+        (r"C:\foo\bar", True),
     ],
 )
 def test__is_windowslike_path(path_: pathlib.PurePath, is_windows: bool) -> None:
