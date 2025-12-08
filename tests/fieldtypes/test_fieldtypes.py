@@ -581,6 +581,7 @@ def custom_pure_path(sep: str, altsep: str) -> pathlib.PurePath:
         ("/foo/bar", True),
         (r"C:\foo\bar", False),
         (r"C:/foo/bar", False),
+        (r"\??\C:\Windows\System32\calc.exe", False),
     ],
 )
 def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> None:
@@ -598,6 +599,7 @@ def test__is_posixlike_path(path_: pathlib.PurePath | str, is_posix: bool) -> No
         ("/foo/bar", False),
         (r"C:\foo\bar", True),
         (r"C:/foo/bar", True),
+        (r"\??\C:\Windows\System32\calc.exe", True),
     ],
 )
 def test__is_windowslike_path(path_: pathlib.PurePath, is_windows: bool) -> None:
