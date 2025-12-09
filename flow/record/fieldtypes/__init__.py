@@ -617,8 +617,7 @@ def _is_windowslike_path(path: Any) -> bool:
     if isinstance(path, str):
         if RE_WINDOWS_PATH.match(path):
             return True
-        if "\\" in path:
-            return True
+        return "\\" in path
     return False
 
 
