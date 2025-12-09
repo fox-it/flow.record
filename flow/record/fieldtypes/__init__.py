@@ -28,6 +28,7 @@ except ImportError:
 from flow.record.base import FieldType, Record
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
+RE_WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
 
 UTC = timezone.utc
 
@@ -602,6 +603,10 @@ def _is_posixlike_path(path: Any) -> bool:
     if isinstance(path, pathlib.PurePath):
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" not in (obj.sep, obj.altsep)
+    if isinstance(path, str):
+        if RE_WINDOWS_PATH.match(path):
+            return False
+        return "/" in path and "\\" not in path
     return False
 
 
@@ -609,6 +614,10 @@ def _is_windowslike_path(path: Any) -> bool:
     if isinstance(path, pathlib.PurePath):
         obj = getattr(path, "parser", None) or path._flavour
         return "\\" in (obj.sep, obj.altsep)
+    if isinstance(path, str):
+        if RE_WINDOWS_PATH.match(path):
+            return True
+        return "\\" in path
     return False
 
 
