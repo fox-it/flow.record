@@ -1077,15 +1077,16 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
     )
 
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=r"\\.\\?\some_command.exe -h,help /d quiet")
+        record = TestRecord(commando=r"\.\?\some_command.exe -h,help /d quiet")
         writer.write(record)
-        assert record.commando.executable == r"\\.\\?\some_command.exe"
+        assert record.commando.executable == r"\.\?\some_command.exe"
         assert record.commando.args == (r"-h,help /d quiet",)
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable == r"\\.\\?\some_command.exe"
+            assert record.commando.executable == r"\.\?\some_command.exe"
             assert record.commando.args == (r"-h,help /d quiet",)
+            assert record.commando.raw == r"\?\some_command.exe -h,help /d quiet"
 
 
 def test_command_integration_none(tmp_path: pathlib.Path) -> None:
@@ -1113,6 +1114,7 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
             assert record.commando == ""
             assert record.commando.executable == ""
             assert record.commando.args == ()
+            assert record.commando.raw == ""
 
 
 def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
@@ -1213,6 +1215,44 @@ def test_command_equal() -> None:
     assert command("hello.so") != "hello.so -h"
     assert command("hello.so") != ["hello.so", ""]
     assert command("hello.so") != ("hello.so", "")
+
+
+def test_command_assign_posix() -> None:
+    _command = command("/")
+
+    assert _command.raw == "/"
+
+    # Test whether we can assign executable
+    _command.executable = "/path/to/home dir/"
+    assert _command.raw == "'/path/to/home dir'"
+
+    # Test whether it uses the underlying path
+    _command.executable = fieldtypes.windows_path("path\\to\\dir")
+    assert _command.raw == r"path/to/dir"
+
+    # As it is windows, this should change to be one value
+    _command.args = ["command", "arguments", "for", "posix"]
+    assert _command.args == ("command", "arguments", "for", "posix")
+    assert _command.raw == r"path/to/dir command arguments for posix"
+
+    _command.args = ("command", "-c", "command string")
+    assert _command.raw == "path/to/dir command -c 'command string'"
+
+
+def test_command_assign_windows() -> None:
+    _command = command("c:\\")
+
+    assert _command.raw == "c:\\"
+
+    _command.executable = r"c:\windows\path"
+    assert _command.raw == r"c:\windows\path"
+
+    _command.executable = r"c:\windows\path to file"
+    assert _command.raw == r"'c:\windows\path to file'"
+
+    _command.args = ("command", "arguments", "for", "windows")
+    assert _command.args == ("command arguments for windows",)
+    assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
 
 
 def test_command_failed() -> None:

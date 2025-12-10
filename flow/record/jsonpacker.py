@@ -75,7 +75,7 @@ class JsonRecordPacker:
         if isinstance(obj, fieldtypes.path):
             return str(obj)
         if isinstance(obj, fieldtypes.command):
-            return obj._raw
+            return obj.raw
 
         raise TypeError(f"Unpackable type {type(obj)}")
 

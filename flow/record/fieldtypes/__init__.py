@@ -770,22 +770,21 @@ class command(FieldType):
                                                                    ['Doe\\malware.exe /all /the /things']
     """
 
-    executable: path | None = None
-    args: tuple[str] | None = None
+    __executable: path
+    __args: tuple[str, ...]
 
-    _raw: str
-    _path_type: type[path]
+    __path_type: type[path]
 
     def __init__(self, value: str = "", *, path_type: type[path] | None = None):
         if not isinstance(value, str):
             raise TypeError(f"Expected a value of type 'str' not {type(value)}")
 
-        self._raw = value.strip()
+        raw = value.strip()
 
         # Detect the kind of path from value if not specified
-        self._path_type = path_type or type(path(self._raw.lstrip("\"'")))
+        self.__path_type = path_type or type(path(raw.lstrip("\"'")))
 
-        self.executable, self.args = self._split(self._raw)
+        self.executable, self.args = self._split(raw)
 
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
@@ -794,30 +793,25 @@ class command(FieldType):
         if isinstance(other, command):
             return self.executable == other.executable and self.args == other.args
         if isinstance(other, str):
-            return self._raw == other
+            return self.raw == other
         if isinstance(other, (tuple, list)):
             return self.executable == other[0] and self.args == (*other[1:],)
 
         return False
 
-    def _split(self, value: str) -> tuple[path, tuple[str, ...]]:
+    def _split(self, value: str) -> tuple[str, tuple[str, ...]]:
         if not (value):
-            return self._path_type(), ()
+            return "", ()
 
-        executable, *args = shlex.split(value, posix=self._path_type is posix_path)
-        executable = self._path_type(executable.strip("'\" "))
-
-        if self._path_type is windows_path:
-            args = [" ".join(args)] if args else args
-
-        return executable, (*args,)
+        executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
+        return executable.strip("'\" "), (*args,)
 
     def _join(self) -> str:
-        return self._raw
+        return self.raw
 
     def _pack(self) -> tuple[str, int]:
-        path_type = TYPE_WINDOWS if self._path_type is windows_path else TYPE_POSIX
-        return self._raw, path_type
+        path_type = TYPE_WINDOWS if self.__path_type is windows_path else TYPE_POSIX
+        return self.raw, path_type
 
     @classmethod
     def _unpack(cls, data: tuple[str, int]) -> command:
@@ -828,6 +822,44 @@ class command(FieldType):
             return command(raw_str, path_type=windows_path)
         # default, infer type of path from str
         return command(raw_str)
+
+    @property
+    def executable(self) -> path:
+        return self.__executable
+
+    @property
+    def args(self) -> tuple[str, ...]:
+        return self.__args
+
+    @executable.setter
+    def executable(self, val: str | path | None) -> None:
+        self.__executable = self.__path_type(val)
+
+    @args.setter
+    def args(self, val: str | tuple[str, ...] | list[str] | None) -> None:
+        if val is None:
+            self.__args = ()
+        elif isinstance(val, (tuple, list)):
+            if val and self.__path_type is windows_path:
+                val = (" ".join(val),)
+            self.__args = (*val,)
+        else:
+            self.__args = tuple(shlex.split(val, posix=self.__path_type is posix_path))
+
+    @property
+    def raw(self) -> str:
+        exe = str(self.executable)
+
+        if " " in exe:
+            exe = shlex.quote(exe)
+
+        result = [exe]
+        if self.__path_type is posix_path:
+            result.extend(shlex.quote(part) if " " in part else part for part in self.args)
+        else:
+            result.extend(self.args)
+
+        return " ".join(result)
 
     @classmethod
     def from_posix(cls, value: str) -> command:
