@@ -806,9 +806,6 @@ class command(FieldType):
         executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
         return executable.strip("'\" "), (*args,)
 
-    def _join(self) -> str:
-        return self.raw
-
     def _pack(self) -> tuple[str, int]:
         path_type = TYPE_WINDOWS if self.__path_type is windows_path else TYPE_POSIX
         return self.raw, path_type
