@@ -836,12 +836,15 @@ class command(FieldType):
     def args(self, val: str | tuple[str, ...] | list[str] | None) -> None:
         if val is None:
             self.__args = ()
-        elif isinstance(val, (tuple, list)):
-            if val and self.__path_type is windows_path:
-                val = (" ".join(val),)
-            self.__args = (*val,)
-        else:
-            self.__args = tuple(shlex.split(val, posix=self.__path_type is posix_path))
+            return
+
+        if isinstance(val, str):
+            val = tuple(shlex.split(val, posix=self.__path_type is posix_path))
+
+        if val and self.__path_type is windows_path:
+            val = (" ".join(val),)
+
+        self.__args = (*val,)
 
     @property
     def raw(self) -> str:

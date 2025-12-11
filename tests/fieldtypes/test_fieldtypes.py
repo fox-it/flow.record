@@ -1238,6 +1238,10 @@ def test_command_assign_posix() -> None:
     _command.args = ("command", "-c", "command string")
     assert _command.raw == "path/to/dir command -c 'command string'"
 
+    _command.args = "command -c 'command string2'"
+    assert _command.args == ("command", "-c", "command string2")
+    assert _command.raw == "path/to/dir command -c 'command string2'"
+
 
 def test_command_assign_windows() -> None:
     _command = command("c:\\")
@@ -1253,6 +1257,9 @@ def test_command_assign_windows() -> None:
     _command.args = ("command", "arguments", "for", "windows")
     assert _command.args == ("command arguments for windows",)
     assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
+
+    _command.args = "command arguments for windows2"
+    assert _command.args == ("command arguments for windows2",)
 
 
 def test_command_failed() -> None:
