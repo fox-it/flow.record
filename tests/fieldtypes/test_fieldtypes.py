@@ -1065,7 +1065,7 @@ def test_command_record() -> None:
     args = ("-h", "-q", "-something")
     assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "something.so"
-    assert record.commando.args == (" ".join(args),) if os.name == "nt" else args
+    assert record.commando.args == args
 
 
 def test_command_integration(tmp_path: pathlib.Path) -> None:
@@ -1080,12 +1080,12 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
         record = TestRecord(commando=r"\.\?\some_command.exe -h,help /d quiet")
         writer.write(record)
         assert record.commando.executable == r"\.\?\some_command.exe"
-        assert record.commando.args == (r"-h,help /d quiet",)
+        assert record.commando.args == (r"-h,help", "/d", "quiet")
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
             assert record.commando.executable == r"\.\?\some_command.exe"
-            assert record.commando.args == (r"-h,help /d quiet",)
+            assert record.commando.args == (r"-h,help", "/d", "quiet")
             assert record.commando.raw == r"\?\some_command.exe -h,help /d quiet"
 
 
@@ -1149,9 +1149,9 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
             ("something,or,somethingelse",),
         ),
         # Test a single quoted path
-        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", (r"/d /a",)),
+        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", ("/d", "/a")),
         # Test a double quoted path
-        (r'"c:\path to some exe" /d /a', r"c:\path to some exe", (r"/d /a",)),
+        (r'"c:\path to some exe" /d /a', r"c:\path to some exe", ("/d", "/a")),
         # Test a unquoted path
         (r"\Users\test\hello.exe", r"\Users\test\hello.exe", ()),
         # Test an unquoted path with a path as argument
@@ -1159,7 +1159,7 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
         # Test a quoted UNC path
         (r"'\\192.168.1.2\Program Files\hello.exe'", r"\\192.168.1.2\Program Files\hello.exe", ()),
         # Test an unquoted UNC path
-        (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", (r"/d /a",)),
+        (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", ("/d", "/a")),
         # Test an empty command string
         (r"''", r"", ()),
     ],
@@ -1207,8 +1207,13 @@ def test_command_equal() -> None:
     # Compare paths that contain spaces
     assert command("'/home/some folder/file' -h") == "'/home/some folder/file' -h"
     assert command("'c:\\Program files\\some.dll' -h -q") == "'c:\\Program files\\some.dll' -h -q"
-    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h -q"]
-    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h -q")
+    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h", "-q"]
+    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h", "-q")
+
+    assert (
+        command(r"'c:\Program Files\some.dll' --command 'hello world'")
+        == r"'c:\Program Files\some.dll' --command 'hello world'"
+    )
 
     # Test failure conditions
     assert command("hello.so -h") != 1
@@ -1255,11 +1260,11 @@ def test_command_assign_windows() -> None:
     assert _command.raw == r"'c:\windows\path to file'"
 
     _command.args = ("command", "arguments", "for", "windows")
-    assert _command.args == ("command arguments for windows",)
+    assert _command.args == ("command", "arguments", "for", "windows")
     assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
 
     _command.args = "command arguments for windows2"
-    assert _command.args == ("command arguments for windows2",)
+    assert _command.args == ("command", "arguments", "for", "windows2")
 
 
 def test_command_failed() -> None:

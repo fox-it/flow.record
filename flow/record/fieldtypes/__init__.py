@@ -800,7 +800,7 @@ class command(FieldType):
         return False
 
     def _split(self, value: str) -> tuple[str, tuple[str, ...]]:
-        if not (value):
+        if not value:
             return "", ()
 
         executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
@@ -839,12 +839,11 @@ class command(FieldType):
             return
 
         if isinstance(val, str):
-            val = tuple(shlex.split(val, posix=self.__path_type is posix_path))
-
-        if val and self.__path_type is windows_path:
-            val = (" ".join(val),)
-
-        self.__args = (*val,)
+            self.__args = tuple(shlex.split(val, posix=self.__path_type is posix_path))
+        elif isinstance(val, list):
+            self.__args = tuple(val)
+        else:
+            self.__args = val
 
     @property
     def raw(self) -> str:
@@ -854,11 +853,11 @@ class command(FieldType):
             exe = shlex.quote(exe)
 
         result = [exe]
+        # Only quote on posix paths as shlex doesn't remove the quotes on non posix paths
         if self.__path_type is posix_path:
             result.extend(shlex.quote(part) if " " in part else part for part in self.args)
         else:
             result.extend(self.args)
-
         return " ".join(result)
 
     @classmethod
