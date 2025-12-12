@@ -22,10 +22,8 @@ from flow.record.fieldtypes import (
     command,
     fieldtype_for_value,
     net,
-    posix_command,
     posix_path,
     uri,
-    windows_command,
     windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
@@ -1033,6 +1031,20 @@ def test_datetime_comparisions() -> None:
     assert dt("2023-01-02") != datetime(2023, 3, 4, tzinfo=UTC)
 
 
+def test_empty_command() -> None:
+    command = fieldtypes.command()
+    assert command.executable == ""
+    assert command.args == ()
+
+    command = fieldtypes.command("")
+    assert command.executable == ""
+    assert command.args == ()
+
+    command = fieldtypes.command("        ")
+    assert command.executable == ""
+    assert command.args == ()
+
+
 def test_command_record() -> None:
     TestRecord = RecordDescriptor(
         "test/command",
@@ -1041,15 +1053,19 @@ def test_command_record() -> None:
         ],
     )
 
+    # path defaults to type depending on the os it runs on, so we emulate this here
+    _type = windows_path if os.name == "nt" else posix_path
+
     record = TestRecord(commando="help.exe -h")
-    assert isinstance(record.commando, posix_command)
+    assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "help.exe"
-    assert record.commando.args == ["-h"]
+    assert record.commando.args == ("-h",)
 
     record = TestRecord(commando="something.so -h -q -something")
-    assert isinstance(record.commando, posix_command)
+    args = ("-h", "-q", "-something")
+    assert isinstance(record.commando.executable, _type)
     assert record.commando.executable == "something.so"
-    assert record.commando.args == ["-h", "-q", "-something"]
+    assert record.commando.args == args
 
 
 def test_command_integration(tmp_path: pathlib.Path) -> None:
@@ -1061,15 +1077,16 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
     )
 
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=r"\\.\\?\some_command.exe -h,help /d quiet")
+        record = TestRecord(commando=r"\.\?\some_command.exe -h,help /d quiet")
         writer.write(record)
-        assert record.commando.executable == r"\\.\\?\some_command.exe"
-        assert record.commando.args == [r"-h,help /d quiet"]
+        assert record.commando.executable == r"\.\?\some_command.exe"
+        assert record.commando.args == (r"-h,help", "/d", "quiet")
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable == r"\\.\\?\some_command.exe"
-            assert record.commando.args == [r"-h,help /d quiet"]
+            assert record.commando.executable == r"\.\?\some_command.exe"
+            assert record.commando.args == (r"-h,help", "/d", "quiet")
+            assert record.commando.raw == r"\?\some_command.exe -h,help /d quiet"
 
 
 def test_command_integration_none(tmp_path: pathlib.Path) -> None:
@@ -1080,44 +1097,78 @@ def test_command_integration_none(tmp_path: pathlib.Path) -> None:
         ],
     )
 
+    # None
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=command.from_posix(None))
+        record = TestRecord(commando=None)
         writer.write(record)
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable is None
-            assert record.commando.args is None
+            assert record.commando is None
+
+    # empty string
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando="")
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando == ""
+            assert record.commando.executable == ""
+            assert record.commando.args == ()
+            assert record.commando.raw == ""
+
+
+def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    with RecordWriter(tmp_path / "command_record") as writer:
+        record = TestRecord(commando=command.from_windows("hello.exe -d"))
+        writer.write(record)
+    with RecordReader(tmp_path / "command_record") as reader:
+        for record in reader:
+            assert record.commando.executable == "hello.exe"
+            assert isinstance(record.commando.executable, windows_path)
+            assert record.commando.args == ("-d",)
 
 
 @pytest.mark.parametrize(
     ("command_string", "expected_executable", "expected_argument"),
     [
         # Test relative windows paths
-        ("windows.exe something,or,somethingelse", "windows.exe", ["something,or,somethingelse"]),
+        ("windows.exe something,or,somethingelse", "windows.exe", ("something,or,somethingelse",)),
         # Test weird command strings for windows
-        ("windows.dll something,or,somethingelse", "windows.dll", ["something,or,somethingelse"]),
+        ("windows.dll something,or,somethingelse", "windows.dll", ("something,or,somethingelse",)),
         # Test environment variables
-        (r"%WINDIR%\\windows.dll something,or,somethingelse", r"%WINDIR%\\windows.dll", ["something,or,somethingelse"]),
-        # Test a quoted path
-        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", [r"/d /a"]),
+        (
+            r"%WINDIR%\\windows.dll something,or,somethingelse",
+            r"%WINDIR%\\windows.dll",
+            ("something,or,somethingelse",),
+        ),
+        # Test a single quoted path
+        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", ("/d", "/a")),
+        # Test a double quoted path
+        (r'"c:\path to some exe" /d /a', r"c:\path to some exe", ("/d", "/a")),
         # Test a unquoted path
-        (r"\Users\test\hello.exe", r"\Users\test\hello.exe", []),
+        (r"\Users\test\hello.exe", r"\Users\test\hello.exe", ()),
         # Test an unquoted path with a path as argument
-        (r"\Users\test\hello.exe c:\startmepls.exe", r"\Users\test\hello.exe", [r"c:\startmepls.exe"]),
+        (r"\Users\test\hello.exe c:\startmepls.exe", r"\Users\test\hello.exe", (r"c:\startmepls.exe",)),
         # Test a quoted UNC path
-        (r"'\\192.168.1.2\Program Files\hello.exe'", r"\\192.168.1.2\Program Files\hello.exe", []),
+        (r"'\\192.168.1.2\Program Files\hello.exe'", r"\\192.168.1.2\Program Files\hello.exe", ()),
         # Test an unquoted UNC path
-        (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", [r"/d /a"]),
+        (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", ("/d", "/a")),
         # Test an empty command string
-        (r"''", r"", []),
-        # Test None
-        (None, None, None),
+        (r"''", r"", ()),
     ],
 )
-def test_command_windows(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
-    cmd = windows_command(command_string)
+def test_command_windows(command_string: str, expected_executable: str, expected_argument: tuple[str, ...]) -> None:
+    cmd = command.from_windows(command_string)
 
     assert cmd.executable == expected_executable
+    assert isinstance(cmd.executable, windows_path)
     assert cmd.args == expected_argument
 
 
@@ -1125,15 +1176,21 @@ def test_command_windows(command_string: str, expected_executable: str, expected
     ("command_string", "expected_executable", "expected_argument"),
     [
         # Test relative posix command
-        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ["-h", "asdsad", "-f", "asdsadas"]),
+        ("some_file.so -h asdsad -f asdsadas", "some_file.so", ("-h", "asdsad", "-f", "asdsadas")),
         # Test command with spaces
-        (r"/bin/hello\ world -h -word", r"/bin/hello world", ["-h", "-word"]),
+        (r"/bin/hello\ world -h -word", r"/bin/hello world", ("-h", "-word")),
+        (r"     /bin/hello\ world", r"/bin/hello world", ()),
+        # Test single quoted command
+        (r"'/tmp/ /test/hello' -h -word", r"/tmp/ /test/hello", ("-h", "-word")),
+        # Test double quoted command
+        (r'"/tmp/ /test/hello" -h -word', r"/tmp/ /test/hello", ("-h", "-word")),
     ],
 )
 def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
-    cmd = posix_command(command_string)
+    cmd = command.from_posix(command_string)
 
     assert cmd.executable == expected_executable
+    assert isinstance(cmd.executable, fieldtypes.posix_path)
     assert cmd.args == expected_argument
 
 
@@ -1150,14 +1207,64 @@ def test_command_equal() -> None:
     # Compare paths that contain spaces
     assert command("'/home/some folder/file' -h") == "'/home/some folder/file' -h"
     assert command("'c:\\Program files\\some.dll' -h -q") == "'c:\\Program files\\some.dll' -h -q"
-    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h -q"]
-    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h -q")
+    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h", "-q"]
+    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h", "-q")
+
+    assert (
+        command(r"'c:\Program Files\some.dll' --command 'hello world'")
+        == r"'c:\Program Files\some.dll' --command 'hello world'"
+    )
 
     # Test failure conditions
     assert command("hello.so -h") != 1
     assert command("hello.so") != "hello.so -h"
     assert command("hello.so") != ["hello.so", ""]
     assert command("hello.so") != ("hello.so", "")
+
+
+def test_command_assign_posix() -> None:
+    _command = command("/")
+
+    assert _command.raw == "/"
+
+    # Test whether we can assign executable
+    _command.executable = "/path/to/home dir/"
+    assert _command.raw == "'/path/to/home dir'"
+
+    # Test whether it uses the underlying path
+    _command.executable = fieldtypes.windows_path("path\\to\\dir")
+    assert _command.raw == r"path/to/dir"
+
+    # As it is windows, this should change to be one value
+    _command.args = ["command", "arguments", "for", "posix"]
+    assert _command.args == ("command", "arguments", "for", "posix")
+    assert _command.raw == r"path/to/dir command arguments for posix"
+
+    _command.args = ("command", "-c", "command string")
+    assert _command.raw == "path/to/dir command -c 'command string'"
+
+    _command.args = "command -c 'command string2'"
+    assert _command.args == ("command", "-c", "command string2")
+    assert _command.raw == "path/to/dir command -c 'command string2'"
+
+
+def test_command_assign_windows() -> None:
+    _command = command("c:\\")
+
+    assert _command.raw == "c:\\"
+
+    _command.executable = r"c:\windows\path"
+    assert _command.raw == r"c:\windows\path"
+
+    _command.executable = r"c:\windows\path to file"
+    assert _command.raw == r"'c:\windows\path to file'"
+
+    _command.args = ("command", "arguments", "for", "windows")
+    assert _command.args == ("command", "arguments", "for", "windows")
+    assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
+
+    _command.args = "command arguments for windows2"
+    assert _command.args == ("command", "arguments", "for", "windows2")
 
 
 def test_command_failed() -> None:

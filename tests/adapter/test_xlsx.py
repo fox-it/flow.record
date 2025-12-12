@@ -39,9 +39,9 @@ def test_sanitize_field_values(mock_openpyxl_package: MagicMock) -> None:
                 fieldtypes.net.ipaddress("13.37.13.37"),
                 ["Shaken", "Not", "Stirred"],
                 fieldtypes.posix_path("/home/user"),
-                fieldtypes.posix_command("/bin/bash -c 'echo hello world'"),
+                fieldtypes.command.from_posix("/bin/bash -c 'echo hello world'"),
                 fieldtypes.windows_path("C:\\Users\\user\\Desktop"),
-                fieldtypes.windows_command("C:\\Some.exe /?"),
+                fieldtypes.command.from_windows("C:\\Some.exe /?"),
             ]
         )
     ) == [
