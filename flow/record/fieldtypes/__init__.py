@@ -12,8 +12,11 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     try:
@@ -60,7 +63,8 @@ def flow_record_tz(*, default_tz: str = "UTC") -> ZoneInfo | UTC | None:
     if not HAS_ZONE_INFO:
         if tz != "UTC":
             warnings.warn(
-                "Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.", stacklevel=2
+                "Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.",
+                stacklevel=2,
             )
         return UTC
 

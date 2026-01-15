@@ -21,6 +21,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     BinaryIO,
+    Literal,
+    overload,
 )
 from urllib.parse import parse_qsl, urlparse
 
@@ -61,7 +63,7 @@ try:
 except ImportError:
     HAS_AVRO = False
 
-from collections import OrderedDict
+from collections import ChainMap, OrderedDict
 
 from flow.record.utils import to_str
 from flow.record.whitelist import WHITELIST, WHITELIST_TREE
@@ -194,6 +196,9 @@ class Record:
 
     if TYPE_CHECKING:
 
+        @overload
+        def __getattr__(self, name: Literal["_desc"]) -> RecordDescriptor: ...
+        @overload
         def __getattr__(self, name: str) -> Any: ...
 
     def __setattr__(self, k: str, v: Any) -> None:
@@ -234,7 +239,10 @@ class Record:
         return hash((desc_identifier, tuple(record_values)))
 
     def __repr__(self) -> str:
-        return "<{} {}>".format(self._desc.name, " ".join(f"{k}={getattr(self, k)!r}" for k in self._desc.fields))
+        return "<{} {}>".format(
+            self._desc.name,
+            " ".join(f"{k}={getattr(self, k)!r}" for k in self._desc.fields),
+        )
 
 
 class GroupedRecord(Record):
@@ -326,7 +334,13 @@ class GroupedRecord(Record):
 
     def _replace(self, **kwds) -> GroupedRecord:
         new_records = [
-            record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
+            record.__class__(
+                *map(
+                    kwds.pop,
+                    record.__slots__,
+                    (getattr(self, k) for k in record.__slots__),
+                )
+            )
             for record in self.records
         ]
         if kwds:
@@ -450,8 +464,9 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
                 default = f"_field_{field.name}.type.default()"
             init_code += f"\t\t__self.{field.name} = {field.name} if {field.name} is not None else {default}\n"
             unpack_code += (
-                "\t\t\t{field} = _field_{field}.type._unpack({field}) " + "if {field} is not None else {default},\n"
-            ).format(field=field.name, default=default)
+                f"\t\t\t{field.name} = _field_{field.name}.type._unpack({field.name}) "
+                f"if {field.name} is not None else {default},\n"
+            )
         unpack_code += "\t\t)"
 
     init_code += "\t\t__self._generated = _generated or _utcnow()\n\t\t__self._version = RECORD_VERSION"
@@ -584,18 +599,20 @@ class RecordDescriptor:
             self._all_fields.update(self.get_required_fields())
         return self._all_fields
 
-    def getfields(self, typename: str) -> RecordFieldSet:
+    def getfields(self, typename: str, *, all_fields: bool = False) -> RecordFieldSet:
         """Get fields of a given type.
 
         Args:
             typename: The typename of the fields to return. eg: "string" or "datetime"
+            all_fields: If True, search in all fields including reserved fields.
 
         Returns:
             RecordFieldSet of fields with the given typename
         """
         name = typename.gettypename() if isinstance(typename, DynamicFieldtypeModule) else typename
 
-        return RecordFieldSet(field for field in self.fields.values() if field.typename == name)
+        fields_source = self.get_all_fields() if all_fields else self.fields
+        return RecordFieldSet(field for field in fields_source.values() if field.typename == name)
 
     def __call__(self, *args, **kwargs) -> Record:
         """Create a new Record initialized with ``args`` and ``kwargs``."""
@@ -837,6 +854,10 @@ def RecordAdapter(
         ".json": "jsonfile",
         ".jsonl": "jsonfile",
         ".csv": "csvfile",
+        ".parquet": "parquet",
+        ".parq": "parquet",
+        ".pq": "parquet",
+        ".arrow": "arrow",
     }
     cls_stream = None
     cls_url = None
@@ -856,8 +877,8 @@ def RecordAdapter(
         p = urlparse(url, scheme=adapter_scheme)
         adapter, _, sub_adapter = p.scheme.partition("+")
 
-        arg_dict = dict(parse_qsl(p.query))
-        arg_dict.update(kwargs)
+        # give precedence to options via uri
+        arg_dict = ChainMap(dict(parse_qsl(p.query)), kwargs)
 
         cls_url = p.netloc + p.path
         if sub_adapter:
@@ -1007,7 +1028,10 @@ def merge_record_descriptors(
 
 
 def extend_record(
-    record: Record, other_records: list[Record], replace: bool = False, name: str | None = None
+    record: Record,
+    other_records: list[Record],
+    replace: bool = False,
+    name: str | None = None,
 ) -> Record:
     """Extend ``record`` with fields and values from ``other_records``.
 
