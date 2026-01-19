@@ -824,12 +824,12 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
 
 
-def test_rdump_empty_stdin_pipe(tmp_path: Path) -> None:
+def test_rdump_empty_stdin_pipe() -> None:
     """Test that rdump handles empty stdin as input gracefully."""
 
-    # rdump empty.records | rdump -l
+    # rdump -l (with empty stdin)
     pipe = subprocess.Popen(
-        ["rdump", "-", "-l"],
+        ["rdump", "-l"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
