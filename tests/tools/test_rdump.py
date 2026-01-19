@@ -797,3 +797,39 @@ def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
     assert "test/record count=0" in stdout
     assert "test/record count=1" in stdout
     assert len(stdout.splitlines()) == 2
+
+
+def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
+    """Test that rdump handles empty records as input gracefully."""
+
+    # create an empty records file
+    path = tmp_path / "empty.records"
+    with RecordWriter(path):
+        pass
+
+    # rdump empty.records | rdump -l
+    p1 = subprocess.Popen(["rdump", str(path)], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(
+        ["rdump", "-l"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p2.communicate()
+    assert b"RecordReader('-'): Empty input stream" in stderr.strip()
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
+
+
+def test_rdump_empty_stdin_pipe(tmp_path: Path) -> None:
+    """Test that rdump handles empty stdin as input gracefully."""
+
+    # rdump empty.records | rdump -l
+    pipe = subprocess.Popen(
+        ["rdump", "-", "-l"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = pipe.communicate(input=None)
+    assert b"RecordReader('-'): Empty input stream" in stderr.strip()
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
