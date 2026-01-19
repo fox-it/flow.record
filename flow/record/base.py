@@ -893,7 +893,7 @@ def RecordAdapter(
                             "entering record text, rather than a record stream? This can be fixed by using "
                             "'rdump -w -' to write a record stream to stdout."
                         )
-                    elif not peek_data:
+                    if not peek_data:
                         raise EOFError("Empty input stream")
                     raise RecordAdapterNotFound("Could not find adapter for file-like object")
 
