@@ -821,8 +821,8 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     )
     stdout, stderr = p2.communicate()
     assert p2.returncode == 0
-    assert b"RecordReader('-'): Empty input stream" in stderr.strip()
-    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
+    assert b"RecordReader('-'): Empty input stream" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
 
 
 def test_rdump_empty_stdin_pipe() -> None:
@@ -837,5 +837,21 @@ def test_rdump_empty_stdin_pipe() -> None:
     )
     stdout, stderr = pipe.communicate(input=None)
     assert pipe.returncode == 0
-    assert b"RecordReader('-'): Empty input stream" in stderr.strip()
-    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
+    assert b"RecordReader('-'): Empty input stream" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
+
+
+def test_rdump_invalid_stdin_pipe() -> None:
+    """Test that rdump handles invalid stdin as input gracefully."""
+
+    # rdump -l (with invalid stdin)
+    pipe = subprocess.Popen(
+        ["rdump", "-l"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = pipe.communicate(input=b"this is not a valid record stream")
+    assert pipe.returncode == 1, "rdump should exit with error code 1 on invalid input"
+    assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
