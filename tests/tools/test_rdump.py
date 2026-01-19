@@ -825,7 +825,14 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
 
 
-def test_rdump_empty_stdin_pipe() -> None:
+@pytest.mark.parametrize(
+    "stdin_bytes",
+    [
+        b"",
+        None,
+    ],
+)
+def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     """Test that rdump handles empty stdin as input gracefully."""
 
     # rdump -l (with empty stdin)
@@ -841,8 +848,16 @@ def test_rdump_empty_stdin_pipe() -> None:
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
 
 
-def test_rdump_invalid_stdin_pipe() -> None:
-    """Test that rdump handles invalid stdin as input gracefully."""
+@pytest.mark.parametrize(
+    "stdin_bytes",
+    [
+        b"\n",
+        b"this is not a valid record stream",
+        b"RANDOMDATA",
+    ],
+)
+def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
+    """Test that rdump handles invalid stdin as an error"""
 
     # rdump -l (with invalid stdin)
     pipe = subprocess.Popen(
@@ -851,7 +866,7 @@ def test_rdump_invalid_stdin_pipe() -> None:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    stdout, stderr = pipe.communicate(input=b"this is not a valid record stream")
+    stdout, stderr = pipe.communicate(input=stdin_bytes)
     assert pipe.returncode == 1, "rdump should exit with error code 1 on invalid input"
     assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
