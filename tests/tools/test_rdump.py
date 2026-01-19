@@ -807,6 +807,10 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     with RecordWriter(path):
         pass
 
+    # although the records file is empty, it should exist and have a RECORDSTREAM header
+    assert path.exists()
+    assert b"RECORDSTREAM" in path.read_bytes()
+
     # rdump empty.records | rdump -l
     p1 = subprocess.Popen(["rdump", str(path)], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(
