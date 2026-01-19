@@ -820,6 +820,7 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
         stderr=subprocess.PIPE,
     )
     stdout, stderr = p2.communicate()
+    assert p2.returncode == 0
     assert b"RecordReader('-'): Empty input stream" in stderr.strip()
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
 
@@ -835,5 +836,6 @@ def test_rdump_empty_stdin_pipe() -> None:
         stderr=subprocess.PIPE,
     )
     stdout, stderr = pipe.communicate(input=None)
+    assert pipe.returncode == 0
     assert b"RecordReader('-'): Empty input stream" in stderr.strip()
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout.strip()
