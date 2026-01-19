@@ -797,3 +797,76 @@ def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
     assert "test/record count=0" in stdout
     assert "test/record count=1" in stdout
     assert len(stdout.splitlines()) == 2
+
+
+def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
+    """Test that rdump handles empty records as input gracefully."""
+
+    # create an empty records file
+    path = tmp_path / "empty.records"
+    with RecordWriter(path):
+        pass
+
+    # although the records file is empty, it should exist and have a RECORDSTREAM header
+    assert path.exists()
+    assert b"RECORDSTREAM" in path.read_bytes()
+
+    # rdump empty.records | rdump -l
+    p1 = subprocess.Popen(["rdump", str(path)], stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(
+        ["rdump", "-l"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = p2.communicate()
+    assert p2.returncode == 0
+    assert b"RecordReader('-'): Empty input stream" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
+
+
+@pytest.mark.parametrize(
+    "stdin_bytes",
+    [
+        b"",
+        None,
+    ],
+)
+def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
+    """Test that rdump handles empty stdin as input gracefully."""
+
+    # rdump -l (with empty stdin)
+    pipe = subprocess.Popen(
+        ["rdump", "-l"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = pipe.communicate(input=None)
+    assert pipe.returncode == 0
+    assert b"RecordReader('-'): Empty input stream" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
+
+
+@pytest.mark.parametrize(
+    "stdin_bytes",
+    [
+        b"\n",
+        b"this is not a valid record stream",
+        b"RANDOMDATA",
+    ],
+)
+def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
+    """Test that rdump handles invalid stdin as an error"""
+
+    # rdump -l (with invalid stdin)
+    pipe = subprocess.Popen(
+        ["rdump", "-l"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    stdout, stderr = pipe.communicate(input=stdin_bytes)
+    assert pipe.returncode == 1, "rdump should exit with error code 1 on invalid input"
+    assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
+    assert b"Processed 0 records (matched=0, unmatched=0)" in stdout

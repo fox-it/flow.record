@@ -499,3 +499,11 @@ def test_file_like_writer_reader() -> None:
     assert len(read_records) == 10
     for idx, record in enumerate(read_records):
         assert record == test_records[idx]
+
+
+def test_empty_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Mock stdin to be empty
+    monkeypatch.setattr(sys, "stdin", BytesIO(b""))
+
+    with pytest.raises(EOFError, match="Empty input stream"):
+        RecordAdapter()
