@@ -479,7 +479,7 @@ def test_digest() -> None:
     assert record.digest.sha1 == sha1
     assert record.digest.sha256 == sha256
 
-    with pytest.raises(TypeError, match=r".*Invalid MD5.*Odd-length string"):
+    with pytest.raises(TypeError, match=r".*Invalid MD5.*Incorrect hash length"):
         record = TestRecord(("a", sha1, sha256))
 
     with pytest.raises(TypeError, match=r".*Invalid MD5.*Incorrect hash length"):
