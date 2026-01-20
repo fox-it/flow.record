@@ -99,6 +99,10 @@ def test_record_pack_bool_regression() -> None:
     data = packer.pack(rdict)
     assert data.startswith('{"some_varint": 1, "some_uint": 0, "some_boolean": false, ')
 
+    # test that packer.pack has no side effects on rdict
+    assert rdict == record._asdict()
+    assert isinstance(rdict["some_boolean"], fieldtypes.boolean)
+
 
 def test_record_pack_surrogateescape() -> None:
     TestRecord = RecordDescriptor(

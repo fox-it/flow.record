@@ -22,11 +22,11 @@ def test_boolean() -> None:
     assert bool(r.booltrue) is True
     assert bool(r.boolfalse) is False
 
-    assert str(r.booltrue) == "1"
-    assert str(r.boolfalse) == "0"
+    assert str(r.booltrue) == "True"
+    assert str(r.boolfalse) == "False"
 
-    assert repr(r.booltrue) == "1"
-    assert repr(r.boolfalse) == "0"
+    assert repr(r.booltrue) == "True"
+    assert repr(r.boolfalse) == "False"
 
     with pytest.raises(ValueError, match="Value not a valid boolean value"):
         r = TestRecord(2, -1)

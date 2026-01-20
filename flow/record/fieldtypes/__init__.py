@@ -369,12 +369,7 @@ class uint32(int, FieldType):
         return self.value
 
 
-class BooleanMeta(type):
-    def __instancecheck__(self, instance: Any) -> bool:
-        return instance in (True, False, 1, 0)
-
-
-class boolean(int, FieldType, metaclass=BooleanMeta):
+class boolean(int, FieldType):
     value = None
 
     def __init__(self, value: bool):
