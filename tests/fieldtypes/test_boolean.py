@@ -29,7 +29,7 @@ def test_boolean() -> None:
     assert repr(r.boolfalse) == "False"
 
     with pytest.raises(ValueError, match="Value not a valid boolean value"):
-        r = TestRecord(2, -1)
+        TestRecord(2, -1)
 
     with pytest.raises(ValueError, match="invalid literal for int"):
-        r = TestRecord("True", "False")
+        TestRecord("True", "False")
