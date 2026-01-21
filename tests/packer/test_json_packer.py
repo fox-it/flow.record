@@ -93,6 +93,16 @@ def test_record_pack_bool_regression() -> None:
     # pack the json string back to a record and make sure it is the same as before
     assert packer.unpack(data) == record
 
+    # Make sure the same applies to an OrderedDict, which is how JsonRecordPacker is invoked for
+    # the Elastic adapter.
+    rdict = record._asdict()
+    data = packer.pack(rdict)
+    assert data.startswith('{"some_varint": 1, "some_uint": 0, "some_boolean": false, ')
+
+    # test that packer.pack has no side effects on rdict
+    assert rdict == record._asdict()
+    assert isinstance(rdict["some_boolean"], fieldtypes.boolean)
+
 
 def test_record_pack_surrogateescape() -> None:
     TestRecord = RecordDescriptor(
