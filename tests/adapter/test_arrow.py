@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("pyarrow")
+
 from flow.record import RecordDescriptor
 from flow.record.adapter.arrow import ArrowReader, ArrowWriter
 from tests._utils import generate_plain_records

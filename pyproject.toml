@@ -107,7 +107,7 @@ test = [
     {include-group = "elastic"},
     {include-group = "xlsx"},
     {include-group = "duckdb"},
-    {include-group = "parquet"},
+    "pyarrow; platform_python_implementation != 'PyPy'", # Don't install pyarrow on PyPy
     "tqdm",
     "structlog",
     "pytest",

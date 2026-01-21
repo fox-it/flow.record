@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("pyarrow")
+
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.parquet import ParquetReader, ParquetWriter
 from flow.record.tools import rdump
