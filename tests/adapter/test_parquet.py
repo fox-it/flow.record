@@ -5,6 +5,7 @@ import pytest
 
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.parquet import ParquetReader, ParquetWriter
+from flow.record.tools import rdump
 from tests._utils import generate_plain_records
 
 
@@ -22,7 +23,11 @@ def test_parquet_adapter_roundtrip(tmp_path: Path) -> None:
         ],
     )
 
-    digest_value = (md5(b"test").hexdigest(), sha1(b"test").hexdigest(), sha256(b"test").hexdigest())
+    digest_value = (
+        md5(b"test").hexdigest(),
+        sha1(b"test").hexdigest(),
+        sha256(b"test").hexdigest(),
+    )
 
     records = [
         TestRecord("Alice", 30, 123456789, 1000, digest_value, "/home/alice"),
@@ -121,7 +126,10 @@ def test_parquet_empty_file(tmp_path: Path) -> None:
     parq_path = tmp_path / "0_byte_file.parquet"
     parq_path.touch()  # create an empty file
 
-    with pytest.raises(Exception, match="Parquet file size is 0 bytes"), ParquetReader(parq_path) as reader:
+    with (
+        pytest.raises(Exception, match="Parquet file size is 0 bytes"),
+        ParquetReader(parq_path) as reader,
+    ):
         list(reader)
 
 
@@ -193,3 +201,121 @@ def test_read_iris_dataset_parquet(tmp_path: Path) -> None:
         ("float", "petal_width"),
         ("string", "species"),
     )
+
+
+@pytest.mark.parametrize(
+    "exclude",
+    [
+        ["sepal.width", "petal.width"],
+        ["sepal_width", "petal_width"],
+    ],
+)
+def test_parquet_skip_columns(exclude: list[str]) -> None:
+    """Test reading a Parquet file while skipping specified columns."""
+    iris_parquet_path = Path(__file__).parent.parent / "_data" / "iris_zstd.parquet"
+
+    with ParquetReader(iris_parquet_path, exclude=exclude) as reader:
+        read_records = list(reader)
+
+    # verify that the read records match the original records without the skipped column
+    assert len(read_records) == 150
+    for record in read_records:
+        assert record.sepal_width is None
+        assert record.petal_width is None
+        assert record.petal_length is not None
+        assert record.sepal_length is not None
+        assert record.species is not None
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        ["sepal.length", "species"],
+        ["sepal_length", "species"],
+    ],
+)
+def test_parquet_only_columns(fields: list[str]) -> None:
+    """Test reading a Parquet file while including only specified columns."""
+    iris_parquet_path = Path(__file__).parent.parent / "_data" / "iris_zstd.parquet"
+
+    with ParquetReader(iris_parquet_path, fields=fields) as reader:
+        read_records = list(reader)
+
+    # verify that the read records match the original records with only the included columns
+    assert len(read_records) == 150
+    for record in read_records:
+        # these are the columns that should be auto skipped
+        assert record.sepal_width is None
+        assert record.petal_length is None
+        assert record.petal_width is None
+        # these are the only columns we included
+        assert record.species is not None
+        assert record.sepal_length is not None
+
+
+def test_parquet_rdump(capsysbinary: pytest.CaptureFixture) -> None:
+    """Test if rdump can read a Parquet file."""
+    parquet_path = Path(__file__).parent.parent / "_data" / "iris_zstd.parquet"
+
+    rdump.main([str(parquet_path), "-l"])
+    out, err = capsysbinary.readouterr()
+
+    assert (
+        out.strip()
+        == b"""
+# <RecordDescriptor parquet/record, hash=b00e9d9b>
+RecordDescriptor("parquet/record", [
+    ("float", "sepal_length"),
+    ("float", "sepal_width"),
+    ("float", "petal_length"),
+    ("float", "petal_width"),
+    ("string", "species"),
+    ("string", "_source"),
+    ("string", "_classification"),
+    ("datetime", "_generated"),
+    ("varint", "_version"),
+])
+
+Processed 150 records (matched=150, unmatched=0)
+""".strip()
+    )
+
+    assert err == b""
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "--exclude-read",
+        "-Xr",
+    ],
+)
+def test_parquet_rdump_exclude_fields(flag: str, capsysbinary: pytest.CaptureFixture) -> None:
+    """Test rdump functionality with ParquetReader while excluding certain fields."""
+    parquet_path = Path(__file__).parent.parent / "_data" / "iris_zstd.parquet"
+    rdump.main([str(parquet_path), "--exclude-read", "sepal.width", "--count=1"])
+    out, err = capsysbinary.readouterr()
+    assert (
+        out.strip()
+        == b"<parquet/record sepal_length=5.1 sepal_width=None petal_length=1.4 petal_width=0.2 species='Iris-setosa'>"
+    )
+    assert not err
+
+
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "--fields-read",
+        "-Fr",
+    ],
+)
+def test_parquet_rdump_only_fields(flag: str, capsysbinary: pytest.CaptureFixture) -> None:
+    """Test rdump functionality with ParquetReader while including only certain fields."""
+    parquet_path = Path(__file__).parent.parent / "_data" / "iris_zstd.parquet"
+    rdump.main([str(parquet_path), flag, "sepal.width", "--count=1"])
+    out, err = capsysbinary.readouterr()
+    assert (
+        out.strip()
+        == b"<parquet/record sepal_length=None sepal_width=3.5 petal_length=None petal_width=None species=None>"
+    )
+    assert not err

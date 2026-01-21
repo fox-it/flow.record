@@ -378,14 +378,17 @@ class ParquetReader(AbstractReader):
         selector = self.selector
         descriptor, field_name_mappings = arrow_schema_to_descriptor(self.parquet_file.schema_arrow)
 
-        # determine which descriptor columns to read based on fields/exclude
+        # Determine which Parquet columns to read based on fields/exclude
+        # Also take into account that some columns may have been renamed
         columns = None
         if self.fields or self.exclude:
-            columns = set(descriptor.get_all_fields())
+            columns = set(self.parquet_file.schema_arrow.names)
             if self.fields:
-                columns = columns & set(self.fields)
+                renamed_fields = {k for k, v in field_name_mappings.items() if v in self.fields}
+                columns = columns & (set(self.fields) | renamed_fields)
             if self.exclude:
-                columns = columns - set(self.exclude)
+                renamed_exclude = {k for k, v in field_name_mappings.items() if v in self.exclude}
+                columns = columns - (set(self.exclude) | renamed_exclude)
             log.debug("Reading Parquet columns: %r", columns)
 
         for row_group_idx in range(self.parquet_file.num_row_groups):
