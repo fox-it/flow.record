@@ -88,6 +88,7 @@ def get_fieldnames_for_fieldtype(descriptor: RecordDescriptor, fieldtype: str) -
     Argument:
         descriptor: RecordDescriptor to search
         fieldtype: field type to match
+
     Returns:
         List of field names matching the field type
     """
