@@ -7,6 +7,7 @@ pytest.importorskip("pyarrow")
 
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.parquet import ParquetReader, ParquetWriter
+from flow.record.fieldtypes import posix_path, windows_path
 from flow.record.tools import rdump
 from tests._utils import generate_plain_records
 
@@ -321,3 +322,25 @@ def test_parquet_rdump_only_fields(flag: str, capsysbinary: pytest.CaptureFixtur
         == b"<parquet/record sepal_length=None sepal_width=3.5 petal_length=None petal_width=None species=None>"
     )
     assert not err
+
+
+def test_parquet_mixed_path_serialization(tmp_path: Path) -> None:
+    """Test that mixed path field types are correctly serialized and deserialized in Parquet."""
+    TestRecord = RecordDescriptor("parquet/path", [("path", "file_path")])
+
+    records = [
+        TestRecord(file_path=posix_path("/home/user/test.txt")),
+        TestRecord(file_path=windows_path("C:\\Users\\User\\test.txt")),
+    ]
+
+    with ParquetWriter(tmp_path / "paths.parquet") as writer:
+        for record in records:
+            writer.write(record)
+
+    with ParquetReader(tmp_path / "paths.parquet") as reader:
+        read_records = list(reader)
+
+    assert len(read_records) == len(records)
+    assert read_records == records
+    assert isinstance(read_records[0].file_path, posix_path)
+    assert isinstance(read_records[1].file_path, windows_path)
