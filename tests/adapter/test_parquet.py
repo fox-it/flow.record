@@ -5,6 +5,9 @@ import pytest
 
 pytest.importorskip("pyarrow")
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.parquet import ParquetReader, ParquetWriter
 from flow.record.fieldtypes import posix_path, windows_path
@@ -344,3 +347,105 @@ def test_parquet_mixed_path_serialization(tmp_path: Path) -> None:
     assert read_records == records
     assert isinstance(read_records[0].file_path, posix_path)
     assert isinstance(read_records[1].file_path, windows_path)
+
+
+@pytest.mark.parametrize("batch_size", [10, 100, 1, 15, 1000])
+def test_parquet_batchsize(tmp_path: Path, batch_size: int) -> None:
+    """Test batch_size flushing in ParquetWriter."""
+    out_path = tmp_path / f"{batch_size=}.parquet"
+
+    # test via ParquetWriter and keyword argument
+    records = list(generate_plain_records(batch_size * 2))
+    with ParquetWriter(out_path, batch_size=batch_size) as writer:
+        for record in records:
+            writer.write(record)
+
+    with ParquetReader(out_path) as reader:
+        assert reader.parquet_file.metadata.num_rows == batch_size * 2
+        assert reader.parquet_file.metadata.num_row_groups == 2
+        read_records = list(reader)
+    assert len(read_records) == batch_size * 2
+    assert set(read_records) == set(records)
+
+    # test via RecordWriter and parquet:// uri + parameters
+    records = list(generate_plain_records(batch_size * 3))
+    with RecordWriter(f"parquet://{out_path}?batch_size={batch_size}") as writer:
+        for record in records:
+            writer.write(record)
+
+    with ParquetReader(out_path) as reader:
+        assert reader.parquet_file.metadata.num_rows == batch_size * 3
+        assert reader.parquet_file.metadata.num_row_groups == 3
+        read_records = list(reader)
+    assert len(read_records) == batch_size * 3
+    assert set(read_records) == set(records)
+
+
+def test_parquet_with_multiple_descriptors(tmp_path: Path) -> None:
+    """Test writing and reading records with multiple descriptors using Parquet adapter."""
+
+    MovieRecord = RecordDescriptor(
+        "movie/record",
+        [
+            ("string", "title"),
+            ("uint16", "year"),
+        ],
+    )
+    ActorRecord = RecordDescriptor(
+        "actor/record",
+        [
+            ("string", "name"),
+            ("uint16", "birth_year"),
+        ],
+    )
+
+    # create a list of mixed record descriptors
+    records = []
+    records.append(MovieRecord("Inception", 2010))
+    records.append(ActorRecord("Leonardo DiCaprio", 1974))
+    records.append(MovieRecord("The Matrix", 1999))
+    records.append(ActorRecord("Keanu Reeves", 1964))
+    records.append(MovieRecord("Interstellar", 2014))
+    records.append(ActorRecord("Matthew McConaughey", 1969))
+
+    # write the mixed records
+    with ParquetWriter(tmp_path / "movies_and_actors.parquet") as writer:
+        for record in records:
+            writer.write(record)
+
+    # check that we have written 2 parquet files
+    fnames = {p.name for p in tmp_path.glob("*.parquet")}
+    assert fnames == {"movies_and_actors.parquet", "movies_and_actors_actor_record_c5a59a6e.parquet"}
+
+    # read them back in, and check if it matches the source
+    read_records = []
+    for fname in fnames:
+        with ParquetReader(tmp_path / fname) as reader:
+            read_records.extend(list(reader))
+
+    assert set(read_records) == set(records)
+
+
+@pytest.mark.parametrize("name", ["_", "+", "999", "%"])
+def test_parquet_invalid_column_names(tmp_path: Path, name: str, caplog: pytest.LogCaptureFixture) -> None:
+    # create PyArrow Table
+    table = pa.table(
+        {
+            "id": [1, 2, 3],
+            name: ["test", "test", "test"],
+        }
+    )
+
+    # write to Parquet file
+    output_file = tmp_path / "sample_data.parquet"
+    pq.write_table(table, output_file)
+
+    # read Parquet file, should trigger warning
+    with ParquetReader(tmp_path / "sample_data.parquet") as reader:
+        records = list(reader)
+    assert len(records) == 3
+
+    # check warnings
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert warnings[0].message == f"Dropping invalid field name in Arrow schema: '{name}' (original: '{name}')"
