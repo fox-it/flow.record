@@ -204,6 +204,11 @@ class SqliteReader(AbstractReader):
                 if match_record_with_context(record, selector, ctx):
                     yield record
 
+    def close(self) -> None:
+        if self.con:
+            self.con.close()
+        self.con = None
+
 
 class SqliteWriter(AbstractWriter):
     """SQLite writer."""
