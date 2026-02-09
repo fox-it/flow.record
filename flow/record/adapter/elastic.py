@@ -9,8 +9,6 @@ import threading
 from contextlib import suppress
 from typing import TYPE_CHECKING
 
-import urllib3
-
 try:
     import elasticsearch
     import elasticsearch.helpers
