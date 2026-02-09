@@ -87,7 +87,7 @@ class ElasticWriter(AbstractWriter):
         self.max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
-            uri = "http://" + uri
+            uri = "https://" + uri
 
         self.queue: queue.Queue[Record | StopIteration] = queue.Queue(maxsize=queue_size)
         self.event = threading.Event()
@@ -235,7 +235,7 @@ class ElasticReader(AbstractReader):
         max_retries = int(max_retries)
 
         if not uri.lower().startswith(("http://", "https://")):
-            uri = "http://" + uri
+            uri = "https://" + uri
 
         self.es = elasticsearch.Elasticsearch(
             uri,
