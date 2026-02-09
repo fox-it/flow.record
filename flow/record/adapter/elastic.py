@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import queue
+import sys
 import threading
 from contextlib import suppress
 from typing import TYPE_CHECKING
@@ -118,7 +120,13 @@ class ElasticWriter(AbstractWriter):
 
     def excepthook(self, exc: threading.ExceptHookArgs, *args, **kwargs) -> None:
         self.exception = getattr(exc, "exc_value", exc)
-        self.exception = enrich_elastic_exception(self.exception)
+
+        # version guard for add_note(), which was added in Python 3.11
+        # TODO: Remove version guard after dropping support for Python 3.10
+        if sys.version_info >= (3, 11):
+            for note in create_elasticsearch_error_notes(getattr(self.exception, "errors", []), max_notes=5):
+                self.exception.add_note(note)
+
         self.event.set()
 
     def record_to_document(self, record: Record, index: str) -> dict:
@@ -266,30 +274,69 @@ class ElasticReader(AbstractReader):
             self.es.close()
 
 
-def enrich_elastic_exception(exception: Exception) -> Exception:
-    """Extend the exception with error information from Elastic.
+def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int = 0) -> list[str]:
+    """
+    Convert Elasticsearch Exception errors into pretty formatted notes.
 
     Resources:
         - https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
+
+    Arguments:
+        errors: A list of error items from an Elasticsearch exception, or a single error
+        max_notes: Maximum number of notes to create. If 0, all errors will be converted into notes.
+
+    Returns:
+        A list of formatted error notes.
     """
-    errors = set()
-    if hasattr(exception, "errors"):
+    if isinstance(errors, dict):
+        errors = [errors]
+
+    notes = []
+    for idx, error in enumerate(errors, 1):
+        # Extract index information
+        index = error.get("index", {})
+        index_name = index.get("_index", "unknown _index")
+        doc_id = index.get("_id", "unknown _id")
+        status = index.get("status")
+
+        # Extract error details
+        error = index.get("error", {})
+        error_type = error.get("type", "unknown error type")
+        error_reason = error.get("reason", "unknown reason")
+
+        # Create formatted note
+        note_parts = [
+            f"Error {idx}, {error_type!r} ({status=}):",
+            f"  index: {index_name}",
+            f"  document_id: {doc_id}",
+            f"  reason: {error_reason}",
+        ]
+
+        # Include caused_by information if available
+        if caused_by := error.get("caused_by"):
+            cause_type = caused_by.get("type")
+            cause_reason = caused_by.get("reason")
+            note_parts.append(f"  caused_by: {cause_type}, reason: {cause_reason}")
+
+        # Extract the record_descriptor name from the "data" field if possible
         try:
-            for error in exception.errors:
-                index_dict = error.get("index", {})
-                status = index_dict.get("status")
-                error_dict = index_dict.get("error", {})
-                error_type = error_dict.get("type")
-                error_reason = error_dict.get("reason", "")
+            data = json.loads(index.get("data", "{}"))
+            record_metadata = data.pop("_record_metadata", {})
+            descriptor = record_metadata.get("descriptor", {})
+            if descriptor_name := descriptor.get("name"):
+                note_parts.append(f"  descriptor_name: {descriptor_name}")
+            if data:
+                note_parts.append(f"  data: {json.dumps(data)}")
+        except json.JSONDecodeError:
+            pass
 
-                errors.add(f"({status} {error_type} {error_reason})")
-        except Exception:
-            errors.add("unable to extend errors")
+        notes.append("\n".join(note_parts) + "\n")
 
-    # append errors to original exception message
-    error_str = ", ".join(errors)
-    original_message = exception.args[0] if exception.args else ""
-    new_message = f"{original_message} {error_str}"
-    exception.args = (new_message, *exception.args[1:])
+        # if max_notes is reached, stop processing and add a final note about remaining errors
+        if max_notes > 0 and idx >= max_notes:
+            remaining = len(errors) - idx
+            if remaining > 0:
+                notes.append(f"... and {remaining} more error(s) not shown.")
+            break
 
-    return exception
+    return notes
