@@ -97,6 +97,7 @@ class ElasticWriter(AbstractWriter):
         self.es = elasticsearch.Elasticsearch(
             uri,
             verify_certs=verify_certs,
+            ssl_show_warn=verify_certs,
             http_compress=http_compress,
             api_key=api_key,
             request_timeout=request_timeout,
@@ -108,10 +109,6 @@ class ElasticWriter(AbstractWriter):
 
         self.thread = threading.Thread(target=self.streaming_bulk_thread)
         self.thread.start()
-
-        if not verify_certs:
-            # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         self.metadata_fields = {}
         for arg_key, arg_val in kwargs.items():
@@ -243,16 +240,13 @@ class ElasticReader(AbstractReader):
         self.es = elasticsearch.Elasticsearch(
             uri,
             verify_certs=verify_certs,
+            ssl_show_warn=verify_certs,
             http_compress=http_compress,
             api_key=api_key,
             request_timeout=request_timeout,
             retry_on_timeout=True,
             max_retries=max_retries,
         )
-
-        if not verify_certs:
-            # Disable InsecureRequestWarning of urllib3, caused by the verify_certs flag.
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def __iter__(self) -> Iterator[Record]:
         ctx = get_app_context()
