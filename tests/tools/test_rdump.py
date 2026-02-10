@@ -20,6 +20,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.line import field_types_for_record_descriptor
 from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
+from flow.record.utils import LOGGING_TRACE_LEVEL
 from tests._utils import generate_plain_records
 
 
@@ -870,3 +871,35 @@ def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
     assert pipe.returncode == 1, "rdump should exit with error code 1 on invalid input"
     assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
+
+
+def test_rdump_print_error_notes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that rdump prints error notes when an exception occurs."""
+
+    path = tmp_path / "test.records"
+    path.touch()  # create an empty file
+
+    exc = ValueError("something went wrong")
+    exc.add_note("Check the input format")
+
+    with mock.patch("flow.record.tools.rdump.RecordWriter", side_effect=exc):
+        rdump.main([str(path)])
+    _out, err = capsys.readouterr()
+
+    assert "something went wrong" in err
+    assert "Check the input format" in err
+    assert "To show full traceback, run with -vvv" in err
+
+    # with full traceback
+    with (
+        caplog.at_level(LOGGING_TRACE_LEVEL),
+        mock.patch("flow.record.tools.rdump.RecordWriter", side_effect=exc),
+        pytest.raises(ValueError, match="something went wrong\nCheck the input format"),
+    ):
+        rdump.main([str(path), "-vvv"])
+
+    capsys.readouterr()
