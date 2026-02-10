@@ -873,6 +873,7 @@ def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="skip on python 3.10 or lower")
 def test_rdump_print_error_notes(
     tmp_path: Path,
     capsys: pytest.CaptureFixture,
