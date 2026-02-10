@@ -319,7 +319,8 @@ def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int =
                 note_parts.append(f"  descriptor_name: {descriptor_name}")
             if data:
                 note_parts.append(f"  data: {json.dumps(data)}")
-        except json.JSONDecodeError:
+        except Exception:
+            # failed to get descriptor_name and data, ignore
             pass
 
         notes.append("\n".join(note_parts) + "\n")
