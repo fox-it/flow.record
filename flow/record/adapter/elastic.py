@@ -267,8 +267,7 @@ class ElasticReader(AbstractReader):
 
 
 def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int = 0) -> list[str]:
-    """
-    Convert Elasticsearch Exception errors into pretty formatted notes.
+    """Convert Elasticsearch Exception errors into pretty formatted notes.
 
     Resources:
         - https://elasticsearch-py.readthedocs.io/en/v8.17.1/exceptions.html
