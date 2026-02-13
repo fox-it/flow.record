@@ -433,10 +433,17 @@ def main(argv: list[str] | None = None) -> int:
     return ret
 
 
-def print_error(e: Exception) -> None:
-    log.error("rdump encountered a fatal error: %s", e)
+def print_error(exc: Exception) -> None:
+    log.error("rdump encountered a fatal error: %s", exc)
+
     if log.isEnabledFor(LOGGING_TRACE_LEVEL):
-        log.exception("Full traceback")
+        raise
+
+    # Print any additional notes attached to the exception (e.g. from adapters) at warning level
+    for note in getattr(exc, "__notes__", []):
+        log.error(note)
+
+    log.warning("To show full traceback, run with -vvv")
 
 
 if __name__ == "__main__":
