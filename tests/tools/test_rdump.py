@@ -904,3 +904,30 @@ def test_rdump_print_error_notes(
         rdump.main([str(path), "-vvv"])
 
     capsys.readouterr()
+
+
+def test_rdump_fields_with_spaces(tmp_path: Path) -> None:
+    """Test if rdump handles spaces in field names gracefully."""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    out_path = tmp_path / "out.records"
+    with RecordWriter(path) as writer:
+        writer.write(TestRecord(count=0, foo="bar", bar="baz"))
+
+    rdump.main([str(path), "--fields", "foo, count  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        for record in reader:
+            assert list(record._desc.fields.keys()) == ["foo", "count"]
+
+    rdump.main([str(path), "--exclude", "  foo,   bar  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        for record in reader:
+            assert list(record._desc.fields.keys()) == ["count"]

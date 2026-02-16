@@ -321,8 +321,8 @@ def main(argv: list[str] | None = None) -> int:
         root_logger.handlers.clear()
         root_logger.addHandler(handler)
 
-    fields_to_exclude = args.exclude.split(",") if args.exclude else []
-    fields = args.fields.split(",") if args.fields else []
+    fields_to_exclude = [x.strip() for x in args.exclude.split(",")] if args.exclude else []
+    fields = [x.strip() for x in args.fields.split(",")] if args.fields else []
 
     if args.list_adapters:
         list_adapters()
