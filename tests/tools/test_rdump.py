@@ -924,10 +924,12 @@ def test_rdump_fields_with_spaces(tmp_path: Path) -> None:
 
     rdump.main([str(path), "--fields", "foo, count  ", "-w", str(out_path)])
     with RecordReader(out_path) as reader:
-        for record in reader:
-            assert list(record._desc.fields.keys()) == ["foo", "count"]
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["foo", "count"]
 
     rdump.main([str(path), "--exclude", "  foo,   bar  ", "-w", str(out_path)])
     with RecordReader(out_path) as reader:
-        for record in reader:
-            assert list(record._desc.fields.keys()) == ["count"]
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["count"]
