@@ -109,10 +109,10 @@ def prepare_insert_sql(table_name: str, field_names: tuple[str]) -> str:
 
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     """Insert a record into the database."""
-    table_name = record._desc.name
+    desc = record._desc
+    table_name = desc.name
     rdict = record._asdict()
-
-    sql = prepare_insert_sql(table_name, record.__slots__)
+    sql = prepare_insert_sql(table_name, tuple(rdict.keys()))
 
     # Convert values to str() for types we don't support
     values = []

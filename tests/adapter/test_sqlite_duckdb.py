@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
@@ -12,7 +13,7 @@ except ModuleNotFoundError:
 
 import pytest
 
-from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
+from flow.record import GroupedRecord, Record, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
@@ -400,3 +401,38 @@ def test_selector(tmp_path: Path, db: Database) -> None:
     with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record12345'") as reader:
         records = list(reader)
         assert len(records) == 0
+
+
+@sqlite_duckdb_parametrize
+def test_grouped_record(tmp_path: Path, db: Database) -> None:
+    """Test adapter with grouped records."""
+    db_path = tmp_path / "records.db"
+
+    DigestRecord = RecordDescriptor(
+        "meta/record",
+        [
+            ("digest", "digest"),
+        ],
+    )
+
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
+        for record in generate_records(10):
+            digest_record = DigestRecord(
+                digest=(
+                    hashlib.md5(record.name.encode()).hexdigest(),
+                    hashlib.sha1(record.name.encode()).hexdigest(),
+                    hashlib.sha256(record.name.encode()).hexdigest(),
+                )
+            )
+            grouped = GroupedRecord("grouped/record", [digest_record, record])
+            writer.write(grouped)
+
+    with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record5'") as reader:
+        records = list(reader)
+        assert len(records) == 1
+        assert records[0].name == "record5"
+        assert records[0].digest == (
+            f"(md5={hashlib.md5(b'record5').hexdigest()}, "
+            f"sha1={hashlib.sha1(b'record5').hexdigest()}, "
+            f"sha256={hashlib.sha256(b'record5').hexdigest()})"
+        )
