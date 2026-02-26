@@ -147,7 +147,12 @@ class RecordStreamReader(AbstractReader):
             pass
 
 
-def record_stream(sources: list[str], selector: str | None = None) -> Iterator[Record]:
+def record_stream(
+    sources: list[str],
+    selector: str | None = None,
+    fields: list[str] | None = None,
+    exclude: list[str] | None = None,
+) -> Iterator[Record]:
     """Return a Record stream generator from the given Record sources.
 
     If there are multiple sources, exceptions are caught and logged, and the stream continues with the next source.
@@ -166,7 +171,7 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
         # Initial value for reader, in case of exception message
         reader: str | AbstractReader = "RecordReader"
         try:
-            reader = RecordReader(src, selector=selector)
+            reader = RecordReader(src, selector=selector, fields=fields, exclude=exclude)
             yield from reader
         except EOFError as e:
             # End of file reached, likely no records in source
@@ -184,7 +189,12 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             if len(sources) == 1:
                 raise
             else:
-                log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
+                log.warning(
+                    "Exception in %r for %r: %s -- skipping to next reader",
+                    reader,
+                    src,
+                    aRepr.repr(e),
+                )
                 continue
         finally:
             if isinstance(reader, AbstractReader):
@@ -270,7 +280,12 @@ class PathTemplateWriter:
 class RecordArchiver(PathTemplateWriter):
     """RecordWriter that writes/archives records to a path with YYYY/mm/dd."""
 
-    def __init__(self, archive_path: str, path_template: str | None = None, name: str | None = None):
+    def __init__(
+        self,
+        archive_path: str,
+        path_template: str | None = None,
+        name: str | None = None,
+    ):
         path_template = path_template or self.DEFAULT_TEMPLATE
         template = str(Path(archive_path) / "{ts:%Y/%m/%d}" / path_template)
         PathTemplateWriter.__init__(self, path_template=template, name=name)
@@ -280,7 +295,10 @@ class RecordFieldRewriter:
     """Rewrite records using a new RecordDescriptor for chosen fields and/or excluded or new record fields."""
 
     def __init__(
-        self, fields: list[str] | None = None, exclude: list[str] | None = None, expression: str | None = None
+        self,
+        fields: list[str] | None = None,
+        exclude: list[str] | None = None,
+        expression: str | None = None,
     ):
         self.fields = fields or []
         self.exclude = exclude or []

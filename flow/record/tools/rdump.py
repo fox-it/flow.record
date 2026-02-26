@@ -160,13 +160,25 @@ def main(argv: list[str] | None = None) -> int:
         "-F",
         "--fields",
         metavar="FIELDS",
-        help="Fields (comma seperated) to output in dumping",
+        help="Fields (comma separated) to output in dumping",
     )
     selection.add_argument(
         "-X",
         "--exclude",
         metavar="FIELDS",
-        help="Fields (comma seperated) to exclude in dumping",
+        help="Fields (comma separated) to exclude in dumping",
+    )
+    selection.add_argument(
+        "-Fr",
+        "--fields-read",
+        metavar="FIELDS",
+        help="Fields (comma separated) to include during reading, if supported by the adapter",
+    )
+    selection.add_argument(
+        "-Xr",
+        "--exclude-read",
+        metavar="FIELDS",
+        help="Fields (comma separated) to exclude during reading, if supported by the adapter",
     )
     selection.add_argument(
         "-s",
@@ -369,7 +381,11 @@ def main(argv: list[str] | None = None) -> int:
     selector = make_selector(args.selector, not args.no_compile)
     seen_desc = set()
     islice_stop = (args.count + args.skip) if args.count else None
-    record_iterator = islice(record_stream(args.src, selector), args.skip, islice_stop)
+    record_iterator = islice(
+        record_stream(args.src, selector, fields=args.fields_read, exclude=args.exclude_read),
+        args.skip,
+        islice_stop,
+    )
 
     ctx = get_app_context()
     ctx.source_total = len(args.src)

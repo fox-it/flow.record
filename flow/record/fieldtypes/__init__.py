@@ -12,8 +12,11 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 try:
     try:
@@ -60,7 +63,8 @@ def flow_record_tz(*, default_tz: str = "UTC") -> ZoneInfo | UTC | None:
     if not HAS_ZONE_INFO:
         if tz != "UTC":
             warnings.warn(
-                "Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.", stacklevel=2
+                "Cannot use FLOW_RECORD_TZ due to missing zoneinfo module, defaulting to 'UTC'.",
+                stacklevel=2,
             )
         return UTC
 
@@ -435,6 +439,11 @@ class digest(FieldType):
     def __repr__(self) -> str:
         return f"(md5={self.md5}, sha1={self.sha1}, sha256={self.sha256})"
 
+    def __iter__(self) -> Iterator[tuple[str, str | None]]:
+        yield "md5", self.md5
+        yield "sha1", self.sha1
+        yield "sha256", self.sha256
+
     @property
     def md5(self) -> str | None:
         return self.__md5
@@ -448,41 +457,68 @@ class digest(FieldType):
         return self.__sha256
 
     @md5.setter
-    def md5(self, val: str | None) -> None:
+    def md5(self, val: str | _bytes | None) -> None:
         if val is None:
             self.__md5 = self.__md5_bin = None
             return
+
+        if isinstance(val, _bytes):
+            if len(val) != 16:
+                raise TypeError(f"Incorrect binary MD5 hash length: {len(val)}, expected 16")
+            self.__md5_bin = val
+            self.__md5 = val.hex()
+            return
+
+        # Assume string
         try:
-            self.__md5_bin = a2b_hex(val)
-            self.__md5 = val
-            if len(self.__md5_bin) != 16:
+            if len(val) != 32:
                 raise TypeError("Incorrect hash length")  # noqa: TRY301
+            self.__md5_bin = a2b_hex(val)
+            self.__md5 = val.lower()
         except (binascii.Error, TypeError) as e:
             raise TypeError(f"Invalid MD5 value {val!r}, {e}")
 
     @sha1.setter
-    def sha1(self, val: str | None) -> None:
+    def sha1(self, val: str | _bytes | None) -> None:
         if val is None:
             self.__sha1 = self.__sha1_bin = None
             return
+
+        if isinstance(val, _bytes):
+            if len(val) != 20:
+                raise TypeError(f"Incorrect binary SHA-1 hash length: {len(val)}, expected 20")
+            self.__sha1_bin = val
+            self.__sha1 = val.hex()
+            return
+
+        # Assume string
         try:
-            self.__sha1_bin = a2b_hex(val)
-            self.__sha1 = val
-            if len(self.__sha1_bin) != 20:
+            if len(val) != 40:
                 raise TypeError("Incorrect hash length")  # noqa: TRY301
+            self.__sha1_bin = a2b_hex(val)
+            self.__sha1 = val.lower()
         except (binascii.Error, TypeError) as e:
             raise TypeError(f"Invalid SHA-1 value {val!r}, {e}")
 
     @sha256.setter
-    def sha256(self, val: str | None) -> None:
+    def sha256(self, val: str | _bytes | None) -> None:
         if val is None:
             self.__sha256 = self.__sha256_bin = None
             return
+
+        if isinstance(val, _bytes):
+            if len(val) != 32:
+                raise TypeError(f"Incorrect binary SHA-256 hash length: {len(val)}, expected 32")
+            self.__sha256_bin = val
+            self.__sha256 = val.hex()
+            return
+
+        # Assume string
         try:
-            self.__sha256_bin = a2b_hex(val)
-            self.__sha256 = val
-            if len(self.__sha256_bin) != 32:
+            if len(val) != 64:
                 raise TypeError("Incorrect hash length")  # noqa: TRY301
+            self.__sha256_bin = a2b_hex(val)
+            self.__sha256 = val.lower()
         except (binascii.Error, TypeError) as e:
             raise TypeError(f"Invalid SHA-256 value {val!r}, {e}")
 
@@ -501,6 +537,11 @@ class digest(FieldType):
             b2a_hex(data[2]).decode() if data[2] else None,
         )
         return cls(value)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, digest):
+            return self._pack() == other._pack()
+        return super().__eq__(other)
 
 
 class uri(string, FieldType):

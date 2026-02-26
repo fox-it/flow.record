@@ -48,6 +48,12 @@ geoip = [
 avro = [
     "fastavro[snappy]",
 ]
+arrow = [
+    "pyarrow",
+]
+parquet = [
+    "pyarrow",
+]
 duckdb = [
     "duckdb; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
     "pytz; platform_python_implementation != 'PyPy'", # Don't install duckdb on PyPy
@@ -89,12 +95,19 @@ splunk = [
 xlsx = [
     "openpyxl",
 ]
+arrow = [
+    "pyarrow",
+]
+parquet = [
+    "pyarrow",
+]
 test = [
     {include-group = "compression"},
     {include-group = "avro"},
     {include-group = "elastic"},
     {include-group = "xlsx"},
     {include-group = "duckdb"},
+    "pyarrow; platform_python_implementation != 'PyPy'", # Don't install pyarrow on PyPy
     "tqdm",
     "structlog",
     "pytest",
