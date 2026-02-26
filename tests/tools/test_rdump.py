@@ -904,3 +904,40 @@ def test_rdump_print_error_notes(
         rdump.main([str(path), "-vvv"])
 
     capsys.readouterr()
+
+
+def test_rdump_fields_with_spaces(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
+    """Test if rdump handles spaces in field names gracefully."""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    out_path = tmp_path / "out.records"
+    with RecordWriter(path) as writer:
+        writer.write(TestRecord(count=0, foo="bar", bar="baz"))
+
+    # test if fields works with spaces in the name
+    rdump.main([str(path), "--fields", "foo, count  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["foo", "count"]
+
+    # test if exclude works with spaces in the field names
+    rdump.main([str(path), "--exclude", "  foo,   bar  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["count"]
+
+    # also test an adapter
+    rdump.main([str(path), "--exclude", "  foo,   bar  ", "--csv"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert b"count,_source,_classification,_generated,_version\r\n" in captured.out

@@ -321,8 +321,14 @@ def main(argv: list[str] | None = None) -> int:
         root_logger.handlers.clear()
         root_logger.addHandler(handler)
 
-    fields_to_exclude = args.exclude.split(",") if args.exclude else []
-    fields = args.fields.split(",") if args.fields else []
+    fields_to_exclude = list(filter(None, map(str.strip, args.exclude.split(",")))) if args.exclude else []
+    fields = list(filter(None, map(str.strip, args.fields.split(",")))) if args.fields else []
+
+    writer_options = {}
+    if fields:
+        writer_options["fields"] = fields
+    if fields_to_exclude:
+        writer_options["exclude"] = fields_to_exclude
 
     if args.list_adapters:
         list_adapters()
@@ -340,8 +346,6 @@ def main(argv: list[str] | None = None) -> int:
         }
         uri = mode_to_uri.get(args.mode, uri)
         qparams = {
-            "fields": args.fields,
-            "exclude": args.exclude,
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
@@ -393,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
     ret = 0
 
     try:
-        with RecordWriter(uri) as record_writer:
+        with RecordWriter(uri, **writer_options) as record_writer:
             for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
                 if args.record_source is not None:
                     rec._source = args.record_source
