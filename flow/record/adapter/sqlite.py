@@ -109,8 +109,8 @@ def prepare_insert_sql(table_name: str, field_names: tuple[str]) -> str:
 
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     """Insert a record into the database."""
-    desc = record._desc
-    table_name = desc.name
+    descriptor = record._desc
+    table_name = descriptor.name
     rdict = record._asdict()
     sql = prepare_insert_sql(table_name, tuple(rdict.keys()))
 
