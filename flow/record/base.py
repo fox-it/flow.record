@@ -247,22 +247,22 @@ class GroupedRecord(Record):
 
     def __init__(self, name: str, records: list[Record | GroupedRecord]):
         super().__init__()
-        self.name = to_str(name)
-        self.records = []
-        self.descriptors = []
-        self.flat_fields = []
+        self.__name__ = to_str(name)
+        self.__records__ = []
+        self.__descriptors__ = []
+        self.__flat_fields__ = []
 
         # to avoid recursion in __setattr__ and __getattr__
         self.__dict__["fieldname_to_record"] = OrderedDict()
 
         for rec in records:
             if isinstance(rec, GroupedRecord):
-                for r in rec.records:
-                    self.records.append(r)
-                    self.descriptors.append(r._desc)
+                for r in rec.__records__:
+                    self.__records__.append(r)
+                    self.__descriptors__.append(r._desc)
             else:
-                self.records.append(rec)
-                self.descriptors.append(rec._desc)
+                self.__records__.append(rec)
+                self.__descriptors__.append(rec._desc)
 
             all_fields = rec._desc.get_all_fields()
             required_fields = rec._desc.get_required_fields()
@@ -272,10 +272,10 @@ class GroupedRecord(Record):
                     continue
                 self.fieldname_to_record[fname] = rec
                 if fname not in required_fields:
-                    self.flat_fields.append(field)
+                    self.__flat_fields__.append(field)
         # Flat descriptor to maintain compatibility with Record
 
-        self._desc = RecordDescriptor(self.name, [(f.typename, f.name) for f in self.flat_fields])
+        self._desc = RecordDescriptor(self.__name__, [(f.typename, f.name) for f in self.__flat_fields__])
 
         # _field_types to maintain compatibility with RecordDescriptor
         self._field_types = self._desc.recordType._field_types
@@ -291,7 +291,7 @@ class GroupedRecord(Record):
             None or the record
 
         """
-        for record in self.records:
+        for record in self.__records__:
             if record._desc.name == type_name:
                 return record
         return None
@@ -304,7 +304,7 @@ class GroupedRecord(Record):
         return OrderedDict((k, getattr(self, k)) for k in keys if k not in exclude)
 
     def __repr__(self) -> str:
-        return f"<{self.name} {self.records}>"
+        return f"<{self.__name__} {self.__records__}>"
 
     def __setattr__(self, attr: str, val: Any) -> None:
         if attr in getattr(self, "fieldname_to_record", {}):
@@ -320,18 +320,18 @@ class GroupedRecord(Record):
 
     def _pack(self) -> tuple[str, tuple]:
         return (
-            self.name,
-            tuple(record._pack() for record in self.records),
+            self.__name__,
+            tuple(record._pack() for record in self.__records__),
         )
 
     def _replace(self, **kwds) -> GroupedRecord:
         new_records = [
             record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
-            for record in self.records
+            for record in self.__records__
         ]
         if kwds:
             raise ValueError(f"Got unexpected field names: {list(kwds)!r}")
-        return GroupedRecord(self.name, new_records)
+        return GroupedRecord(self.__name__, new_records)
 
 
 def is_valid_field_name(name: str, check_reserved: bool = True) -> bool:

@@ -78,7 +78,7 @@ class RecordPacker:
             packed = RECORD_PACK_TYPE_VARINT, (neg, v.to_bytes((v.bit_length() + 7) // 8, "big"))
 
         elif isinstance(obj, GroupedRecord):
-            for desc in obj.descriptors:
+            for desc in obj.__descriptors__:
                 if desc.identifier not in self.descriptors:
                     self.register(desc, True)
 
