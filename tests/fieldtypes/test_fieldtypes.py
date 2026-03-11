@@ -452,17 +452,20 @@ def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime, expecte
         assert record.dt == expected_dt
 
 
-@pytest.mark.skipifnot(HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
-@pytest.mark.parametrize(
-    ("value", "expected_dt"),
-    [
-        (datetime(2023, 1, 1, tzinfo=UTC, fold=1), datetime(2023, 1, 1, tzinfo=UTC)),
+DATETIME_FOLD_PARAMS = [
+    (datetime(2023, 1, 1, tzinfo=UTC, fold=1), datetime(2023, 1, 1, tzinfo=UTC)),
+]
+if HAS_ZONE_INFO:
+    DATETIME_FOLD_PARAMS.append(
         (
             datetime(2025, 10, 26, 2, 0, 3, tzinfo=ZoneInfo("Europe/Amsterdam"), fold=1),
             datetime(2025, 10, 26, 1, 0, 3, tzinfo=UTC),
         ),
-    ],
-)
+    )
+
+
+@pytest.mark.skipifnot(HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
+@pytest.mark.parametrize(("value", "expected_dt"), DATETIME_FOLD_PARAMS)
 def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected_dt: datetime) -> None:
     """test whether datetime accepts fold parameters and converts it correctly"""
     TestRecord = RecordDescriptor(
