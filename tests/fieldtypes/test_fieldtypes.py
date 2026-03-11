@@ -21,6 +21,7 @@ from flow.record.fieldtypes import (
     _is_windowslike_path,
     command,
     fieldtype_for_value,
+    flow_record_tz,
     net,
     posix_command,
     posix_path,
@@ -459,7 +460,7 @@ def test_datetime() -> None:
         ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
-def test_datetime_formats(tmp_path: pathlib.Path, value: str, expected_dt: datetime) -> None:
+def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime, expected_dt: datetime) -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -478,6 +479,40 @@ def test_datetime_formats(tmp_path: pathlib.Path, value: str, expected_dt: datet
     with RecordReader(path) as reader:
         record = next(iter(reader))
         assert record.dt == expected_dt
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_dt"),
+    [
+        (datetime(2023, 1, 1, tzinfo=UTC, fold=1), datetime(2023, 1, 1, tzinfo=UTC)),
+        (  # "W. Europe Standard Time"
+            datetime(2025, 10, 26, 2, 0, 3, tzinfo=flow_record_tz(default_tz="Europe/Amsterdam"), fold=1),
+            datetime(2025, 10, 26, 1, 0, 3, tzinfo=UTC),
+        ),
+    ],
+)
+def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected_dt: datetime) -> None:
+    """test whether datetime accepts fold parameters and converts it correctly"""
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+    record = TestRecord(dt=value)
+    assert record.dt.fold == 1
+    assert record.dt.astimezone(UTC) == expected_dt
+
+    # test packing / serialization of datetime fields
+    path = tmp_path / "datetime.records"
+    with RecordWriter(path) as writer:
+        writer.write(record)
+
+    # test unpacking / deserialization of datetime fields
+    with RecordReader(path) as reader:
+        record = next(iter(reader))
+        # Need to convert it to UTC specifically as the timezones do not match
+        assert record.dt.astimezone(UTC) == expected_dt
 
 
 def test_digest() -> None:
