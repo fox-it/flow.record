@@ -17,11 +17,11 @@ from flow.record.fieldtypes import (
     PY_313_OR_HIGHER,
     TYPE_POSIX,
     TYPE_WINDOWS,
+    ZoneInfo,
     _is_posixlike_path,
     _is_windowslike_path,
     command,
     fieldtype_for_value,
-    flow_record_tz,
     net,
     posix_path,
     uri,
@@ -453,8 +453,8 @@ def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime, expecte
     ("value", "expected_dt"),
     [
         (datetime(2023, 1, 1, tzinfo=UTC, fold=1), datetime(2023, 1, 1, tzinfo=UTC)),
-        (  # "W. Europe Standard Time"
-            datetime(2025, 10, 26, 2, 0, 3, tzinfo=flow_record_tz(default_tz="Europe/Amsterdam"), fold=1),
+        (
+            datetime(2025, 10, 26, 2, 0, 3, tzinfo=ZoneInfo("Europe/Amsterdam"), fold=1),
             datetime(2025, 10, 26, 1, 0, 3, tzinfo=UTC),
         ),
     ],
