@@ -13,11 +13,11 @@ import pytest
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter, fieldtypes
 from flow.record.fieldtypes import (
+    HAS_ZONE_INFO,
     PY_312_OR_HIGHER,
     PY_313_OR_HIGHER,
     TYPE_POSIX,
     TYPE_WINDOWS,
-    ZoneInfo,
     _is_posixlike_path,
     _is_windowslike_path,
     command,
@@ -28,6 +28,9 @@ from flow.record.fieldtypes import (
     windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
+
+if HAS_ZONE_INFO:
+    from flow.record.fieldtypes import ZoneInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -449,6 +452,7 @@ def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime, expecte
         assert record.dt == expected_dt
 
 
+@pytest.mark.skipifnot(HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
 @pytest.mark.parametrize(
     ("value", "expected_dt"),
     [
@@ -483,6 +487,7 @@ def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected
         assert record.dt.astimezone(UTC) == expected_dt
 
 
+@pytest.mark.skipifnot(HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
 def test_datetime_fold_example() -> None:
     """
     Test datetime fold parameter during daylight saving time changes in the Netherlands, which has a
