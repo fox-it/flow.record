@@ -485,8 +485,8 @@ def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected
 
 def test_datetime_fold_example() -> None:
     """
-    Test datetime fold parameter during daylight saving time changes in the Netherlands.
-    which has a timezone offset of +01:00 during wintertime and +02:00 during summertime.
+    Test datetime fold parameter during daylight saving time changes in the Netherlands, which has a
+    timezone offset of +01:00 during wintertime and +02:00 during summertime.
     """
 
     TestRecord = RecordDescriptor(
