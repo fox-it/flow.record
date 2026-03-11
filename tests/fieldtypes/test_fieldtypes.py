@@ -483,6 +483,43 @@ def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected
         assert record.dt.astimezone(UTC) == expected_dt
 
 
+def test_datetime_fold_example() -> None:
+    """
+    Test datetime fold parameter during daylight saving time changes in the Netherlands.
+    which has a timezone offset of +01:00 during wintertime and +02:00 during summertime.
+    """
+
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+
+    # 2025-10-26 is the date of the end of daylight saving time in the Netherlands.
+    # At 3:00 AM the clock goes back to 2:00 AM, so 2:00 AM occurs twice. The first occurrence has fold=0
+    record = TestRecord("2025-10-26T00:00:00+00:00")
+    nl_dt = record.dt.astimezone(ZoneInfo("Europe/Amsterdam"))
+    assert nl_dt.isoformat() == "2025-10-26T02:00:00+02:00"
+    assert nl_dt.hour == 2
+    assert nl_dt.fold == 0
+
+    # test that both datetimes are considered equal when converted to UTC
+    record2 = TestRecord(nl_dt)
+    assert record.dt.astimezone(UTC) == record2.dt.astimezone(UTC)
+
+    # wintertime, the clock goes back from 3:00 AM to 2:00 AM, so 2:00 AM occurs twice. The second occurrence has fold=1
+    record = TestRecord("2025-10-26T01:00:00+00:00")
+    nl_dt = record.dt.astimezone(ZoneInfo("Europe/Amsterdam"))
+    assert nl_dt.isoformat() == "2025-10-26T02:00:00+01:00"
+    assert nl_dt.hour == 2
+    assert nl_dt.fold == 1
+
+    # test that both datetimes are considered equal when converted to UTC
+    record2 = TestRecord(nl_dt)
+    assert record.dt.astimezone(UTC) == record2.dt.astimezone(UTC)
+
+
 def test_digest() -> None:
     TestRecord = RecordDescriptor(
         "test/digest",
