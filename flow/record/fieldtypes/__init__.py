@@ -308,6 +308,7 @@ class datetime(_dt, FieldType):
                     arg.second,
                     arg.microsecond,
                     tzinfo,
+                    fold=arg.fold,
                 )
         else:
             obj = _dt.__new__(cls, *args, **kwargs)
