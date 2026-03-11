@@ -178,15 +178,15 @@ def test_grouped_record() -> None:
     grouped.hello = "new value"
     assert grouped.hello == "new value"
     assert grouped.profile == "omg"
-    assert grouped.records[0].hello == "new value"
-    assert grouped.records[1].hello == "other hello"
+    assert grouped.__records__[0].hello == "new value"
+    assert grouped.__records__[1].hello == "other hello"
 
-    grouped.records[1].hello = "testing"
+    grouped.__records__[1].hello = "testing"
     assert grouped.hello != "testing"
     assert grouped.hello == "new value"
-    assert grouped.records[1].hello == "testing"
+    assert grouped.__records__[1].hello == "testing"
 
-    assert len(grouped.records) == 2
+    assert len(grouped.__records__) == 2
 
     # Test grouped._asdict
     rdict = grouped._asdict()
@@ -250,7 +250,7 @@ def test_grouped_records_packing(tmp_path: Path) -> None:
     assert isinstance(record, Record)
     assert isinstance(record, GroupedRecord)
     assert record.common == "world"  # first 'key' has precendence
-    assert record.name == "grouped/ab"
+    assert record.__name__ == "grouped/ab"
     assert record.a_string == "hello"
     assert record.a_count == 12345
     assert record.b_count == 54321
@@ -259,12 +259,12 @@ def test_grouped_records_packing(tmp_path: Path) -> None:
     assert record._classification == "CLASSIFIED"
 
     # access 'common' on second record directly
-    assert record.records[1].common == "bye"
+    assert record.__records__[1].common == "bye"
 
     # access raw records directly
-    assert len(record.records) == 2
-    assert record.records[0]._desc.name == "test/a"
-    assert record.records[1]._desc.name == "test/b"
+    assert len(record.__records__) == 2
+    assert record.__records__[0]._desc.name == "test/a"
+    assert record.__records__[1]._desc.name == "test/b"
 
     # test using selectors
     reader = RecordReader(path, selector="r.a_count == 12345")

@@ -321,8 +321,14 @@ def main(argv: list[str] | None = None) -> int:
         root_logger.handlers.clear()
         root_logger.addHandler(handler)
 
-    fields_to_exclude = args.exclude.split(",") if args.exclude else []
-    fields = args.fields.split(",") if args.fields else []
+    fields_to_exclude = list(filter(None, map(str.strip, args.exclude.split(",")))) if args.exclude else []
+    fields = list(filter(None, map(str.strip, args.fields.split(",")))) if args.fields else []
+
+    writer_options = {}
+    if fields:
+        writer_options["fields"] = fields
+    if fields_to_exclude:
+        writer_options["exclude"] = fields_to_exclude
 
     if args.list_adapters:
         list_adapters()
@@ -340,8 +346,6 @@ def main(argv: list[str] | None = None) -> int:
         }
         uri = mode_to_uri.get(args.mode, uri)
         qparams = {
-            "fields": args.fields,
-            "exclude": args.exclude,
             "format_spec": args.format,
         }
         query = urlencode({k: v for k, v in qparams.items() if v})
@@ -393,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
     ret = 0
 
     try:
-        with RecordWriter(uri) as record_writer:
+        with RecordWriter(uri, **writer_options) as record_writer:
             for count, rec in enumerate(record_iterator, start=1):  # noqa: B007
                 if args.record_source is not None:
                     rec._source = args.record_source
@@ -433,10 +437,17 @@ def main(argv: list[str] | None = None) -> int:
     return ret
 
 
-def print_error(e: Exception) -> None:
-    log.error("rdump encountered a fatal error: %s", e)
+def print_error(exc: Exception) -> None:
+    log.error("rdump encountered a fatal error: %s", exc)
+
     if log.isEnabledFor(LOGGING_TRACE_LEVEL):
-        log.exception("Full traceback")
+        raise
+
+    # Print any additional notes attached to the exception (e.g. from adapters) at warning level
+    for note in getattr(exc, "__notes__", []):
+        log.error(note)
+
+    log.warning("To show full traceback, run with -vvv")
 
 
 if __name__ == "__main__":

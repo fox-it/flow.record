@@ -115,7 +115,7 @@ def upper(s: str | Any) -> str | Any:
 def names(r: Record | WrappedRecord | GroupedRecord) -> set[str]:
     """Return the available names as a set in the Record otherwise ['UnknownRecord']."""
     if isinstance(r, GroupedRecord):
-        return {sub_record._desc.name for sub_record in r.records}
+        return {sub_record._desc.name for sub_record in r.__records__}
     if isinstance(r, (Record, WrappedRecord)):
         return {r._desc.name}
     return ["UnknownRecord"]

@@ -164,11 +164,13 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             print("[reading from stdin]", file=sys.stderr)
 
         # Initial value for reader, in case of exception message
-        reader = "RecordReader"
+        reader: str | AbstractReader = "RecordReader"
         try:
             reader = RecordReader(src, selector=selector)
             yield from reader
-            reader.close()
+        except EOFError as e:
+            # End of file reached, likely no records in source
+            log.warning("%s(%r): %s", reader, src, e)
         except IOError as e:
             if len(sources) == 1:
                 raise
@@ -184,6 +186,9 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             else:
                 log.warning("Exception in %r for %r: %s -- skipping to next reader", reader, src, aRepr.repr(e))
                 continue
+        finally:
+            if isinstance(reader, AbstractReader):
+                reader.close()
 
 
 class PathTemplateWriter:

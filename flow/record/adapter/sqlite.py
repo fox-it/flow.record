@@ -109,10 +109,10 @@ def prepare_insert_sql(table_name: str, field_names: tuple[str]) -> str:
 
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     """Insert a record into the database."""
-    table_name = record._desc.name
+    descriptor = record._desc
+    table_name = descriptor.name
     rdict = record._asdict()
-
-    sql = prepare_insert_sql(table_name, record.__slots__)
+    sql = prepare_insert_sql(table_name, tuple(rdict.keys()))
 
     # Convert values to str() for types we don't support
     values = []
@@ -203,6 +203,11 @@ class SqliteReader(AbstractReader):
             for record in self.read_table(table_name):
                 if match_record_with_context(record, selector, ctx):
                     yield record
+
+    def close(self) -> None:
+        if self.con:
+            self.con.close()
+        self.con = None
 
 
 class SqliteWriter(AbstractWriter):

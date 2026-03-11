@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from flow.record import RecordReader, RecordWriter
+from flow.record.base import RecordDescriptor
 from tests._utils import generate_records
 
 if TYPE_CHECKING:
@@ -117,3 +118,40 @@ def test_json_adapter_with_record_descriptors(tmp_path: Path, record_adapter_pat
             elif record["_type"] == "record":
                 assert "_recorddescriptor" in record
     assert descriptor_seen == 2
+
+
+def test_json_command_fieldtype(tmp_path: Path) -> None:
+    json_file = tmp_path.joinpath("records.json")
+    record_adapter_path = f"jsonfile://{json_file}"
+    writer = RecordWriter(record_adapter_path)
+
+    TestRecord = RecordDescriptor(
+        "test/command",
+        [
+            ("command", "commando"),
+        ],
+    )
+
+    writer.write(
+        TestRecord(
+            commando="C:\\help.exe data",
+        )
+    )
+    writer.write(
+        TestRecord(
+            commando="/usr/bin/env bash",
+        )
+    )
+    writer.write(TestRecord())
+    writer.flush()
+
+    reader = RecordReader(record_adapter_path)
+    records = list(reader)
+
+    assert records[0].commando.executable == "C:\\help.exe"
+    assert records[0].commando.args == ("data",)
+
+    assert records[1].commando.executable == "/usr/bin/env"
+    assert records[1].commando.args == ("bash",)
+
+    assert len(records) == 3
