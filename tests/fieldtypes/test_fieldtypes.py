@@ -431,7 +431,7 @@ def test_datetime() -> None:
         ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
-def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime, expected_dt: datetime) -> None:
+def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime | float, expected_dt: datetime) -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
