@@ -147,5 +147,32 @@ def test_multi_timestamp_descriptor_cache() -> None:
             assert record.ts == getattr(test_record, tsfield)
 
     cache_info = merge_record_descriptors.cache_info()
-    assert cache_info.misses == 2
-    assert cache_info.hits == 18
+    assert cache_info.misses == 1
+    assert cache_info.hits == 19
+
+
+def test_multi_timestamp_preserves_metadata() -> None:
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("datetime", "ctime"),
+            ("datetime", "atime"),
+            ("string", "data"),
+        ],
+    )
+
+    test_record = TestRecord(
+        ctime=datetime(2020, 1, 1, 1, 1, 1),  # noqa: DTZ001
+        atime=datetime(2022, 11, 22, 13, 37, 37),  # noqa: DTZ001
+        data="test",
+    )
+    test_record._source = "/evidence/disk.E01"
+    test_record._classification = "SECRET"
+
+    ts_records = list(iter_timestamped_records(test_record))
+    assert len(ts_records) == 2
+
+    for rec in ts_records:
+        assert rec._source == "/evidence/disk.E01"
+        assert rec._classification == "SECRET"
+        assert rec._generated == test_record._generated

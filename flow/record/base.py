@@ -1122,6 +1122,11 @@ def iter_timestamped_records(record: Record) -> Iterator[Record]:
     record_name = record._desc.name
     for field in dt_fields:
         ts_record = TimestampRecord(getattr(record, field.name), field.name)
+        # Preserve metadata from the original record so it isn't shadowed by
+        # the freshly-created TimestampRecord's None defaults in ChainMap.
+        ts_record._source = record._source
+        ts_record._classification = record._classification
+        ts_record._generated = record._generated
         # we extend ``ts_record`` with original ``record`` so TSRecord info goes first.
-        record = extend_record(ts_record, [record], name=record_name)
-        yield record
+        result = extend_record(ts_record, [record], name=record_name)
+        yield result
