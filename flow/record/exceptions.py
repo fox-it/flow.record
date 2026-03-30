@@ -2,12 +2,12 @@ from __future__ import annotations
 
 
 class RecordDescriptorError(Exception):
-    """Raised when there is an error constructing a record descriptor"""
+    """Raised when there is an error constructing a record descriptor."""
 
 
 class RecordDescriptorNotFound(Exception):
-    """The specified record descriptor could not be found"""
+    """The specified record descriptor could not be found."""
 
 
 class RecordAdapterNotFound(Exception):
-    """Could not find a fitting RecordAdapter for a given input"""
+    """Could not find a fitting RecordAdapter for a given input."""

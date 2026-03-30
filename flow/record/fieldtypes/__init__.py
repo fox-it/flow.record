@@ -12,7 +12,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 try:
@@ -25,7 +25,10 @@ except ImportError:
     HAS_ZONE_INFO = False
 
 
-from flow.record.base import FieldType, Record
+from flow.record.base import FieldType
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 RE_WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
@@ -78,7 +81,7 @@ DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
 
 def defang(value: str) -> str:
-    """Defangs the value to make URLs or ip addresses unclickable"""
+    """Defangs the value to make URLs or ip addresses unclickable."""
     value = re.sub("^http://", "hxxp://", value, flags=re.IGNORECASE)
     value = re.sub("^https://", "hxxps://", value, flags=re.IGNORECASE)
     value = re.sub("^ftp://", "fxp://", value, flags=re.IGNORECASE)

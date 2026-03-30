@@ -13,7 +13,7 @@ except ModuleNotFoundError:
 
 import pytest
 
-from flow.record import GroupedRecord, Record, RecordDescriptor, RecordReader, RecordWriter
+from flow.record import GroupedRecord, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
@@ -21,6 +21,8 @@ from flow.record.exceptions import RecordDescriptorError
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from flow.record import Record
 
 
 class Database(NamedTuple):
@@ -44,7 +46,7 @@ sqlite_duckdb_parametrize = pytest.mark.parametrize("db", databases, ids=[db.sch
 
 
 def generate_records(amount: int) -> Iterator[Record]:
-    """Generates some test records"""
+    """Generates some test records."""
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
         [

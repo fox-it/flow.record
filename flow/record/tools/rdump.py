@@ -8,15 +8,19 @@ from importlib import import_module
 from itertools import islice
 from pathlib import Path
 from textwrap import indent
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlparse
 from zipimport import zipimporter
 
 import flow.record.adapter
 from flow.record import RecordWriter, iter_timestamped_records, record_stream
-from flow.record.context import AppContext, get_app_context
+from flow.record.context import get_app_context
 from flow.record.selector import make_selector
 from flow.record.stream import RecordFieldRewriter
 from flow.record.utils import LOGGING_TRACE_LEVEL, catch_sigpipe
+
+if TYPE_CHECKING:
+    from flow.record.context import AppContext
 
 try:
     from flow.record.version import version

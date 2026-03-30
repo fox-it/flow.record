@@ -12,7 +12,7 @@ from typing import IO, TYPE_CHECKING, BinaryIO
 
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.adapter import AbstractReader
-from flow.record.base import Record, RecordDescriptor, RecordReader
+from flow.record.base import RecordDescriptor, RecordReader
 from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from flow.record.adapter import AbstractWriter
+    from flow.record.base import Record
 
 log = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
             if len(sources) == 1:
                 raise
             else:
-                log.error("%s(%r): %s", reader, src, e)
+                log.exception("%s(%r): %s", reader, src, e)
                 if trace:
                     log.exception("Full traceback")
         except KeyboardInterrupt:

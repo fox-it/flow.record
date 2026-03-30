@@ -676,7 +676,7 @@ def test_fieldtype_typedlist_net_ipaddress() -> None:
 
 
 def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
-    """RecordWriter should default to stdin if no path is given"""
+    """RecordWriter should default to stdin if no path is given."""
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -699,7 +699,7 @@ def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
 
 
 def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> None:
-    """RecordWriter should default to stdout if no path is given"""
+    """RecordWriter should default to stdout if no path is given."""
     TestRecord = RecordDescriptor(
         "test/record",
         [

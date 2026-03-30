@@ -752,7 +752,7 @@ def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, caps
 
 
 def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
-    """Test stats output in app context. Stats line is printed to stdout and not stderr"""
+    """Test stats output in app context. Stats line is printed to stdout and not stderr."""
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(100):
             writer.write(record)
@@ -852,7 +852,7 @@ def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     ],
 )
 def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
-    """Test that rdump handles invalid stdin as an error"""
+    """Test that rdump handles invalid stdin as an error."""
     # rdump -l (with invalid stdin)
     pipe = subprocess.Popen(
         ["rdump", "-l"],

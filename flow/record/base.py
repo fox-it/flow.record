@@ -122,7 +122,7 @@ else:
 
 
 def set_ignored_fields_for_comparison(ignored_fields: Iterator[str]) -> None:
-    """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
+    """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope."""
     global IGNORE_FIELDS_FOR_COMPARISON
     IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
 
@@ -390,7 +390,7 @@ class RecordFieldSet(list):
 
 @functools.lru_cache(maxsize=4096)
 def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
-    """Generate a record class
+    """Generate a record class.
 
     Args:
         name: The name of the Record class.
@@ -622,7 +622,7 @@ class RecordDescriptor:
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
     def extend(self, fields: Sequence[tuple[str, str]]) -> RecordDescriptor:
-        """Returns a new RecordDescriptor with the extended fields
+        """Returns a new RecordDescriptor with the extended fields.
 
         Returns:
             RecordDescriptor with extended fields
@@ -654,14 +654,14 @@ class RecordDescriptor:
 
     @property
     def descriptor_hash(self) -> int:
-        """Returns the (cached) descriptor hash"""
+        """Returns the (cached) descriptor hash."""
         if not self._desc_hash:
             self._desc_hash = self.calc_descriptor_hash(self.name, self._field_tuples)
         return self._desc_hash
 
     @property
     def identifier(self) -> tuple[str, int]:
-        """Returns a tuple containing the descriptor name and hash"""
+        """Returns a tuple containing the descriptor name and hash."""
         return (self.name, self.descriptor_hash)
 
     def __hash__(self) -> int:
