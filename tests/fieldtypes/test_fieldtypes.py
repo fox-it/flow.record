@@ -467,7 +467,7 @@ if HAS_ZONE_INFO:
 @pytest.mark.skipif(not HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
 @pytest.mark.parametrize(("value", "expected_dt"), DATETIME_FOLD_PARAMS)
 def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected_dt: datetime) -> None:
-    """test whether datetime accepts fold parameters and converts it correctly"""
+    """Test whether datetime accepts fold parameters and converts it correctly."""
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -492,11 +492,9 @@ def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected
 
 @pytest.mark.skipif(not HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
 def test_datetime_fold_example() -> None:
-    """
-    Test datetime fold parameter during daylight saving time changes in the Netherlands, which has a
+    """Test datetime fold parameter during daylight saving time changes in the Netherlands, which has a
     timezone offset of +01:00 during wintertime and +02:00 during summertime.
     """
-
     TestRecord = RecordDescriptor(
         "test/datetime",
         [

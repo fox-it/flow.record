@@ -380,8 +380,7 @@ class CompiledSelector:
 
 
 class TypeMatcher:
-    """
-    Helper to get and check fields of a certain type.
+    """Helper to get and check fields of a certain type.
 
     Types can be selected using `Type.<typename>`. Attributes can be selected
     using `Type.<typename>.<attribute>`.
@@ -637,8 +636,7 @@ class RecordContextMatcher:
         if isinstance(node, ast.GeneratorExp):
 
             def recursive_generator(gens: list[ast.comprehension]) -> Iterator[Any]:
-                """
-                Yield all the values in the most deepest generator.
+                """Yield all the values in the most deepest generator.
 
                 Example:
                 [ord(c) for line in file for c in line]
@@ -663,8 +661,7 @@ class RecordContextMatcher:
                             yield val
 
             def generator_expr() -> Iterator[Any]:
-                """
-                Embedded generator logic for ast.GeneratorExp.
+                """Embedded generator logic for ast.GeneratorExp.
 
                 A function can't yield and return so we write nested generator function and return that.
 

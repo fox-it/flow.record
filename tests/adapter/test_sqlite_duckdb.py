@@ -13,7 +13,7 @@ except ModuleNotFoundError:
 
 import pytest
 
-from flow.record import GroupedRecord, Record, RecordDescriptor, RecordReader, RecordWriter
+from flow.record import GroupedRecord, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
@@ -21,6 +21,8 @@ from flow.record.exceptions import RecordDescriptorError
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from flow.record import Record
 
 
 class Database(NamedTuple):
@@ -44,7 +46,7 @@ sqlite_duckdb_parametrize = pytest.mark.parametrize("db", databases, ids=[db.sch
 
 
 def generate_records(amount: int) -> Iterator[Record]:
-    """Generates some test records"""
+    """Generates some test records."""
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
         [
@@ -295,7 +297,6 @@ def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_va
 )
 def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) -> None:
     """Test if we get proper exception when table name is invalid for flow.record."""
-
     # Creating the tables with these invalid_table_names in SQLite is no problem
     db = tmp_path / "records.db"
     with closing(sqlite3.connect(db)) as con:
@@ -322,7 +323,6 @@ def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) ->
 )
 def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) -> None:
     """Test if we get proper exception when SQLite field name is invalid for flow.record."""
-
     # Creating the table with invalid field name in SQLite is no problem
     db = tmp_path / "records.db"
     with closing(sqlite3.connect(db)) as con:

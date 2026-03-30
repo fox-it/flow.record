@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flow.record import Record, RecordOutput, RecordStreamReader, open_path_or_stream
+from flow.record import RecordOutput, RecordStreamReader, open_path_or_stream
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.utils import is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flow.record import Record
     from flow.record.selector import Selector
 
 __usage__ = """

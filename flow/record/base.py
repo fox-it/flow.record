@@ -122,7 +122,7 @@ else:
 
 
 def set_ignored_fields_for_comparison(ignored_fields: Iterator[str]) -> None:
-    """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope"""
+    """Can be used to update the IGNORE_FIELDS_FOR_COMPARISON from outside the flow.record package scope."""
     global IGNORE_FIELDS_FOR_COMPARISON
     IGNORE_FIELDS_FOR_COMPARISON = set(ignored_fields)
 
@@ -238,8 +238,7 @@ class Record:
 
 
 class GroupedRecord(Record):
-    """
-    GroupedRecord acts like a normal Record, but can contain multiple records.
+    """GroupedRecord acts like a normal Record, but can contain multiple records.
 
     See it as a flat Record view on top of multiple Records.
     If two Records have the same fieldname, the first one will prevail.
@@ -281,8 +280,7 @@ class GroupedRecord(Record):
         self._field_types = self._desc.recordType._field_types
 
     def get_record_by_type(self, type_name: str) -> Record | None:
-        """
-        Get record in a GroupedRecord by type_name.
+        """Get record in a GroupedRecord by type_name.
 
         Args:
             type_name (str): The record type name (for example wq/meta).
@@ -392,7 +390,7 @@ class RecordFieldSet(list):
 
 @functools.lru_cache(maxsize=4096)
 def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
-    """Generate a record class
+    """Generate a record class.
 
     Args:
         name: The name of the Record class.
@@ -401,7 +399,6 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     Returns:
         Record class
     """
-
     contains_keyword = False
     for _, fieldname in fields:
         if not is_valid_field_name(fieldname):
@@ -524,8 +521,9 @@ class RecordDescriptor:
     @staticmethod
     @functools.lru_cache
     def get_required_fields() -> Mapping[str, RecordField]:
-        """
-        Get required fields mapping. eg:
+        """Get required fields mapping.
+
+        eg:
 
         .. code-block:: text
 
@@ -543,8 +541,9 @@ class RecordDescriptor:
 
     @property
     def fields(self) -> Mapping[str, RecordField]:
-        """
-        Get fields mapping (without required fields). eg:
+        """Get fields mapping (without required fields).
+
+        eg:
 
         .. code-block:: text
 
@@ -561,8 +560,9 @@ class RecordDescriptor:
         return self._fields
 
     def get_all_fields(self) -> Mapping[str, RecordField]:
-        """
-        Get all fields including required meta fields. eg:
+        """Get all fields including required meta fields.
+
+        eg:
 
         .. code-block:: text
 
@@ -611,7 +611,6 @@ class RecordDescriptor:
         Returns:
             Record with data from ``rdict``
         """
-
         if not raise_unknown:
             rdict = {k: v for k, v in rdict.items() if k in self.recordType.__slots__}
         return self.recordType(**rdict)
@@ -629,7 +628,7 @@ class RecordDescriptor:
         return self.init_from_dict(record._asdict(), raise_unknown=raise_unknown)
 
     def extend(self, fields: Sequence[tuple[str, str]]) -> RecordDescriptor:
-        """Returns a new RecordDescriptor with the extended fields
+        """Returns a new RecordDescriptor with the extended fields.
 
         Returns:
             RecordDescriptor with extended fields
@@ -638,7 +637,9 @@ class RecordDescriptor:
         return RecordDescriptor(self.name, new_fields)
 
     def get_field_tuples(self) -> tuple[tuple[str, str]]:
-        """Returns a tuple containing the (typename, name) tuples, eg:
+        """Returns a tuple containing the (typename, name) tuples.
+
+        eg:
 
         .. code-block:: text
 
@@ -661,14 +662,14 @@ class RecordDescriptor:
 
     @property
     def descriptor_hash(self) -> int:
-        """Returns the (cached) descriptor hash"""
+        """Returns the (cached) descriptor hash."""
         if not self._desc_hash:
             self._desc_hash = self.calc_descriptor_hash(self.name, self._field_tuples)
         return self._desc_hash
 
     @property
     def identifier(self) -> tuple[str, int]:
-        """Returns a tuple containing the descriptor name and hash"""
+        """Returns a tuple containing the descriptor name and hash."""
         return (self.name, self.descriptor_hash)
 
     def __hash__(self) -> int:
@@ -768,8 +769,7 @@ def open_path_or_stream(path: str | Path | BinaryIO, mode: str, clobber: bool = 
 
 
 def open_path(path: str, mode: str, clobber: bool = True) -> IO:
-    """
-    Open ``path`` using ``mode`` and returns a file object.
+    """Open ``path`` using ``mode`` and returns a file object.
 
     It handles special cases if path is meant to be stdin or stdout.
     And also supports compression based on extension or file header of stream.
@@ -1056,7 +1056,6 @@ def normalize_fieldname(field_name: str) -> str:
         >>> normalize_fieldname("_generated")
         '_generated'
     """
-
     if field_name not in RESERVED_FIELDS:
         field_name = re.sub(r"[- ()]", "_", field_name)
         # prepend `n_` if field_name is empty or starts with underscore or digit
@@ -1113,7 +1112,6 @@ def iter_timestamped_records(record: Record) -> Iterator[Record]:
     Yields:
         Record annotated with ``ts`` and ``ts_description`` fields for each ``datetime`` fieldtype.
     """
-
     # get all ``datetime`` fields. (excluding _generated).
     dt_fields = record._desc.getfields("datetime")
     if not dt_fields:

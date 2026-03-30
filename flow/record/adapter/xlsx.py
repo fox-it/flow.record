@@ -32,7 +32,6 @@ Read usage: rdump xlsx://[PATH]
 
 def sanitize_fieldvalues(values: Iterator[Any]) -> Iterator[Any]:
     """Sanitize field values so openpyxl will accept them."""
-
     for value in values:
         # openpyxl doesn't support timezone-aware datetime instances,
         # so we convert to UTC and then remove the timezone info.

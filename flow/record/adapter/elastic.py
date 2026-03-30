@@ -19,7 +19,7 @@ except ImportError:
     HAS_ELASTIC = False
 
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.base import Record, RecordDescriptor
+from flow.record.base import RecordDescriptor
 from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.jsonpacker import JsonRecordPacker
@@ -28,6 +28,7 @@ from flow.record.utils import boolean_argument
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from flow.record.base import Record
     from flow.record.selector import CompiledSelector, Selector
 
 __usage__ = """
@@ -71,7 +72,6 @@ class ElasticWriter(AbstractWriter):
         Resources:
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/api/elasticsearch.html
         """
-
         if not HAS_ELASTIC:
             raise RuntimeError("Required dependency 'elasticsearch' missing")
 
@@ -125,7 +125,7 @@ class ElasticWriter(AbstractWriter):
         self.event.set()
 
     def record_to_document(self, record: Record, index: str) -> dict:
-        """Convert a record to a Elasticsearch compatible document dictionary"""
+        """Convert a record to a Elasticsearch compatible document dictionary."""
         rdict = record._asdict()
 
         # Store record metadata under `_record_metadata`.
@@ -159,7 +159,7 @@ class ElasticWriter(AbstractWriter):
         return document
 
     def document_stream(self) -> Iterator[dict]:
-        """Generator of record documents on the Queue"""
+        """Generator of record documents on the Queue."""
         while True:
             record = self.queue.get()
             if record is StopIteration:
@@ -175,7 +175,6 @@ class ElasticWriter(AbstractWriter):
             - https://elasticsearch-py.readthedocs.io/en/v8.17.1/helpers.html#elasticsearch.helpers.streaming_bulk
             - https://github.com/elastic/elasticsearch-py/blob/main/elasticsearch/helpers/actions.py#L362
         """
-
         for _ok, _item in elasticsearch.helpers.streaming_bulk(
             self.es,
             self.document_stream(),

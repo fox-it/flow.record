@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from flow.record.utils import boolean_argument

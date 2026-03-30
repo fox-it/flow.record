@@ -726,7 +726,6 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
 def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """Test progress bar in app context."""
-
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(2000):
             writer.write(record)
@@ -740,7 +739,6 @@ def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.Capture
 
 def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """Test progress bar in app context with known totals (creates a percentage progress bar)."""
-
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(100):
             writer.write(record)
@@ -754,8 +752,7 @@ def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, caps
 
 
 def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
-    """Test stats output in app context. Stats line is printed to stdout and not stderr"""
-
+    """Test stats output in app context. Stats line is printed to stdout and not stderr."""
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(100):
             writer.write(record)
@@ -768,7 +765,6 @@ def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> No
 @pytest.mark.skipif(platform.system() == "Windows", reason="skipping this test on Windows")
 def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
     """Test if rdump properly suppresses BrokenPipeError when writing to a closed file handle."""
-
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -802,7 +798,6 @@ def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
 
 def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     """Test that rdump handles empty records as input gracefully."""
-
     # create an empty records file
     path = tmp_path / "empty.records"
     with RecordWriter(path):
@@ -835,7 +830,6 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
 )
 def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     """Test that rdump handles empty stdin as input gracefully."""
-
     # rdump -l (with empty stdin)
     pipe = subprocess.Popen(
         ["rdump", "-l"],
@@ -858,8 +852,7 @@ def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     ],
 )
 def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
-    """Test that rdump handles invalid stdin as an error"""
-
+    """Test that rdump handles invalid stdin as an error."""
     # rdump -l (with invalid stdin)
     pipe = subprocess.Popen(
         ["rdump", "-l"],
@@ -880,7 +873,6 @@ def test_rdump_print_error_notes(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that rdump prints error notes when an exception occurs."""
-
     path = tmp_path / "test.records"
     path.touch()  # create an empty file
 
