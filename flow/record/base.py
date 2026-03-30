@@ -521,7 +521,9 @@ class RecordDescriptor:
     @staticmethod
     @functools.lru_cache
     def get_required_fields() -> Mapping[str, RecordField]:
-        """Get required fields mapping. eg:
+        """Get required fields mapping.
+
+        eg:
 
         .. code-block:: text
 
@@ -539,7 +541,9 @@ class RecordDescriptor:
 
     @property
     def fields(self) -> Mapping[str, RecordField]:
-        """Get fields mapping (without required fields). eg:
+        """Get fields mapping (without required fields).
+
+        eg:
 
         .. code-block:: text
 
@@ -556,7 +560,9 @@ class RecordDescriptor:
         return self._fields
 
     def get_all_fields(self) -> Mapping[str, RecordField]:
-        """Get all fields including required meta fields. eg:
+        """Get all fields including required meta fields.
+
+        eg:
 
         .. code-block:: text
 
@@ -631,7 +637,9 @@ class RecordDescriptor:
         return RecordDescriptor(self.name, new_fields)
 
     def get_field_tuples(self) -> tuple[tuple[str, str]]:
-        """Returns a tuple containing the (typename, name) tuples, eg:
+        """Returns a tuple containing the (typename, name) tuples.
+
+        eg:
 
         .. code-block:: text
 

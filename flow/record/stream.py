@@ -171,11 +171,11 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
         except EOFError as e:
             # End of file reached, likely no records in source
             log.warning("%s(%r): %s", reader, src, e)
-        except IOError as e:
+        except IOError:
             if len(sources) == 1:
                 raise
             else:
-                log.exception("%s(%r): %s", reader, src, e)
+                log.exception("%s(%r): %s", reader, src)
                 if trace:
                     log.exception("Full traceback")
         except KeyboardInterrupt:
