@@ -152,7 +152,6 @@ def record_stream(sources: list[str], selector: str | None = None) -> Iterator[R
 
     If there are multiple sources, exceptions are caught and logged, and the stream continues with the next source.
     """
-
     trace = log.isEnabledFor(LOGGING_TRACE_LEVEL)
     ctx = get_app_context()
 

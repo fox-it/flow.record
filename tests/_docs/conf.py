@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 extensions = [
     "autoapi.extension",
     "sphinx.ext.autodoc",

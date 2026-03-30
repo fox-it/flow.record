@@ -52,7 +52,6 @@ def flow_record_tz(*, default_tz: str = "UTC") -> ZoneInfo | UTC | None:
     Returns:
         None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)`` or ``UTC`` if ZoneInfo is not found.
     """
-
     tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
     if tz.upper() == "NONE":
         return None

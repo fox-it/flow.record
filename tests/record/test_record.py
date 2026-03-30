@@ -882,7 +882,7 @@ def test_compare_environment_variable() -> None:
 
         importlib.import_module("flow.record")
 
-        from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor  # noqa: PLC0415
+        from flow.record import IGNORE_FIELDS_FOR_COMPARISON, RecordDescriptor
 
         assert {"_generated", "lastname"} == IGNORE_FIELDS_FOR_COMPARISON
 

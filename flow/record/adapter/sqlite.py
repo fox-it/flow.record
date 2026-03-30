@@ -148,7 +148,6 @@ class SqliteReader(AbstractReader):
 
     def read_table(self, table_name: str) -> Iterator[Record]:
         """Read a table from the database and yield records."""
-
         # flow.record is quite strict with what is allowed in fieldnames or decriptor name.
         # While SQLite is less strict, we need to sanitize the names to make them compatible.
         table_name_org = table_name.replace('"', '""')

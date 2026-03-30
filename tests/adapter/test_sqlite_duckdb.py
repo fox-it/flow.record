@@ -295,7 +295,6 @@ def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_va
 )
 def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) -> None:
     """Test if we get proper exception when table name is invalid for flow.record."""
-
     # Creating the tables with these invalid_table_names in SQLite is no problem
     db = tmp_path / "records.db"
     with closing(sqlite3.connect(db)) as con:
@@ -322,7 +321,6 @@ def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) ->
 )
 def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) -> None:
     """Test if we get proper exception when SQLite field name is invalid for flow.record."""
-
     # Creating the table with invalid field name in SQLite is no problem
     db = tmp_path / "records.db"
     with closing(sqlite3.connect(db)) as con:

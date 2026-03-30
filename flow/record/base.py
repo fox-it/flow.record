@@ -238,8 +238,7 @@ class Record:
 
 
 class GroupedRecord(Record):
-    """
-    GroupedRecord acts like a normal Record, but can contain multiple records.
+    """GroupedRecord acts like a normal Record, but can contain multiple records.
 
     See it as a flat Record view on top of multiple Records.
     If two Records have the same fieldname, the first one will prevail.
@@ -281,8 +280,7 @@ class GroupedRecord(Record):
         self._field_types = self._desc.recordType._field_types
 
     def get_record_by_type(self, type_name: str) -> Record | None:
-        """
-        Get record in a GroupedRecord by type_name.
+        """Get record in a GroupedRecord by type_name.
 
         Args:
             type_name (str): The record type name (for example wq/meta).
@@ -401,7 +399,6 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     Returns:
         Record class
     """
-
     contains_keyword = False
     for _, fieldname in fields:
         if not is_valid_field_name(fieldname):
@@ -524,8 +521,7 @@ class RecordDescriptor:
     @staticmethod
     @functools.lru_cache
     def get_required_fields() -> Mapping[str, RecordField]:
-        """
-        Get required fields mapping. eg:
+        """Get required fields mapping. eg:
 
         .. code-block:: text
 
@@ -543,8 +539,7 @@ class RecordDescriptor:
 
     @property
     def fields(self) -> Mapping[str, RecordField]:
-        """
-        Get fields mapping (without required fields). eg:
+        """Get fields mapping (without required fields). eg:
 
         .. code-block:: text
 
@@ -561,8 +556,7 @@ class RecordDescriptor:
         return self._fields
 
     def get_all_fields(self) -> Mapping[str, RecordField]:
-        """
-        Get all fields including required meta fields. eg:
+        """Get all fields including required meta fields. eg:
 
         .. code-block:: text
 
@@ -611,7 +605,6 @@ class RecordDescriptor:
         Returns:
             Record with data from ``rdict``
         """
-
         if not raise_unknown:
             rdict = {k: v for k, v in rdict.items() if k in self.recordType.__slots__}
         return self.recordType(**rdict)
@@ -768,8 +761,7 @@ def open_path_or_stream(path: str | Path | BinaryIO, mode: str, clobber: bool = 
 
 
 def open_path(path: str, mode: str, clobber: bool = True) -> IO:
-    """
-    Open ``path`` using ``mode`` and returns a file object.
+    """Open ``path`` using ``mode`` and returns a file object.
 
     It handles special cases if path is meant to be stdin or stdout.
     And also supports compression based on extension or file header of stream.
@@ -1056,7 +1048,6 @@ def normalize_fieldname(field_name: str) -> str:
         >>> normalize_fieldname("_generated")
         '_generated'
     """
-
     if field_name not in RESERVED_FIELDS:
         field_name = re.sub(r"[- ()]", "_", field_name)
         # prepend `n_` if field_name is empty or starts with underscore or digit
@@ -1113,7 +1104,6 @@ def iter_timestamped_records(record: Record) -> Iterator[Record]:
     Yields:
         Record annotated with ``ts`` and ``ts_description`` fields for each ``datetime`` fieldtype.
     """
-
     # get all ``datetime`` fields. (excluding _generated).
     dt_fields = record._desc.getfields("datetime")
     if not dt_fields:

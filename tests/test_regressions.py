@@ -717,7 +717,6 @@ def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> No
 
 def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
     """Test rdump regression where selected fields was not propagated properly to adapter."""
-
     # Pastebin record used for this test
     example_records_json_path = Path(__file__).parent.parent / "examples" / "records.json"
 
