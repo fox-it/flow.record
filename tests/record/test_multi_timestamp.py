@@ -162,8 +162,8 @@ def test_multi_timestamp_preserves_metadata() -> None:
     )
 
     test_record = TestRecord(
-        ctime=datetime(2020, 1, 1, 1, 1, 1),  # noqa: DTZ001
-        atime=datetime(2022, 11, 22, 13, 37, 37),  # noqa: DTZ001
+        ctime=datetime(2020, 1, 1, 1, 1, 1, tzinfo=timezone.utc),
+        atime=datetime(2022, 11, 22, 13, 37, 37, tzinfo=timezone.utc),
         data="test",
     )
     test_record._source = "/evidence/disk.E01"
