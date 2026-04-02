@@ -765,12 +765,12 @@ class command(FieldType):
 
     .. code-block:: text
 
-        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ['/info']
-        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ['bash']
+        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ('/info',)
+        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ('bash',)
 
         # In this situation, the executable path needs to be quoted.
         'c:\\user\\John Doe\\malware.exe /all /the /things'   ->   windows_path('c:\\user\\John')
-                                                                   ['Doe\\malware.exe /all /the /things']
+                                                                   ('Doe\\malware.exe, '/all', '/the', /things')
     """
 
     __executable: path
