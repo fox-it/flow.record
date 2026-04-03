@@ -1121,7 +1121,12 @@ def iter_timestamped_records(record: Record) -> Iterator[Record]:
     # yield a new record for each ``datetime`` field assigned as ``ts``.
     record_name = record._desc.name
     for field in dt_fields:
-        ts_record = TimestampRecord(getattr(record, field.name), field.name)
+        ts_record = TimestampRecord(
+            ts=getattr(record, field.name),
+            ts_description=field.name,
+            _source=record._source,
+            _classification=record._classification,
+            _generated=record._generated,
+        )
         # we extend ``ts_record`` with original ``record`` so TSRecord info goes first.
-        record = extend_record(ts_record, [record], name=record_name)
-        yield record
+        yield extend_record(ts_record, [record], name=record_name)
