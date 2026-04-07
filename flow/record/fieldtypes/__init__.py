@@ -763,14 +763,21 @@ class command(FieldType):
 
     Example:
 
-    .. code-block:: text
+    .. doctest::
 
-        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ('/info',)
-        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ('bash',)
+        >>> command("c:\\windows\\malware.exe /info")
+        (executable='c:\\windows\\malware.exe', args=('/info',))
+        >>> command("c:\\windows\\malware.exe /info").executable
+        'c:\\windows\\malware.exe'
+        >>> command("c:\\windows\\malware.exe /info").args
+        ('/info',)
+
+        >>> command("/usr/bin/env bash -l")
+        (executable='/usr/bin/env', args=('bash', '-l'))
 
         # In this situation, the executable path needs to be quoted.
-        'c:\\user\\John Doe\\malware.exe /all /the /things'   ->   windows_path('c:\\user\\John')
-                                                                   ('Doe\\malware.exe, '/all', '/the', /things')
+        >>> command(r"c:\\user\\John Doe\\malware.exe /all /the /things")
+        (executable='c:\\user\\John', args=('Doe\\\\malware.exe', '/all', '/the', '/things'))
     """
 
     __executable: path
