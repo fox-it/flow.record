@@ -762,7 +762,7 @@ class command(FieldType):
 
     Example:
 
-    .. doctest::
+    .. code-block:: text
 
         >>> command("c:\\windows\\malware.exe /info")
         (executable='c:\\windows\\malware.exe', args=('/info',))
