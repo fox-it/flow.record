@@ -103,11 +103,10 @@ def fieldtype_for_value(value: object, default: str = "string") -> str:
 
     Examples:
         >>> fieldtype_for_value("hello")
-        "string"
+        'string'
         >>> fieldtype_for_value(1337)
-        "varint"
+        'varint'
         >>> fieldtype_for_value(object(), None)
-        None
     """
     if isinstance(value, _bytes):
         return "bytes"
