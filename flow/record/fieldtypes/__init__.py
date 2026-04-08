@@ -101,13 +101,13 @@ def fieldtype_for_value(value: object, default: str = "string") -> str:
     Returns:
         str: the field type name or `default` if it cannot be derived
 
-    Examples:
+    Example::
+
         >>> fieldtype_for_value("hello")
-        "string"
+        'string'
         >>> fieldtype_for_value(1337)
-        "varint"
+        'varint'
         >>> fieldtype_for_value(object(), None)
-        None
     """
     if isinstance(value, _bytes):
         return "bytes"
@@ -761,16 +761,21 @@ class command(FieldType):
         value: the string that contains the command and arguments
         path_type: When specified it forces the command to use a specific path type
 
-    Example:
+    Example::
 
-    .. code-block:: text
+        >>> command("c:\\windows\\malware.exe /info")
+        (executable='c:\\windows\\malware.exe', args=('/info',))
+        >>> command("c:\\windows\\malware.exe /info").executable
+        'c:\\windows\\malware.exe'
+        >>> command("c:\\windows\\malware.exe /info").args
+        ('/info',)
 
-        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ['/info']
-        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ['bash']
+        >>> command("/usr/bin/env bash -l")
+        (executable='/usr/bin/env', args=('bash', '-l'))
 
         # In this situation, the executable path needs to be quoted.
-        'c:\\user\\John Doe\\malware.exe /all /the /things'   ->   windows_path('c:\\user\\John')
-                                                                   ['Doe\\malware.exe /all /the /things']
+        >>> command(r"c:\\user\\John Doe\\malware.exe /all /the /things")
+        (executable='c:\\user\\John', args=('Doe\\\\malware.exe', '/all', '/the', '/things'))
     """
 
     __executable: path

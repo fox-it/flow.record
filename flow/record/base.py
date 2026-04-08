@@ -1041,7 +1041,7 @@ def normalize_fieldname(field_name: str) -> str:
     This normalizes the name so it can still be used in flow.record.
     Reserved field_names are not normalized.
 
-    .. code-block:: text
+    Example::
 
         >>> normalize_fieldname("my-variable-name-with-dashes")
         'my_variable_name_with_dashes'
