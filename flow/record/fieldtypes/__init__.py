@@ -101,7 +101,8 @@ def fieldtype_for_value(value: object, default: str = "string") -> str:
     Returns:
         str: the field type name or `default` if it cannot be derived
 
-    Examples:
+    Example::
+
         >>> fieldtype_for_value("hello")
         'string'
         >>> fieldtype_for_value(1337)
@@ -760,9 +761,7 @@ class command(FieldType):
         value: the string that contains the command and arguments
         path_type: When specified it forces the command to use a specific path type
 
-    Example:
-
-    .. code-block:: text
+    Example::
 
         >>> command("c:\\windows\\malware.exe /info")
         (executable='c:\\windows\\malware.exe', args=('/info',))
