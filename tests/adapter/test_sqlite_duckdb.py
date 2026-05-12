@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -11,7 +13,7 @@ except ModuleNotFoundError:
 
 import pytest
 
-from flow.record import Record, RecordDescriptor, RecordReader, RecordWriter
+from flow.record import GroupedRecord, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.sqlite import prepare_insert_sql
 from flow.record.base import normalize_fieldname
 from flow.record.exceptions import RecordDescriptorError
@@ -19,6 +21,8 @@ from flow.record.exceptions import RecordDescriptorError
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+    from flow.record import Record
 
 
 class Database(NamedTuple):
@@ -42,7 +46,7 @@ sqlite_duckdb_parametrize = pytest.mark.parametrize("db", databases, ids=[db.sch
 
 
 def generate_records(amount: int) -> Iterator[Record]:
-    """Generates some test records"""
+    """Generates some test records."""
     TestRecordWithFooBar = RecordDescriptor(
         "test/record",
         [
@@ -136,7 +140,7 @@ def test_write_to_sqlite(tmp_path: Path, count: int, db: Database) -> None:
             writer.write(record)
 
     record_count = 0
-    with db.connector.connect(str(db_path)) as con:
+    with closing(db.connector.connect(str(db_path))) as con:
         cursor = con.execute("SELECT COUNT(*) FROM 'test/record'")
         record_count = cursor.fetchone()[0]
 
@@ -157,7 +161,7 @@ def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
     """Tests basic reading from a SQLite database."""
     # Generate a SQLite database
     db_path = tmp_path / "records.db"
-    with db.connector.connect(str(db_path)) as con:
+    with closing(db.connector.connect(str(db_path))) as con:
         con.execute(
             """
             CREATE TABLE 'test/record' (
@@ -176,6 +180,7 @@ def test_read_from_sqlite(tmp_path: Path, db: Database) -> None:
                 """,
                 (f"record{i}", f"foobar{i}".encode(), dt_isoformat, 3.14 + i),
             )
+        con.commit()
 
     # Read the SQLite database using flow.record
     with RecordReader(f"{db.scheme}://{db_path}") as reader:
@@ -251,7 +256,7 @@ def test_write_zero_records(tmp_path: Path, db: Database) -> None:
         assert writer
 
     # test if it's a valid database
-    with db.connector.connect(str(db_path)) as con:
+    with closing(db.connector.connect(str(db_path))) as con:
         assert con.execute("SELECT * FROM sqlite_master").fetchall() == []
 
 
@@ -272,9 +277,10 @@ def test_write_zero_records(tmp_path: Path, db: Database) -> None:
 def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_value: Any, expected_value: Any) -> None:
     """SQLite by default is non strict, meaning that the value could be of different type than the column type."""
     db = tmp_path / "records.db"
-    with sqlite3.connect(db) as con:
+    with closing(sqlite3.connect(db)) as con:
         con.execute(f"CREATE TABLE 'strict-test' (field {sqlite_coltype})")
         con.execute("INSERT INTO 'strict-test' VALUES(?)", (sqlite_value,))
+        con.commit()
 
     with RecordReader(f"sqlite://{db}") as reader:
         record = next(iter(reader))
@@ -291,13 +297,13 @@ def test_non_strict_sqlite_fields(tmp_path: Path, sqlite_coltype: str, sqlite_va
 )
 def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) -> None:
     """Test if we get proper exception when table name is invalid for flow.record."""
-
     # Creating the tables with these invalid_table_names in SQLite is no problem
     db = tmp_path / "records.db"
-    with sqlite3.connect(db) as con:
+    with closing(sqlite3.connect(db)) as con:
         con.execute(f"CREATE TABLE [{invalid_table_name}] (field TEXT, field2 TEXT)")
         con.execute(f"INSERT INTO [{invalid_table_name}] VALUES(?, ?)", ("hello", "world"))
         con.execute(f"INSERT INTO [{invalid_table_name}] VALUES(?, ?)", ("goodbye", "planet"))
+        con.commit()
 
     # However, these invalid_table_names should raise an exception when reading
     with (
@@ -317,13 +323,13 @@ def test_invalid_table_names_quoting(tmp_path: Path, invalid_table_name: str) ->
 )
 def test_invalid_field_names_quoting(tmp_path: Path, invalid_field_name: str) -> None:
     """Test if we get proper exception when SQLite field name is invalid for flow.record."""
-
     # Creating the table with invalid field name in SQLite is no problem
     db = tmp_path / "records.db"
-    with sqlite3.connect(db) as con:
+    with closing(sqlite3.connect(db)) as con:
         con.execute(f"CREATE TABLE [test] (field TEXT, [{invalid_field_name}] TEXT)")
         con.execute("INSERT INTO [test] VALUES(?, ?)", ("hello", "world"))
         con.execute("INSERT INTO [test] VALUES(?, ?)", ("goodbye", "planet"))
+        con.commit()
 
     # However, these field names are invalid in flow.record and should raise an exception
     with (
@@ -365,7 +371,7 @@ def test_batch_size(
         writer.write(next(records))
 
         # test count of records in table (no flush yet if batch_size > 1)
-        with db.connector.connect(str(db_path)) as con:
+        with closing(db.connector.connect(str(db_path))) as con:
             x = con.execute('SELECT COUNT(*) FROM "test/record"')
             assert x.fetchone()[0] is expected_first
 
@@ -374,7 +380,7 @@ def test_batch_size(
             writer.write(next(records))
 
         # test count of records in table after flush
-        with db.connector.connect(str(db_path)) as con:
+        with closing(db.connector.connect(str(db_path))) as con:
             x = con.execute('SELECT COUNT(*) FROM "test/record"')
             assert x.fetchone()[0] == expected_second
 
@@ -395,3 +401,38 @@ def test_selector(tmp_path: Path, db: Database) -> None:
     with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record12345'") as reader:
         records = list(reader)
         assert len(records) == 0
+
+
+@sqlite_duckdb_parametrize
+def test_grouped_record(tmp_path: Path, db: Database) -> None:
+    """Test adapter with grouped records."""
+    db_path = tmp_path / "records.db"
+
+    DigestRecord = RecordDescriptor(
+        "meta/record",
+        [
+            ("digest", "digest"),
+        ],
+    )
+
+    with RecordWriter(f"{db.scheme}://{db_path}") as writer:
+        for record in generate_records(10):
+            digest_record = DigestRecord(
+                digest=(
+                    hashlib.md5(record.name.encode()).hexdigest(),
+                    hashlib.sha1(record.name.encode()).hexdigest(),
+                    hashlib.sha256(record.name.encode()).hexdigest(),
+                )
+            )
+            grouped = GroupedRecord("grouped/record", [digest_record, record])
+            writer.write(grouped)
+
+    with RecordReader(f"{db.scheme}://{db_path}", selector="r.name == 'record5'") as reader:
+        records = list(reader)
+        assert len(records) == 1
+        assert records[0].name == "record5"
+        assert records[0].digest == (
+            f"(md5={hashlib.md5(b'record5').hexdigest()}, "
+            f"sha1={hashlib.sha1(b'record5').hexdigest()}, "
+            f"sha256={hashlib.sha256(b'record5').hexdigest()})"
+        )

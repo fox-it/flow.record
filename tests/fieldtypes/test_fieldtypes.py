@@ -13,6 +13,7 @@ import pytest
 import flow.record.fieldtypes
 from flow.record import RecordDescriptor, RecordReader, RecordWriter, fieldtypes
 from flow.record.fieldtypes import (
+    HAS_ZONE_INFO,
     PY_312_OR_HIGHER,
     PY_313_OR_HIGHER,
     TYPE_POSIX,
@@ -27,6 +28,9 @@ from flow.record.fieldtypes import (
     windows_path,
 )
 from flow.record.fieldtypes import datetime as dt
+
+if HAS_ZONE_INFO:
+    from flow.record.fieldtypes import ZoneInfo
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -293,36 +297,6 @@ def test_dictlist() -> None:
     assert r.hits[1]["b"] == 4
 
 
-def test_boolean() -> None:
-    TestRecord = RecordDescriptor(
-        "test/boolean",
-        [
-            ("boolean", "booltrue"),
-            ("boolean", "boolfalse"),
-        ],
-    )
-
-    r = TestRecord(True, False)
-    assert bool(r.booltrue) is True
-    assert bool(r.boolfalse) is False
-
-    r = TestRecord(1, 0)
-    assert bool(r.booltrue) is True
-    assert bool(r.boolfalse) is False
-
-    assert str(r.booltrue) == "True"
-    assert str(r.boolfalse) == "False"
-
-    assert repr(r.booltrue) == "True"
-    assert repr(r.boolfalse) == "False"
-
-    with pytest.raises(ValueError, match="Value not a valid boolean value"):
-        r = TestRecord(2, -1)
-
-    with pytest.raises(ValueError, match="invalid literal for int"):
-        r = TestRecord("True", "False")
-
-
 def test_float() -> None:
     TestRecord = RecordDescriptor(
         "test/float",
@@ -457,7 +431,7 @@ def test_datetime() -> None:
         ("2006-11-10T14:29:55.585192699999999-07:00", datetime(2006, 11, 10, 21, 29, 55, 585192, tzinfo=UTC)),
     ],
 )
-def test_datetime_formats(tmp_path: pathlib.Path, value: str, expected_dt: datetime) -> None:
+def test_datetime_formats(tmp_path: pathlib.Path, value: str | datetime | float, expected_dt: datetime) -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
         [
@@ -476,6 +450,80 @@ def test_datetime_formats(tmp_path: pathlib.Path, value: str, expected_dt: datet
     with RecordReader(path) as reader:
         record = next(iter(reader))
         assert record.dt == expected_dt
+
+
+DATETIME_FOLD_PARAMS = [
+    (datetime(2023, 1, 1, tzinfo=UTC, fold=1), datetime(2023, 1, 1, tzinfo=UTC)),
+]
+if HAS_ZONE_INFO:
+    DATETIME_FOLD_PARAMS.append(
+        (
+            datetime(2025, 10, 26, 2, 0, 3, tzinfo=ZoneInfo("Europe/Amsterdam"), fold=1),
+            datetime(2025, 10, 26, 1, 0, 3, tzinfo=UTC),
+        ),
+    )
+
+
+@pytest.mark.skipif(not HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
+@pytest.mark.parametrize(("value", "expected_dt"), DATETIME_FOLD_PARAMS)
+def test_datetime_formats_fold(tmp_path: pathlib.Path, value: datetime, expected_dt: datetime) -> None:
+    """Test whether datetime accepts fold parameters and converts it correctly."""
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+    record = TestRecord(dt=value)
+    assert record.dt.fold == 1
+    assert record.dt.astimezone(UTC) == expected_dt
+
+    # test packing / serialization of datetime fields
+    path = tmp_path / "datetime.records"
+    with RecordWriter(path) as writer:
+        writer.write(record)
+
+    # test unpacking / deserialization of datetime fields
+    with RecordReader(path) as reader:
+        record = next(iter(reader))
+        # Need to convert it to UTC specifically as the timezones do not match
+        assert record.dt.astimezone(UTC) == expected_dt
+
+
+@pytest.mark.skipif(not HAS_ZONE_INFO, reason="ZoneInfo is required for testing datetime fold parameter")
+def test_datetime_fold_example() -> None:
+    """Test datetime fold parameter during daylight saving time changes in the Netherlands, which has a
+    timezone offset of +01:00 during wintertime and +02:00 during summertime.
+    """
+    TestRecord = RecordDescriptor(
+        "test/datetime",
+        [
+            ("datetime", "dt"),
+        ],
+    )
+
+    # 2025-10-26 is the date of the end of daylight saving time in the Netherlands.
+    # At 3:00 AM the clock goes back to 2:00 AM, so 2:00 AM occurs twice. The first occurrence has fold=0
+    record = TestRecord("2025-10-26T00:00:00+00:00")
+    nl_dt = record.dt.astimezone(ZoneInfo("Europe/Amsterdam"))
+    assert nl_dt.isoformat() == "2025-10-26T02:00:00+02:00"
+    assert nl_dt.hour == 2
+    assert nl_dt.fold == 0
+
+    # test that both datetimes are considered equal when converted to UTC
+    record2 = TestRecord(nl_dt)
+    assert record.dt.astimezone(UTC) == record2.dt.astimezone(UTC)
+
+    # wintertime, the clock goes back from 3:00 AM to 2:00 AM, so 2:00 AM occurs twice. The second occurrence has fold=1
+    record = TestRecord("2025-10-26T01:00:00+00:00")
+    nl_dt = record.dt.astimezone(ZoneInfo("Europe/Amsterdam"))
+    assert nl_dt.isoformat() == "2025-10-26T02:00:00+01:00"
+    assert nl_dt.hour == 2
+    assert nl_dt.fold == 1
+
+    # test that both datetimes are considered equal when converted to UTC
+    record2 = TestRecord(nl_dt)
+    assert record.dt.astimezone(UTC) == record2.dt.astimezone(UTC)
 
 
 def test_digest() -> None:

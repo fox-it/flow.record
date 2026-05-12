@@ -1,8 +1,13 @@
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from flow.record import RecordReader, RecordWriter
 from flow.record.context import fresh_app_context, get_app_context
 from tests._utils import generate_plain_records
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_record_context() -> None:

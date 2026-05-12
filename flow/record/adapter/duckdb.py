@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import duckdb
 
 from flow.record.adapter.sqlite import (
-    Selector,
     SqliteReader,
     SqliteWriter,
     make_selector,
 )
+
+if TYPE_CHECKING:
+    from flow.record.adapter.sqlite import (
+        Selector,
+    )
 
 logger = logging.getLogger(__name__)
 

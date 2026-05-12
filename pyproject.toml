@@ -154,7 +154,7 @@ select = [
   "SLOT",
   "SIM",
   "TID",
-  "TCH",
+  "TC",
   "PTH",
   "PLC",
   "TRY",
@@ -162,14 +162,32 @@ select = [
   "PERF",
   "FURB",
   "RUF",
+  "D"
 ]
-ignore = ["E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003", "TRY400"]
+ignore = [
+    "E203", "B904", "UP024", "ANN002", "ANN003", "ANN204", "ANN401", "SIM105", "TRY003", "PLC0415",
+    # Ignore some pydocstyle rules for now as they require a larger cleanup
+    "D1",
+    "D205",
+    "D301",
+    "D417",
+    # Seems bugged: https://github.com/astral-sh/ruff/issues/16824
+    "D402",
+]
+future-annotations = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
 
 [tool.ruff.lint.per-file-ignores]
 "tests/_docs/**" = ["INP001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["flow.record"]
+required-imports = ["from __future__ import annotations"]
 
 [tool.setuptools.packages.find]
 include = ["flow.*"]

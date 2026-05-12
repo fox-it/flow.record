@@ -8,13 +8,15 @@ from typing import TYPE_CHECKING
 
 from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
-from flow.record.base import Record, normalize_fieldname
+from flow.record.base import normalize_fieldname
 from flow.record.context import get_app_context, match_record_with_context
 from flow.record.selector import make_selector
 from flow.record.utils import boolean_argument, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flow.record.base import Record
 
 __usage__ = """
 Comma-separated values (CSV) adapter

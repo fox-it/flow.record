@@ -676,7 +676,7 @@ def test_fieldtype_typedlist_net_ipaddress() -> None:
 
 
 def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
-    """RecordWriter should default to stdin if no path is given"""
+    """RecordWriter should default to stdin if no path is given."""
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -699,7 +699,7 @@ def test_record_reader_default_stdin(tmp_path: pathlib.Path) -> None:
 
 
 def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> None:
-    """RecordWriter should default to stdout if no path is given"""
+    """RecordWriter should default to stdout if no path is given."""
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -717,7 +717,6 @@ def test_record_writer_default_stdout(capsysbinary: pytest.CaptureFixture) -> No
 
 def test_rdump_selected_fields(capsysbinary: pytest.CaptureFixture) -> None:
     """Test rdump regression where selected fields was not propagated properly to adapter."""
-
     # Pastebin record used for this test
     example_records_json_path = Path(__file__).parent.parent / "examples" / "records.json"
 
