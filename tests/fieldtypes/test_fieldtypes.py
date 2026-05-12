@@ -813,6 +813,11 @@ def test_fieldtype_for_value() -> None:
     assert fieldtype_for_value(b"\r\n") == "bytes"
     assert fieldtype_for_value("hello world") == "string"
     assert fieldtype_for_value(datetime.now()) == "datetime"  # noqa: DTZ005
+    assert fieldtype_for_value("2026-03-19T14:20:23+00:00") == "datetime"
+    assert fieldtype_for_value("2026-03-19T14:20:23-01:00") == "datetime"
+    assert fieldtype_for_value("2026-03-19T14:20:23Z") == "datetime"
+    assert fieldtype_for_value("2026-03-19T14:20:23.123Z") == "datetime"
+    assert fieldtype_for_value("2026-03-19T14:20:23.123+01:00") == "datetime"
     assert fieldtype_for_value([1, 2, 3, 4, 5]) == "string"
     assert fieldtype_for_value([1, 2, 3, 4, 5], None) is None
     assert fieldtype_for_value(object(), None) is None

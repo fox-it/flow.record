@@ -29,6 +29,7 @@ from flow.record.base import FieldType, Record
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 RE_WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
+RE_ISO8601_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z|[\+-]\d{2}:\d{2})$")
 
 UTC = timezone.utc
 
@@ -110,6 +111,8 @@ def fieldtype_for_value(value: object, default: str = "string") -> str:
     if isinstance(value, _bytes):
         return "bytes"
     if isinstance(value, str):
+        if RE_ISO8601_DATETIME.match(value):
+            return "datetime"
         return "string"
     if isinstance(value, _float):
         return "float"
