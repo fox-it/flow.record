@@ -12,7 +12,7 @@ from binascii import a2b_hex, b2a_hex
 from datetime import datetime as _dt
 from datetime import timezone
 from posixpath import basename, dirname
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 try:
@@ -25,7 +25,10 @@ except ImportError:
     HAS_ZONE_INFO = False
 
 
-from flow.record.base import FieldType, Record
+from flow.record.base import FieldType
+
+if TYPE_CHECKING:
+    from flow.record.base import Record
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 RE_WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
@@ -53,7 +56,6 @@ def flow_record_tz(*, default_tz: str = "UTC") -> ZoneInfo | UTC | None:
     Returns:
         None if ``FLOW_RECORD_TZ=NONE`` otherwise ``ZoneInfo(FLOW_RECORD_TZ)`` or ``UTC`` if ZoneInfo is not found.
     """
-
     tz = os.environ.get("FLOW_RECORD_TZ", default_tz)
     if tz.upper() == "NONE":
         return None
@@ -80,7 +82,7 @@ DISPLAY_TZINFO = flow_record_tz(default_tz="UTC")
 
 
 def defang(value: str) -> str:
-    """Defangs the value to make URLs or ip addresses unclickable"""
+    """Defangs the value to make URLs or ip addresses unclickable."""
     value = re.sub("^http://", "hxxp://", value, flags=re.IGNORECASE)
     value = re.sub("^https://", "hxxps://", value, flags=re.IGNORECASE)
     value = re.sub("^ftp://", "fxp://", value, flags=re.IGNORECASE)
@@ -100,13 +102,13 @@ def fieldtype_for_value(value: object, default: str = "string") -> str:
     Returns:
         str: the field type name or `default` if it cannot be derived
 
-    Examples:
+    Example::
+
         >>> fieldtype_for_value("hello")
-        "string"
+        'string'
         >>> fieldtype_for_value(1337)
-        "varint"
+        'varint'
         >>> fieldtype_for_value(object(), None)
-        None
     """
     if isinstance(value, _bytes):
         return "bytes"
@@ -311,6 +313,7 @@ class datetime(_dt, FieldType):
                     arg.second,
                     arg.microsecond,
                     tzinfo,
+                    fold=arg.fold,
                 )
         else:
             obj = _dt.__new__(cls, *args, **kwargs)
@@ -761,16 +764,21 @@ class command(FieldType):
         value: the string that contains the command and arguments
         path_type: When specified it forces the command to use a specific path type
 
-    Example:
+    Example::
 
-    .. code-block:: text
+        >>> command("c:\\windows\\malware.exe /info")
+        (executable='c:\\windows\\malware.exe', args=('/info',))
+        >>> command("c:\\windows\\malware.exe /info").executable
+        'c:\\windows\\malware.exe'
+        >>> command("c:\\windows\\malware.exe /info").args
+        ('/info',)
 
-        'c:\\windows\\malware.exe /info'                      ->   windows_path('c:\\windows\\malware.exe) ['/info']
-        '/usr/bin/env bash'                                   ->   posix_path('/usr/bin/env') ['bash']
+        >>> command("/usr/bin/env bash -l")
+        (executable='/usr/bin/env', args=('bash', '-l'))
 
         # In this situation, the executable path needs to be quoted.
-        'c:\\user\\John Doe\\malware.exe /all /the /things'   ->   windows_path('c:\\user\\John')
-                                                                   ['Doe\\malware.exe /all /the /things']
+        >>> command(r"c:\\user\\John Doe\\malware.exe /all /the /things")
+        (executable='c:\\user\\John', args=('Doe\\\\malware.exe', '/all', '/the', '/things'))
     """
 
     __executable: path

@@ -49,12 +49,7 @@ class JsonRecordPacker:
                 serial["_type"] = "record"
                 serial["_recorddescriptor"] = obj._desc.identifier
 
-            for field_type, field_name in obj._desc.get_field_tuples():
-                # Boolean field types should be cast to a bool instead of staying ints
-                if field_type == "boolean" and isinstance(serial[field_name], int):
-                    serial[field_name] = bool(serial[field_name])
-
-            return serial
+            return self.convert_basic_types(serial)
         if isinstance(obj, RecordDescriptor):
             return {
                 "_type": "recorddescriptor",
@@ -102,7 +97,19 @@ class JsonRecordPacker:
                 return RecordDescriptor._unpack(*data)
         return obj
 
-    def pack(self, obj: Record | RecordDescriptor) -> str:
+    def convert_basic_types(self, obj: Any) -> Any:
+        """Explicitly convert some basic types when packing to JSON."""
+        if isinstance(obj, fieldtypes.boolean):
+            return bool(obj)
+        if isinstance(obj, dict):
+            return {k: self.convert_basic_types(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self.convert_basic_types(item) for item in obj]
+        return obj
+
+    def pack(self, obj: Record | RecordDescriptor | dict) -> str:
+        if isinstance(obj, dict):
+            obj = self.convert_basic_types(obj)
         return json.dumps(obj, default=self.pack_obj, indent=self.indent)
 
     def unpack(self, d: str) -> RecordDescriptor | Record:

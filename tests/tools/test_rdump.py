@@ -20,6 +20,7 @@ from flow.record import RecordDescriptor, RecordReader, RecordWriter
 from flow.record.adapter.line import field_types_for_record_descriptor
 from flow.record.fieldtypes import flow_record_tz
 from flow.record.tools import rdump
+from flow.record.utils import LOGGING_TRACE_LEVEL
 from tests._utils import generate_plain_records
 
 
@@ -725,7 +726,6 @@ def test_rdump_list_progress(tmp_path: Path, capsys: pytest.CaptureFixture) -> N
 
 def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """Test progress bar in app context."""
-
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(2000):
             writer.write(record)
@@ -739,7 +739,6 @@ def test_record_context_rdump_progressbar(tmp_path: Path, capsys: pytest.Capture
 
 def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     """Test progress bar in app context with known totals (creates a percentage progress bar)."""
-
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(100):
             writer.write(record)
@@ -753,8 +752,7 @@ def test_record_context_rdump_progressbar_with_known_totals(tmp_path: Path, caps
 
 
 def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
-    """Test stats output in app context. Stats line is printed to stdout and not stderr"""
-
+    """Test stats output in app context. Stats line is printed to stdout and not stderr."""
     with RecordWriter(tmp_path / "test.records") as writer:
         for record in generate_plain_records(100):
             writer.write(record)
@@ -767,7 +765,6 @@ def test_record_rdump_stats(tmp_path: Path, capsys: pytest.CaptureFixture) -> No
 @pytest.mark.skipif(platform.system() == "Windows", reason="skipping this test on Windows")
 def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
     """Test if rdump properly suppresses BrokenPipeError when writing to a closed file handle."""
-
     TestRecord = RecordDescriptor(
         "test/record",
         [
@@ -801,7 +798,6 @@ def test_rdump_catch_sigpipe(tmp_path: Path) -> None:
 
 def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
     """Test that rdump handles empty records as input gracefully."""
-
     # create an empty records file
     path = tmp_path / "empty.records"
     with RecordWriter(path):
@@ -834,7 +830,6 @@ def test_rdump_empty_records_pipe(tmp_path: Path) -> None:
 )
 def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     """Test that rdump handles empty stdin as input gracefully."""
-
     # rdump -l (with empty stdin)
     pipe = subprocess.Popen(
         ["rdump", "-l"],
@@ -857,8 +852,7 @@ def test_rdump_empty_stdin_pipe(stdin_bytes: bytes | None) -> None:
     ],
 )
 def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
-    """Test that rdump handles invalid stdin as an error"""
-
+    """Test that rdump handles invalid stdin as an error."""
     # rdump -l (with invalid stdin)
     pipe = subprocess.Popen(
         ["rdump", "-l"],
@@ -870,3 +864,72 @@ def test_rdump_invalid_stdin_pipe(stdin_bytes: bytes) -> None:
     assert pipe.returncode == 1, "rdump should exit with error code 1 on invalid input"
     assert b"rdump encountered a fatal error: Could not find adapter for file-like object" in stderr
     assert b"Processed 0 records (matched=0, unmatched=0)" in stdout
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="skip on python 3.10 or lower")
+def test_rdump_print_error_notes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that rdump prints error notes when an exception occurs."""
+    path = tmp_path / "test.records"
+    path.touch()  # create an empty file
+
+    exc = ValueError("something went wrong")
+    exc.add_note("Check the input format")
+
+    with mock.patch("flow.record.tools.rdump.RecordWriter", side_effect=exc):
+        rdump.main([str(path)])
+    _out, err = capsys.readouterr()
+
+    assert "something went wrong" in err
+    assert "Check the input format" in err
+    assert "To show full traceback, run with -vvv" in err
+
+    # with full traceback
+    with (
+        caplog.at_level(LOGGING_TRACE_LEVEL),
+        mock.patch("flow.record.tools.rdump.RecordWriter", side_effect=exc),
+        pytest.raises(ValueError, match="something went wrong\nCheck the input format"),
+    ):
+        rdump.main([str(path), "-vvv"])
+
+    capsys.readouterr()
+
+
+def test_rdump_fields_with_spaces(tmp_path: Path, capsysbinary: pytest.CaptureFixture) -> None:
+    """Test if rdump handles spaces in field names gracefully."""
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("varint", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+
+    path = tmp_path / "test.records"
+    out_path = tmp_path / "out.records"
+    with RecordWriter(path) as writer:
+        writer.write(TestRecord(count=0, foo="bar", bar="baz"))
+
+    # test if fields works with spaces in the name
+    rdump.main([str(path), "--fields", "foo, count  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["foo", "count"]
+
+    # test if exclude works with spaces in the field names
+    rdump.main([str(path), "--exclude", "  foo,   bar  ", "-w", str(out_path)])
+    with RecordReader(out_path) as reader:
+        records = list(reader)
+    assert len(records) == 1
+    assert list(records[0]._desc.fields.keys()) == ["count"]
+
+    # also test an adapter
+    rdump.main([str(path), "--exclude", "  foo,   bar  ", "--csv"])
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert b"count,_source,_classification,_generated,_version\r\n" in captured.out

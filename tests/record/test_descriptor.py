@@ -118,7 +118,7 @@ def test_record_descriptor_hash_cache() -> None:
 
 
 def test_record_descriptor_hashing() -> None:
-    """Test if hashing is still consistent to keep compatibility"""
+    """Test if hashing is still consistent to keep compatibility."""
     TestRecord = RecordDescriptor(
         "test/hash",
         [
@@ -140,7 +140,7 @@ def test_record_descriptor_hashing() -> None:
 
 
 def test_record_descriptor_hash_eq() -> None:
-    """Tests __hash__() on RecordDescriptor"""
+    """Tests __hash__() on RecordDescriptor."""
     TestRecordSame1 = RecordDescriptor(
         "test/same",
         [

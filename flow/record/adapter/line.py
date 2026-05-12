@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
-from flow.record import Record, RecordDescriptor, open_path_or_stream
+from flow.record import open_path_or_stream
 from flow.record.adapter import AbstractWriter
 from flow.record.utils import is_stdout
+
+if TYPE_CHECKING:
+    from flow.record import Record, RecordDescriptor
 
 __usage__ = """
 Line output format adapter (writer only)

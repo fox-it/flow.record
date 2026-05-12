@@ -6,14 +6,17 @@ from datetime import datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from flow.record import Record, RecordDescriptor
+from flow.record import RecordDescriptor
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import RESERVED_FIELDS, normalize_fieldname
 from flow.record.context import get_app_context, match_record_with_context
-from flow.record.selector import Selector, make_selector
+from flow.record.selector import make_selector
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+    from flow.record import Record
+    from flow.record.selector import Selector
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +112,10 @@ def prepare_insert_sql(table_name: str, field_names: tuple[str]) -> str:
 
 def db_insert_record(con: sqlite3.Connection, record: Record) -> None:
     """Insert a record into the database."""
-    table_name = record._desc.name
+    descriptor = record._desc
+    table_name = descriptor.name
     rdict = record._asdict()
-
-    sql = prepare_insert_sql(table_name, record.__slots__)
+    sql = prepare_insert_sql(table_name, tuple(rdict.keys()))
 
     # Convert values to str() for types we don't support
     values = []
@@ -148,7 +151,6 @@ class SqliteReader(AbstractReader):
 
     def read_table(self, table_name: str) -> Iterator[Record]:
         """Read a table from the database and yield records."""
-
         # flow.record is quite strict with what is allowed in fieldnames or decriptor name.
         # While SQLite is less strict, we need to sanitize the names to make them compatible.
         table_name_org = table_name.replace('"', '""')
@@ -204,6 +206,11 @@ class SqliteReader(AbstractReader):
                 if match_record_with_context(record, selector, ctx):
                     yield record
 
+    def close(self) -> None:
+        if self.con:
+            self.con.close()
+        self.con = None
+
 
 class SqliteWriter(AbstractWriter):
     """SQLite writer."""
@@ -219,7 +226,7 @@ class SqliteWriter(AbstractWriter):
         self.tx_cycle()
 
     def write(self, record: Record) -> None:
-        """Write a record to the database"""
+        """Write a record to the database."""
         desc = record._desc
         if desc not in self.descriptors_seen:
             self.descriptors_seen.add(desc)
