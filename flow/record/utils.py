@@ -86,6 +86,19 @@ def to_base64(value: str) -> str:
     return base64.b64encode(value).decode()
 
 
+def escape_surrogates(s: str) -> str:
+    """Escape surrogate unicode symbols."""
+    try:
+        s.encode("utf-8")
+    except UnicodeEncodeError:
+        # Has surrogates - use repr but fix the over-escaping
+        s = repr(s)[1:-1]  # This escapes surrogates as \udcXX
+        s = s.replace("\\\\", "\\")  # Fix double backslashes
+        s = s.replace("\\'", "'")  # Fix over-escaped quotes
+        s = s.replace('\\"', '"')  # Fix over-escaped double quotes
+    return s
+
+
 def catch_sigpipe(func: Callable[..., int]) -> Callable[..., int]:
     """Catches KeyboardInterrupt and BrokenPipeError (OSError 22 on Windows)."""
 
