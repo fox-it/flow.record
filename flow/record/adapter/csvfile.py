@@ -6,12 +6,12 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from flow.record import RecordDescriptor
+from flow.record import RecordDescriptor, fieldtypes
 from flow.record.adapter import AbstractReader, AbstractWriter
 from flow.record.base import normalize_fieldname
 from flow.record.context import get_app_context, match_record_with_context
 from flow.record.selector import make_selector
-from flow.record.utils import boolean_argument, is_stdout
+from flow.record.utils import boolean_argument, escape_surrogates, is_stdout
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -68,6 +68,9 @@ class CsvfileWriter(AbstractWriter):
             if self.header:
                 # Write header only if it is requested
                 self.writer.writeheader()
+        for k, v in rdict.items():
+            if isinstance(v, fieldtypes.string):
+                rdict[k] = escape_surrogates(v)
         self.writer.writerow(rdict)
 
     def flush(self) -> None:

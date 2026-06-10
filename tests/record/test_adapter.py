@@ -27,6 +27,7 @@ from flow.record.base import (
     LZ4_MAGIC,
     ZSTD_MAGIC,
 )
+from flow.record.fieldtypes import windows_path
 from flow.record.selector import CompiledSelector, Selector
 from tests._utils import generate_records
 
@@ -453,6 +454,42 @@ def test_csv_adapter_lineterminator(capsysbinary: pytest.CaptureFixture) -> None
             writer.write(rec)
     out, _ = capsysbinary.readouterr()
     assert out == b"count,foo,bar@0,hello,world@1,hello,world@2,hello,world@"
+
+
+def test_csv_adapter_surrogates(capsysbinary: pytest.CaptureFixture) -> None:
+    TestRecord = RecordDescriptor(
+        "test/record",
+        [
+            ("uint32", "count"),
+            ("string", "foo"),
+            ("string", "bar"),
+        ],
+    )
+
+    with RecordWriter(r"csvfile://?exclude=_source,_classification,_generated,_version") as writer:
+        rec = TestRecord(count=0, foo="hello", bar="world\udcce\udcc1\udcd9\udcc8")
+        writer.write(rec)
+    out, _ = capsysbinary.readouterr()
+    assert out == b"count,foo,bar\r\n0,hello,world\\udcce\\udcc1\\udcd9\\udcc8\r\n"
+
+
+def test_csv_adapter_windows_path_surrogates(capsysbinary: pytest.CaptureFixture) -> None:
+    Record = RecordDescriptor(
+        "test/record",
+        [
+            ("string", "name"),
+            ("path", "value"),
+        ],
+    )
+    record = Record(
+        b"R\xc3\xa9\xeamy",
+        windows_path(b"\x43\x3a\x5c\xc3\xa4\xc3\x84\xe4".decode(errors="surrogateescape")),
+    )
+
+    with RecordWriter(r"csvfile://?exclude=_source,_classification,_generated,_version") as writer:
+        writer.write(record)
+    out, _ = capsysbinary.readouterr()
+    assert out.decode("utf-8") == "name,value\r\nRé\\udceamy,C:\\äÄ\\udce4\r\n"
 
 
 def test_csvfilereader(tmp_path: Path) -> None:
