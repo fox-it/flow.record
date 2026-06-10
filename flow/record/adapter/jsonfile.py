@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING, BinaryIO
+import logging
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from flow import record
 from flow.record import JsonRecordPacker
@@ -26,6 +26,9 @@ Read usage: rdump jsonfile://[PATH]
 [INDENT]: optional number of identation. Omit "indent" field value for jsonlines output
 [DESCRIPTORS]: optional boolean. If false, don't output record descriptors (default: true)
 """
+
+
+log = logging.getLogger(__name__)
 
 
 class JsonfileWriter(AbstractWriter):
@@ -65,33 +68,56 @@ class JsonfileWriter(AbstractWriter):
 class JsonfileReader(AbstractReader):
     fp = None
 
-    def __init__(self, path: str | Path | BinaryIO, selector: str | None = None, **kwargs):
+    def __init__(
+        self, path: str | Path | BinaryIO, selector: str | None = None, record_name: str = "json/record", **kwargs
+    ):
         self.selector = make_selector(selector)
         self.fp = record.open_path_or_stream(path, "r")
         self.packer = JsonRecordPacker()
+        self.record_name = record_name
 
     def close(self) -> None:
         if self.fp:
             self.fp.close()
         self.fp = None
 
+    def obj_hook(self, obj: record.Record | dict) -> Any:
+        return obj
+
     def __iter__(self) -> Iterator[Record]:
         ctx = get_app_context()
         selector = self.selector
+
+        if not self.fp:
+            return
+
         for line in self.fp:
-            obj = self.packer.unpack(line)
-            if isinstance(obj, record.Record):
-                if match_record_with_context(obj, selector, ctx):
-                    yield obj
-            elif isinstance(obj, record.RecordDescriptor):
-                pass
-            else:
-                # fallback for plain jsonlines (non flow.record format)
-                jd = json.loads(line)
+            if not line or line == "\n":
+                continue
+
+            try:
+                obj = self.packer.unpack(line)
+            except Exception as e:
+                log.warning("Failed unpacking line '%s'", line)
+                log.debug("", exc_info=e)
+                continue
+
+            if isinstance(obj, record.RecordDescriptor):
+                continue
+
+            elif isinstance(obj, record.Record) and match_record_with_context(obj, selector, ctx):
+                yield self.obj_hook(obj)
+
+            elif isinstance(obj, dict):
+                obj = self.obj_hook(obj)
+
                 fields = [
-                    (fieldtype_for_value(val, "string"), key) for key, val in jd.items() if not key.startswith("_")
+                    (fieldtype_for_value(val, "string"), key) for key, val in obj.items() if not key.startswith("_")
                 ]
-                desc = record.RecordDescriptor("json/record", fields)
-                obj = desc(**jd)
+                desc = record.RecordDescriptor(self.record_name, fields)
+                obj = desc(**obj)
                 if match_record_with_context(obj, selector, ctx):
                     yield obj
+
+            else:
+                log.warning("Failed handling unpacked line '%s'", line)
