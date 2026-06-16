@@ -283,6 +283,10 @@ def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int =
 
     notes = []
     for idx, error in enumerate(errors, 1):
+        # The stack of errors could include different exceptions, such as TransportErrors.
+        if not hasattr(error, "get"):
+            continue
+
         # Extract index information
         index = error.get("index", {})
         index_name = index.get("_index", "unknown _index")
