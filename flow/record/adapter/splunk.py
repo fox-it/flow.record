@@ -21,18 +21,24 @@ from flow.record.jsonpacker import JsonRecordPacker
 from flow.record.utils import boolean_argument, to_base64, to_bytes, to_str
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from flow.record.base import Record
 
 __usage__ = """
 Splunk output adapter (writer only)
 ---
 Write usage: rdump -w splunk+[PROTOCOL]://[IP]:[PORT]?tag=[TAG]&token=[TOKEN]&sourcetype=[SOURCETYPE]
-[PROTOCOL]: Protocol to use for forwarding data. Can be tcp, http or https, defaults to tcp if omitted.
 [IP]:[PORT]: ip and port to a splunk instance
-[TAG]: optional value to add as "rdtag" output field when writing
 [TOKEN]: Authentication token for sending data over HTTP(S)
-[SOURCETYPE]: Set sourcetype of data. Defaults to records, but can also be set to JSON.
-[SSL_VERIFY]: Whether to verify the server certificate when sending data over HTTPS. Defaults to True.
+
+Optional arguments:
+    [PROTOCOL]: Protocol to use for forwarding data [tcp|http|https] (default: tcp).
+    [TAG]: optional value to add as "rdtag" output field when writing
+    [SOURCETYPE]: Set sourcetype of data [records|json] (default: records).
+    [SSL_VERIFY]: Whether to verify the server certificate when sending data over HTTPS (default: True).
+    [INDEX]: The name of the index by which the event data is to be indexed (default: None, use token default index).
+        Ignored when PROTOCOL is tcp.
 """
 
 log = logging.getLogger(__name__)
@@ -132,18 +138,20 @@ def record_to_splunk_json(packer: JsonRecordPacker, record: Record, tag: str | N
     return json_dict
 
 
-def record_to_splunk_http_api_json(packer: JsonRecordPacker, record: Record, tag: str | None = None) -> str:
+def record_to_splunk_http_api_json(
+    packer: JsonRecordPacker, record: Record, tag: str | None = None, index: str | None = None
+) -> str:
     ret = {}
 
-    indexer_fields = [
+    event_medatata = [
         ("host", "host"),
         ("host", "hostname"),
         ("time", "ts"),
     ]
 
     # When converting a record to json text for splunk, we distinguish between the 'event' (containing the data) and a
-    # few other fields that are splunk-specific for indexing. We add those 'indexer_fields' to the return object first.
-    for splunk_name, field_name in indexer_fields:
+    # few other fields that are splunk-specific for indexing. We add those 'event_medatata' to the return object first.
+    for splunk_name, field_name in event_medatata:
         if hasattr(record, field_name):
             val = getattr(record, field_name)
             if val:
@@ -152,12 +160,15 @@ def record_to_splunk_http_api_json(packer: JsonRecordPacker, record: Record, tag
                     ret[splunk_name] = val.timestamp()
                     continue
                 ret[splunk_name] = to_str(val)
-
+    if index:
+        ret["index"] = index
     ret["event"] = record_to_splunk_json(packer, record, tag)
     return json.dumps(ret, default=packer.pack_obj)
 
 
-def record_to_splunk_tcp_api_json(packer: JsonRecordPacker, record: Record, tag: str | None = None) -> str:
+def record_to_splunk_tcp_api_json(
+    packer: JsonRecordPacker, record: Record, tag: str | None = None, index: str | None = None
+) -> str:
     record_dict = record_to_splunk_json(packer, record, tag)
     return json.dumps(record_dict, default=packer.pack_obj)
 
@@ -173,6 +184,7 @@ class SplunkWriter(AbstractWriter):
         token: str | None = None,
         sourcetype: str | None = None,
         ssl_verify: bool = True,
+        index: str | None = None,
         **kwargs,
     ):
         # If the writer is initiated without a protocol, we assume we will be writing over tcp
@@ -192,10 +204,11 @@ class SplunkWriter(AbstractWriter):
         self.port = parsed_url.port
 
         self.tag = tag
+        self.index = index
         self.record_buffer = []
         self._warned = False
         self.packer = None
-        self.json_converter = None
+        self.json_converter: Callable[[JsonRecordPacker, Record, str | None, str | None], str] | None = None
 
         if self.protocol == Protocol.TCP:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socket.SOL_TCP)
@@ -225,6 +238,8 @@ class SplunkWriter(AbstractWriter):
             endpoint = "event" if self.sourcetype != SourceType.RECORDS else "raw"
             port = f":{self.port}" if self.port else ""
             self.url = f"{scheme}://{self.host}{port}/services/collector/{endpoint}?auto_extract_timestamp=true"
+            if self.sourcetype == SourceType.RECORDS and self.index:
+                self.url = f"{self.url}&index={self.index}"
 
             self.headers = {
                 "Authorization": self.token,
@@ -280,7 +295,7 @@ class SplunkWriter(AbstractWriter):
         if self.sourcetype == SourceType.RECORDS:
             rec = record_to_splunk_kv_line(record, self.tag)
         else:
-            rec = self.json_converter(self.packer, record, self.tag)
+            rec = self.json_converter(self.packer, record, self.tag, self.index)
 
         # Trail with a newline for line breaking.
         data = to_bytes(rec) + b"\n"
