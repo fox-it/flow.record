@@ -71,6 +71,59 @@ $ rdump output.records.gz
 <my/record ip=net.ipaddress('8.8.8.8') description='google dns'>
 ```
 
+### Declarative record definitions
+
+Besides the `RecordDescriptor` API shown above, records can also be defined declaratively by subclassing `RecordBase`
+and annotating fields, like a `dataclass` or `NamedTuple`:
+
+```python
+from datetime import datetime
+from typing import Annotated
+
+from flow.record.declarative import RecordBase, field
+
+
+class HttpRequestRecord(RecordBase, name="http/request"):
+    ts: datetime
+    url: str  # native types map (e.g. str -> string)
+    status: Annotated[int, "uint32"]  # or field(typename="uint32")
+    remote: str
+
+
+record = HttpRequestRecord(ts=datetime.now(), url="http://flow.record", status=200, remote="127.0.0.1")
+```
+
+Inheritance works as expected — a subclass extends its parent's fields:
+
+```python
+class HttpResponseRecord(HttpRequestRecord, name="http/response"):
+    body: bytes
+```
+
+Use `field(init=False)` for derived fields and populate them from `InitVar` inputs in a `__post_init__` hook:
+
+```python
+from dataclasses import InitVar
+
+
+class HostRecord(RecordBase, name="example/host"):
+    hostname: str = field(init=False)
+    target: InitVar[object]
+
+    def __post_init__(self, target: object) -> None:
+        self.hostname = target.hostname
+```
+
+> [!NOTE]
+> Field annotations are evaluated at runtime (via `get_type_hints`). If your project uses Ruff's `flake8-type-checking`
+> (`TC`) rules, add `RecordBase` to the runtime-evaluated base classes once, so imports used only in field annotations
+> are not moved into a `TYPE_CHECKING` block:
+>
+> ```toml
+> [tool.ruff.lint.flake8-type-checking]
+> runtime-evaluated-base-classes = ["flow.record.declarative.RecordBase"]
+> ```
+
 ### Selectors
 
 We can also use `selectors` for filtering and selecting records using a query (Python like syntax), e.g.:
