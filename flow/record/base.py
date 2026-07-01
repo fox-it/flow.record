@@ -132,6 +132,7 @@ RECORD_SET_FIELD_TEMPLATE = """\
     _set_{name}(__self, {name})
 """
 
+_FIELDTYPES_PREFIX = "flow.record.fieldtypes"
 
 if env_excluded_fields := os.environ.get("FLOW_RECORD_IGNORE"):
     IGNORE_FIELDS_FOR_COMPARISON = set(env_excluded_fields.split(","))
@@ -169,6 +170,11 @@ class FieldType:
     @classmethod
     def _unpack(cls, data: Any) -> Any:
         return data
+
+
+def _default_is_trivial(field_type: type[FieldType]) -> bool:
+    """Return whether ``field_type`` uses the base :meth:`FieldType.default` (i.e. returns ``None``)."""
+    return field_type.default.__func__ is FieldType.default.__func__
 
 
 class Record:
@@ -489,7 +495,7 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
 
     for template_name, fname in names.items():
         field_type = all_fields[fname].type
-        has_default = getattr(field_type.default, "__func__", None) is not FieldType.default.__func__
+        has_default = not _default_is_trivial(field_type)
         has_unpack = getattr(field_type._unpack, "__func__", None) is not FieldType._unpack.__func__
         _globals[f"_type_{template_name}"] = field_type
         _globals[f"_default_{template_name}"] = field_type.default if has_default else None
@@ -977,8 +983,6 @@ def fieldtype(clspath: str) -> FieldType:
     Returns:
         The FieldType class.
     """
-    base_module_path = "flow.record.fieldtypes"
-
     if clspath.endswith("[]"):
         origpath = clspath
         clspath = clspath[:-2]
@@ -990,13 +994,13 @@ def fieldtype(clspath: str) -> FieldType:
         raise AttributeError(f"Invalid field type: {clspath}")
 
     namespace, _, clsname = clspath.rpartition(".")
-    module_path = f"{base_module_path}.{namespace}" if namespace else base_module_path
+    module_path = f"{_FIELDTYPES_PREFIX}.{namespace}" if namespace else _FIELDTYPES_PREFIX
     mod = importlib.import_module(module_path)
 
     fieldtype_cls = getattr(mod, clsname)
 
     if islist:
-        base_mod = importlib.import_module(base_module_path)
+        base_mod = importlib.import_module(_FIELDTYPES_PREFIX)
         listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
         listtype.__type__, fieldtype_cls = fieldtype_cls, listtype
 

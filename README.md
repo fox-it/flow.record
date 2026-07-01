@@ -71,6 +71,65 @@ $ rdump output.records.gz
 <my/record ip=net.ipaddress('8.8.8.8') description='google dns'>
 ```
 
+### Declarative record definitions
+
+Instead of with a `RecordDescriptor`, records can also be defined by subclassing `RecordBase` and annotating the
+fields, like a `dataclass`:
+
+```python
+from datetime import datetime
+from typing import Annotated
+
+from flow.record.declarative import RecordBase, field
+
+
+class HttpRequestRecord(RecordBase, name="http/request"):
+    ts: datetime
+    url: str  # Python types map to a field type, e.g. str to string
+    status: Annotated[int, "uint32"]  # or field(typename="uint32")
+    remote: str
+
+
+record = HttpRequestRecord(ts=datetime.now(), url="http://flow.record", status=200, remote="127.0.0.1")
+```
+
+A subclass starts with the fields of its parent:
+
+```python
+class HttpResponseRecord(HttpRequestRecord, name="http/response"):
+    body: bytes
+```
+
+A field can have a default (`status: int = 200`), or be set in a `__post_init__` method with `field(init=False)`.
+The `__post_init__` method receives the `InitVar` arguments of the constructor:
+
+```python
+from dataclasses import InitVar
+
+
+class HostRecord(RecordBase, name="example/host"):
+    hostname: str = field(init=False)
+    target: InitVar[object]
+
+    def __post_init__(self, target: object) -> None:
+        self.hostname = target.hostname
+```
+
+The declarative class is currently mostly a nicety for type checking. Internally, it defines a regular
+`RecordDescriptor`, and packing a record only stores that descriptor and the field values. So
+declarative records don't round-trip: unpacking one returns a record of the record class of the descriptor,
+not an instance of the declarative class.
+
+> [!NOTE]
+> Field annotations are evaluated when the class is created. If your project uses Ruff's `flake8-type-checking` (`TC`)
+> rules, add `RecordBase` to the runtime-evaluated base classes, so that imports only used in field annotations are not
+> moved into a `TYPE_CHECKING` block:
+>
+> ```toml
+> [tool.ruff.lint.flake8-type-checking]
+> runtime-evaluated-base-classes = ["flow.record.declarative.RecordBase"]
+> ```
+
 ### Selectors
 
 We can also use `selectors` for filtering and selecting records using a query (Python like syntax), e.g.:
