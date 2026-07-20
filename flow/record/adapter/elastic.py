@@ -265,7 +265,9 @@ class ElasticReader(AbstractReader):
             self.es.close()
 
 
-def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int = 0) -> list[str]:
+def create_elasticsearch_error_notes(
+    errors: list[dict | Exception] | dict | Exception, max_notes: int = 0
+) -> list[str]:
     """Convert Elasticsearch Exception errors into pretty formatted notes.
 
     Resources:
@@ -278,52 +280,52 @@ def create_elasticsearch_error_notes(errors: list[dict] | dict, max_notes: int =
     Returns:
         A list of formatted error notes.
     """
-    if isinstance(errors, dict):
+    if not isinstance(errors, list):
         errors = [errors]
 
     notes = []
     for idx, error in enumerate(errors, 1):
-        # The stack of errors could include different exceptions, such as TransportErrors.
-        if not hasattr(error, "get"):
-            continue
+        if isinstance(error, dict):
+            # Extract index information
+            index = error.get("index", {})
+            index_name = index.get("_index", "unknown _index")
+            doc_id = index.get("_id", "unknown _id")
+            status = index.get("status")
 
-        # Extract index information
-        index = error.get("index", {})
-        index_name = index.get("_index", "unknown _index")
-        doc_id = index.get("_id", "unknown _id")
-        status = index.get("status")
+            # Extract error details
+            error = index.get("error", {})
+            error_type = error.get("type", "unknown error type")
+            error_reason = error.get("reason", "unknown reason")
 
-        # Extract error details
-        error = index.get("error", {})
-        error_type = error.get("type", "unknown error type")
-        error_reason = error.get("reason", "unknown reason")
+            # Create formatted note
+            note_parts = [
+                f"Error {idx}, {error_type!r} ({status=}):",
+                f"  index: {index_name}",
+                f"  document_id: {doc_id}",
+                f"  reason: {error_reason}",
+            ]
 
-        # Create formatted note
-        note_parts = [
-            f"Error {idx}, {error_type!r} ({status=}):",
-            f"  index: {index_name}",
-            f"  document_id: {doc_id}",
-            f"  reason: {error_reason}",
-        ]
+            # Include caused_by information if available
+            if caused_by := error.get("caused_by"):
+                cause_type = caused_by.get("type")
+                cause_reason = caused_by.get("reason")
+                note_parts.append(f"  caused_by: {cause_type}, reason: {cause_reason}")
 
-        # Include caused_by information if available
-        if caused_by := error.get("caused_by"):
-            cause_type = caused_by.get("type")
-            cause_reason = caused_by.get("reason")
-            note_parts.append(f"  caused_by: {cause_type}, reason: {cause_reason}")
+            # Extract the record_descriptor name from the "data" field if possible
+            try:
+                data = json.loads(index.get("data", "{}"))
+                record_metadata = data.pop("_record_metadata", {})
+                descriptor = record_metadata.get("descriptor", {})
+                if descriptor_name := descriptor.get("name"):
+                    note_parts.append(f"  descriptor_name: {descriptor_name}")
+                if data:
+                    note_parts.append(f"  data: {json.dumps(data)}")
+            except Exception:
+                # failed to get descriptor_name and data, ignore
+                pass
 
-        # Extract the record_descriptor name from the "data" field if possible
-        try:
-            data = json.loads(index.get("data", "{}"))
-            record_metadata = data.pop("_record_metadata", {})
-            descriptor = record_metadata.get("descriptor", {})
-            if descriptor_name := descriptor.get("name"):
-                note_parts.append(f"  descriptor_name: {descriptor_name}")
-            if data:
-                note_parts.append(f"  data: {json.dumps(data)}")
-        except Exception:
-            # failed to get descriptor_name and data, ignore
-            pass
+        else:
+            note_parts = [f"Error {idx}, {error}"]
 
         notes.append("\n".join(note_parts) + "\n")
 
