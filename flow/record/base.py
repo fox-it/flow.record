@@ -92,6 +92,7 @@ BZ2_MAGIC = b"BZh"
 LZ4_MAGIC = b"\x04\x22\x4d\x18"
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 AVRO_MAGIC = b"Obj"
+UTF16LE_BOM = b"\xff\xfe"
 
 RECORDSTREAM_MAGIC = b"RECORDSTREAM\n"
 RECORDSTREAM_MAGIC_DEPTH = 4 + 2 + len(RECORDSTREAM_MAGIC)
@@ -892,6 +893,12 @@ def RecordAdapter(
                             f"Could not find a reader for input {peek_data!r}. Are you perhaps "
                             "entering record text, rather than a record stream? This can be fixed by using "
                             "'rdump -w -' to write a record stream to stdout."
+                        )
+                    if peek_data.startswith(UTF16LE_BOM):
+                        raise RecordAdapterNotFound(
+                            "Could not find a reader for UTF-16LE encoded input. PowerShell 5.1 and earlier "
+                            "use this encoding when piping between commands, which corrupts record streams. "
+                            "This can be fixed by using PowerShell 7 or higher, or cmd.exe."
                         )
                     if not peek_data:
                         raise EOFError("Empty input stream")
