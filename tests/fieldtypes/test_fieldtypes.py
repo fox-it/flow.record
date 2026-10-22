@@ -1215,6 +1215,8 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
         (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", ("/d", "/a")),
         # Test an empty command string
         (r"''", r"", ()),
+        # Test an unclosed quote: the text is kept, split on whitespace
+        (r"c:\tool.exe /c 'unclosed", r"c:\tool.exe", ("/c", "'unclosed")),
     ],
 )
 def test_command_windows(command_string: str, expected_executable: str, expected_argument: tuple[str, ...]) -> None:
@@ -1237,6 +1239,8 @@ def test_command_windows(command_string: str, expected_executable: str, expected
         (r"'/tmp/ /test/hello' -h -word", r"/tmp/ /test/hello", ("-h", "-word")),
         # Test double quoted command
         (r'"/tmp/ /test/hello" -h -word', r"/tmp/ /test/hello", ("-h", "-word")),
+        # Test an unclosed quote: the text is kept, split on whitespace
+        ("/tmp/tool -c 'unclosed", "/tmp/tool", ("-c", "'unclosed")),
     ],
 )
 def test_command_posix(command_string: str, expected_executable: str, expected_argument: list[str]) -> None:
