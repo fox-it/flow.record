@@ -512,8 +512,10 @@ class digest(FieldType):
 
 
 class uri(string, FieldType):
-    def __init__(self, value: str):
-        self._parsed = urlparse(value)
+    def __init__(self, value: str | _bytes):
+        # Parse the decoded string and not the argument: ``string.__new__`` decodes bytes, but ``urlparse`` would
+        # decode them as ASCII and return bytes for the parts
+        self._parsed = urlparse(str(self))
 
     @staticmethod
     def normalize(path: str) -> str:
