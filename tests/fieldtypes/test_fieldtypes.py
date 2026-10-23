@@ -375,6 +375,32 @@ def test_uri_type() -> None:
     assert r.path.dirname == "/usr/local/bin"
 
 
+def test_uri_type_bytes() -> None:
+    TestRecord = RecordDescriptor(
+        "test/uri",
+        [
+            ("uri", "path"),
+        ],
+    )
+
+    # Bytes are decoded like for the string type, so the parts are str
+    r = TestRecord(b"http://www.google.com/a.bin")
+    assert r.path == "http://www.google.com/a.bin"
+    assert r.path.hostname == "www.google.com"
+    assert r.path.path == "/a.bin"
+    assert r.path.filename == "a.bin"
+
+    # Bytes that are not ASCII
+    r = TestRecord("http://example.com/Ì".encode())
+    assert r.path == "http://example.com/Ì"
+    assert r.path.path == "/Ì"
+
+    # Bytes that are not valid UTF-8 are kept, as for the string type
+    r = TestRecord(b"http://example.com/\xff")
+    assert isinstance(r.path.path, str)
+    assert r.path.path.startswith("/")
+
+
 def test_datetime() -> None:
     TestRecord = RecordDescriptor(
         "test/datetime",
