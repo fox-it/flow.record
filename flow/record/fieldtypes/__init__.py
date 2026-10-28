@@ -810,7 +810,11 @@ class command(FieldType):
         if not value:
             return "", ()
 
-        executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
+        try:
+            executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
+        except ValueError:
+            # Unbalanced quote (for example a truncated log line): keep the text, split on whitespace.
+            executable, *args = value.split()
         return executable.strip("'\" "), (*args,)
 
     def _pack(self) -> tuple[str, int]:
