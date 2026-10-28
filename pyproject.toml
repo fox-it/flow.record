@@ -110,6 +110,7 @@ build = [
 lint = [
     "ruff==0.13.1",
     "vermin",
+    "typing_extensions",
 ]
 dev = [
     {include-group = "test"},
@@ -181,6 +182,7 @@ convention = "google"
 
 [tool.ruff.lint.flake8-type-checking]
 strict = true
+runtime-evaluated-base-classes = ["flow.record.declarative.RecordBase"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/_docs/**" = ["INP001"]
@@ -194,4 +196,3 @@ include = ["flow.*"]
 
 [tool.setuptools_scm]
 version_file = "flow/record/version.py"
-
