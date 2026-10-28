@@ -434,5 +434,5 @@ def test_grouped_record(tmp_path: Path, db: Database) -> None:
         assert records[0].digest == (
             f"(md5={hashlib.md5(b'record5').hexdigest()}, "
             f"sha1={hashlib.sha1(b'record5').hexdigest()}, "
-            f"sha256={hashlib.sha256(b'record5').hexdigest()})"
+            f"sha256={hashlib.sha256(b'record5').hexdigest()}, sha512=None)"
         )

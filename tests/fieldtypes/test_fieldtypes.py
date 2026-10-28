@@ -537,6 +537,7 @@ def test_digest() -> None:
     md5 = hashlib.md5(b"hello").hexdigest()
     sha1 = hashlib.sha1(b"hello").hexdigest()
     sha256 = hashlib.sha256(b"hello").hexdigest()
+    sha512 = hashlib.sha512(b"hello").hexdigest()
 
     record = TestRecord()
     assert isinstance(record.digest, flow.record.fieldtypes.digest)
@@ -545,17 +546,23 @@ def test_digest() -> None:
     assert record.digest.md5 == "5d41402abc4b2a76b9719d911017c592"
     assert record.digest.sha1 == "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
     assert record.digest.sha256 == "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    assert record.digest.sha512 is None
+
+    record = TestRecord((md5, sha1, sha256, sha512))
+    assert record.digest.sha512 == sha512
 
     record = TestRecord(("5d41402abc4b2a76b9719d911017c592", None, None))
     assert record.digest.md5 == "5d41402abc4b2a76b9719d911017c592"
     assert record.digest.sha1 is None
     assert record.digest.sha256 is None
+    assert record.digest.sha512 is None
 
     record = TestRecord()
-    record.digest = (md5, sha1, sha256)
+    record.digest = (md5, sha1, sha256, sha512)
     assert record.digest.md5 == md5
     assert record.digest.sha1 == sha1
     assert record.digest.sha256 == sha256
+    assert record.digest.sha512 == sha512
 
     with pytest.raises(TypeError, match=r".*Invalid MD5.*Odd-length string"):
         record = TestRecord(("a", sha1, sha256))
@@ -569,11 +576,15 @@ def test_digest() -> None:
     with pytest.raises(TypeError, match=r".*Invalid SHA-256.*"):
         record = TestRecord((md5, sha1, "aa"))
 
+    with pytest.raises(TypeError, match=r".*Invalid SHA-512.*"):
+        record = TestRecord((md5, sha1, sha256, "aa"))
+
     record = TestRecord()
     assert record.digest is not None
     assert record.digest.md5 is None
     assert record.digest.sha1 is None
     assert record.digest.sha256 is None
+    assert record.digest.sha512 is None
     with pytest.raises(TypeError, match=r".*Invalid MD5.*"):
         record.digest.md5 = "INVALID MD5"
 

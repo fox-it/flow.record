@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 
 import pytest
@@ -197,6 +198,23 @@ def test_pack_digest() -> None:
     assert record.digest.md5 == "d41d8cd98f00b204e9800998ecf8427e"
     assert record.digest.sha1 is None
     assert record.digest.sha256 is None
+    assert record.digest.sha512 is None
+
+    sha512 = hashlib.sha512(b"").hexdigest()
+    record = TestRecord(("d41d8cd98f00b204e9800998ecf8427e", None, None, sha512))
+    data = packer.pack(record)
+    record = packer.unpack(data)
+    assert record.digest.sha512 == sha512
+
+
+def test_unpack_digest_without_sha512() -> None:
+    """Test unpacking a digest from a recordstream written before sha512 was added."""
+    value = fieldtypes.digest._unpack((hashlib.md5(b"").digest(), None, hashlib.sha256(b"").digest()))
+
+    assert value.md5 == hashlib.md5(b"").hexdigest()
+    assert value.sha1 is None
+    assert value.sha256 == hashlib.sha256(b"").hexdigest()
+    assert value.sha512 is None
 
 
 def test_record_in_record() -> None:

@@ -426,14 +426,23 @@ class digest(FieldType):
     __md5 = __md5_bin = None
     __sha1 = __sha1_bin = None
     __sha256 = __sha256_bin = None
+    __sha512 = __sha512_bin = None
 
-    def __init__(self, value: tuple[str, str, str] | list[str] | dict[str, str] | None = None, **kwargs):
+    def __init__(
+        self,
+        value: tuple[str, str, str] | tuple[str, str, str, str] | list[str] | dict[str, str] | None = None,
+        **kwargs,
+    ):
         if isinstance(value, (tuple, list)):
-            self.md5, self.sha1, self.sha256 = value
+            if len(value) == 4:
+                self.md5, self.sha1, self.sha256, self.sha512 = value
+            else:
+                self.md5, self.sha1, self.sha256 = value
         elif isinstance(value, dict):
             self.md5 = value.get("md5", self.md5)
             self.sha1 = value.get("sha1", self.sha1)
             self.sha256 = value.get("sha256", self.sha256)
+            self.sha512 = value.get("sha512", self.sha512)
 
     @classmethod
     def default(cls) -> digest:
@@ -441,7 +450,7 @@ class digest(FieldType):
         return cls()
 
     def __repr__(self) -> str:
-        return f"(md5={self.md5}, sha1={self.sha1}, sha256={self.sha256})"
+        return f"(md5={self.md5}, sha1={self.sha1}, sha256={self.sha256}, sha512={self.sha512})"
 
     @property
     def md5(self) -> str | None:
@@ -454,6 +463,10 @@ class digest(FieldType):
     @property
     def sha256(self) -> str | None:
         return self.__sha256
+
+    @property
+    def sha512(self) -> str | None:
+        return self.__sha512
 
     @md5.setter
     def md5(self, val: str | None) -> None:
@@ -494,21 +507,33 @@ class digest(FieldType):
         except (binascii.Error, TypeError) as e:
             raise TypeError(f"Invalid SHA-256 value {val!r}, {e}")
 
-    def _pack(self) -> tuple[_bytes | None, _bytes | None, _bytes | None]:
+    @sha512.setter
+    def sha512(self, val: str | None) -> None:
+        if val is None:
+            self.__sha512 = self.__sha512_bin = None
+            return
+        try:
+            self.__sha512_bin = a2b_hex(val)
+            self.__sha512 = val
+            if len(self.__sha512_bin) != 64:
+                raise TypeError("Incorrect hash length")  # noqa: TRY301
+        except (binascii.Error, TypeError) as e:
+            raise TypeError(f"Invalid SHA-512 value {val!r}, {e}")
+
+    def _pack(self) -> tuple[_bytes | None, _bytes | None, _bytes | None, _bytes | None]:
         return (
             self.__md5_bin,
             self.__sha1_bin,
             self.__sha256_bin,
+            self.__sha512_bin,
         )
 
     @classmethod
-    def _unpack(cls, data: tuple[_bytes | None, _bytes | None, _bytes | None]) -> digest:
-        value = (
-            b2a_hex(data[0]).decode() if data[0] else None,
-            b2a_hex(data[1]).decode() if data[1] else None,
-            b2a_hex(data[2]).decode() if data[2] else None,
-        )
-        return cls(value)
+    def _unpack(cls, data: tuple[_bytes | None, ...]) -> digest:
+        # Recordstreams written before sha512 was added only carry md5, sha1 and sha256
+        hashes = [b2a_hex(value).decode() if value else None for value in data[:4]]
+        hashes += [None] * (4 - len(hashes))
+        return cls(tuple(hashes))
 
 
 class uri(string, FieldType):

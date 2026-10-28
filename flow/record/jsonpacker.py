@@ -62,6 +62,7 @@ class JsonRecordPacker:
                 "md5": obj.md5,
                 "sha1": obj.sha1,
                 "sha256": obj.sha256,
+                "sha512": obj.sha512,
             }
         if isinstance(obj, (fieldtypes.net.ipaddress, fieldtypes.net.ipnetwork, fieldtypes.net.ipinterface)):
             return str(obj)
