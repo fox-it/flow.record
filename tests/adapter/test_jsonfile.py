@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from flow.record import RecordReader, RecordWriter
+from flow.record.adapter.jsonfile import JsonfileReader
 from flow.record.base import RecordDescriptor
 from tests._utils import generate_records
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_json_adapter(tmp_path: Path) -> None:
+def test_jsonfile_adapter(tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("records.json")
     record_adapter_path = f"jsonfile://{json_file}"
     writer = RecordWriter(record_adapter_path)
@@ -31,7 +32,7 @@ def test_json_adapter(tmp_path: Path) -> None:
     assert nr_records == nr_received_records
 
 
-def test_json_adapter_contextmanager(tmp_path: Path) -> None:
+def test_jsonfile_adapter_contextmanager(tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("records.json")
     record_adapter_path = f"jsonfile://{json_file}"
     with RecordWriter(record_adapter_path) as writer:
@@ -47,7 +48,7 @@ def test_json_adapter_contextmanager(tmp_path: Path) -> None:
         assert nr_records == nr_received_records
 
 
-def test_json_adapter_jsonlines(tmp_path: Path) -> None:
+def test_jsonfile_adapter_jsonlines(tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("data.jsonl")
 
     items = [
@@ -75,7 +76,7 @@ def test_json_adapter_jsonlines(tmp_path: Path) -> None:
         "jsonfile://{json_file}?descriptors=0",
     ],
 )
-def test_json_adapter_no_record_descriptors(tmp_path: Path, record_adapter_path: str) -> None:
+def test_jsonfile_adapter_no_record_descriptors(tmp_path: Path, record_adapter_path: str) -> None:
     json_file = tmp_path.joinpath("records.jsonl")
     record_adapter_path = record_adapter_path.format(json_file=json_file)
 
@@ -99,7 +100,7 @@ def test_json_adapter_no_record_descriptors(tmp_path: Path, record_adapter_path:
         "jsonfile://{json_file}?descriptors=1",
     ],
 )
-def test_json_adapter_with_record_descriptors(tmp_path: Path, record_adapter_path: str) -> None:
+def test_jsonfile_adapter_with_record_descriptors(tmp_path: Path, record_adapter_path: str) -> None:
     json_file = tmp_path.joinpath("records.jsonl")
     record_adapter_path = record_adapter_path.format(json_file=json_file)
 
@@ -120,7 +121,7 @@ def test_json_adapter_with_record_descriptors(tmp_path: Path, record_adapter_pat
     assert descriptor_seen == 2
 
 
-def test_json_command_fieldtype(tmp_path: Path) -> None:
+def test_jsonfile_command_fieldtype(tmp_path: Path) -> None:
     json_file = tmp_path.joinpath("records.json")
     record_adapter_path = f"jsonfile://{json_file}"
     writer = RecordWriter(record_adapter_path)
@@ -155,3 +156,23 @@ def test_json_command_fieldtype(tmp_path: Path) -> None:
     assert records[1].commando.args == ("bash",)
 
     assert len(records) == 3
+
+
+def test_jsonfile_object_hook(tmp_path: Path) -> None:
+    """Test if the :class:`JsonFileReader` object hook method works as intended."""
+    json_file = tmp_path.joinpath("records.json")
+    json_file.write_text('{"foo": "bar"}\n{"foo": "baz"}')
+
+    class CustomJsonfileReader(JsonfileReader):
+        def obj_hook(self, obj: dict) -> Any:
+            obj["hello"] = "world"
+            return obj
+
+    with CustomJsonfileReader(json_file) as reader:
+        record = next(iter(reader))
+        assert record.foo == "bar"
+        assert record.hello == "world"
+
+        record = next(iter(reader))
+        assert record.foo == "baz"
+        assert record.hello == "world"
