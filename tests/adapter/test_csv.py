@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from flow.record import RecordReader
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,6 +54,20 @@ def test_csv_non_standard_headers(tmp_path: Path) -> None:
         assert records[1].Filename == "shadow"
         assert records[1].Full_Path == "/etc/shadow"
         assert records[1].Size__bytes_ == "1290"
+
+
+def test_csv_multiple_descriptors_raises(capsysbinary: pytest.CaptureFixture) -> None:
+    """Test CSV adapter raising on more than one record descriptor."""
+    StdRecord = RecordDescriptor("filesystem/ntfs/mft/std", [("string", "hostname")])
+    FilenameRecord = RecordDescriptor("filesystem/ntfs/mft/filename", [("string", "hostname")])
+
+    def write_records() -> None:
+        with RecordWriter("csvfile://") as writer:
+            writer.write(StdRecord(hostname="host"))
+            writer.write(FilenameRecord(hostname="host"))
+
+    with pytest.raises(ValueError, match="Multiple record descriptors in CSV output"):
+        write_records()
 
 
 def test_csv_read_reserved_fields(tmp_path: Path) -> None:
