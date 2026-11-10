@@ -18,6 +18,9 @@ and annotating the fields, like a ``dataclass``::
 
     record = HttpRequest(ts=datetime.now(), url="http://flow.record", status=200, remote="127.0.0.1")
 
+Every field can be ``None``, so ``X | None`` is technically the more correct type hint.
+A field annotated with ``X | None`` has the same field type as ``X``.
+
 The instances are regular records. A subclass starts with the fields of its parent::
 
     class HttpResponse(HttpRequest, name="http/response"):
@@ -59,7 +62,8 @@ import sys
 import textwrap
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, NamedTuple, get_args, get_origin
+from types import NoneType, UnionType
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, NamedTuple, Union, get_args, get_origin
 
 from flow.record.base import (
     _FIELDTYPES_PREFIX,
@@ -128,6 +132,12 @@ def _resolve_typename(annotation: Any) -> str:
             if isinstance(meta, str):
                 return meta
         annotation = base
+
+    # Every field can be None, so `X | None` and `Optional[X]` have the typename of X
+    if get_origin(annotation) in (Union, UnionType):
+        args = [arg for arg in get_args(annotation) if arg is not NoneType]
+        if len(args) == 1:
+            return _resolve_typename(args[0])
 
     if isinstance(annotation, type) and issubclass(annotation, FieldType):
         return _fieldtype_typename(annotation)

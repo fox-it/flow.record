@@ -93,6 +93,9 @@ class HttpRequestRecord(RecordBase, name="http/request"):
 record = HttpRequestRecord(ts=datetime.now(), url="http://flow.record", status=200, remote="127.0.0.1")
 ```
 
+Every field can be `None`, so `X | None` is technically the more correct type hint.
+A field annotated with `X | None` has the same field type as `X`.
+
 A subclass starts with the fields of its parent:
 
 ```python
