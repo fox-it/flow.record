@@ -6,7 +6,7 @@ import re
 from dataclasses import InitVar
 from datetime import datetime, timezone
 from textwrap import dedent
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 import pytest
 
@@ -56,6 +56,11 @@ def test_declarative_typenames() -> None:
         c: uint32
         d: Annotated[int, "uint16"]
         e: int = field(typename="uint32")
+        f: str | None
+        g: Optional[int]  # noqa: UP045
+        h: uint32 | None
+        i: Annotated[int, "uint16"] | None
+        j: None | datetime = None
 
     assert TestRecord.__descriptor__.get_field_tuples() == (
         ("string", "a"),
@@ -63,7 +68,23 @@ def test_declarative_typenames() -> None:
         ("uint32", "c"),
         ("uint16", "d"),
         ("uint32", "e"),
+        ("string", "f"),
+        ("varint", "g"),
+        ("uint32", "h"),
+        ("uint16", "i"),
+        ("datetime", "j"),
     )
+
+
+@pytest.mark.parametrize("annotation", [object, int | str, int | str | None])
+def test_declarative_unmapped_annotation(annotation: Any) -> None:
+    """Test that an annotation without a flow.record fieldtype, such as a union of two types, raises an error."""
+    with pytest.raises(TypeError) as exc:
+
+        class TestRecord(RecordBase, name="test/unmapped"):
+            a: annotation
+
+    assert str(exc.value) == f"Failed to map annotation {annotation!r} to a flow.record fieldtype"
 
 
 def test_declarative_fieldtype_class_annotation() -> None:
