@@ -62,7 +62,7 @@ class LineWriter(AbstractWriter):
         rdict_types = field_types_for_record_descriptor(rec._desc) if self.verbose else None
 
         self.count += 1
-        self.fp.write(f"--[ RECORD {self.count} ]--\n".encode())
+        lines = [f"--[ RECORD {self.count} ]--\n"]
         if rdict:
             # also account for extra characters for fieldtype and whitespace + parenthesis
             width = max(len(k + rdict_types[k]) for k in rdict) + 3 if rdict_types else max(len(k) for k in rdict)
@@ -70,7 +70,8 @@ class LineWriter(AbstractWriter):
         for key, value in rdict.items():
             if rdict_types:
                 key = f"{key} ({rdict_types[key]})"
-            self.fp.write(fmt.format(key, value).encode(errors="surrogateescape"))
+            lines.append(fmt.format(key, value))
+        self.fp.write("".join(lines).encode(errors="surrogateescape"))
 
     def flush(self) -> None:
         if self.fp:

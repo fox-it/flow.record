@@ -6,7 +6,6 @@ import gzip
 import hashlib
 import importlib
 import io
-import keyword
 import logging
 import os
 import re
@@ -14,8 +13,8 @@ import sys
 import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from itertools import zip_longest
 from pathlib import Path
+from types import FunctionType
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -99,19 +98,38 @@ RECORDSTREAM_MAGIC_DEPTH = 4 + 2 + len(RECORDSTREAM_MAGIC)
 RE_VALID_FIELD_NAME = re.compile(r"^_?[a-zA-Z][a-zA-Z0-9_]*$")
 RE_VALID_RECORD_TYPE_NAME = re.compile("^[a-zA-Z][a-zA-Z0-9_]*(/[a-zA-Z][a-zA-Z0-9_]*)*$")
 
-RECORD_CLASS_TEMPLATE = """
-class {name}(Record):
-    _desc = None
-    _field_types = {field_types}
+RECORD_METHODS_TEMPLATE = """
+def __init__(__self, {args}):
+{set_fields}
+    if _generated is None:
+        _set__generated(__self, _type__generated(_utcnow()))
+    _set__version(__self, _version_value)
 
-    __slots__ = {slots_tuple}
+def _unpack(__cls, {args}):
+    return __cls({unpack_values})
 
-    def __init__(__self, {args}):
-{init_code}
+def _pack(__self, unversioned=False, excluded_fields=None):
+    if unversioned or excluded_fields:
+        return Record._pack(__self, unversioned, excluded_fields)
+    return __self._desc.identifier, ({pack_values})
 
-    @classmethod
-    def _unpack(__cls, {args}):
-{unpack_code}
+def _asdict(__self, fields=None, exclude=None):
+    if fields or exclude:
+        return Record._asdict(__self, fields, exclude)
+    return OrderedDict(zip(__self.__slots__, ({values})))
+
+def __repr__(__self):
+    return _repr_format.format({repr_values})
+"""
+
+# How __init__() sets a field: to the value converted to the field type, or to the default of the field type
+RECORD_SET_FIELD_TEMPLATE = """\
+    if {name} is None:
+        if _default_{name} is not None:
+            {name} = _default_{name}()
+    elif not isinstance({name}, _type_{name}):
+        {name} = _type_{name}({name})
+    _set_{name}(__self, {name})
 """
 
 
@@ -198,9 +216,8 @@ class Record:
 
     def __setattr__(self, k: str, v: Any) -> None:
         """Enforce setting the fields to their respective types."""
-        # NOTE: This is a HOT code path
         field_type = self._field_types.get(k)
-        if v is not None and k in self.__slots__ and field_type and not isinstance(v, field_type):
+        if v is not None and field_type is not None and not isinstance(v, field_type):
             v = field_type(v)
         super().__setattr__(k, v)
 
@@ -388,6 +405,35 @@ class RecordFieldSet(list):
     pass
 
 
+@functools.lru_cache(maxsize=256)
+def _compile_record_methods(count: int, reserved: tuple[str, ...]) -> dict[str, FunctionType]:
+    """Compile the methods of record classes with ``count`` fields, followed by the ``reserved`` fields.
+
+    Compiling takes most of the time of creating a record class, so it's done once for every number of fields. The
+    fields are named ``_0``, ``_1``, etc. in the compiled methods, which ``_generate_record_class()`` replaces with the
+    names of the fields of a class. The methods look up everything that depends on the field types in their globals.
+
+    The methods convert values to their field type and set them directly on the slots, instead of going through
+    ``Record.__setattr__()``.
+    """
+    placeholders = [f"_{i}" for i in range(count)]
+    names = [*placeholders, *reserved]
+    source = RECORD_METHODS_TEMPLATE.format(
+        args=", ".join(f"{name}=None" for name in names),
+        set_fields="".join(RECORD_SET_FIELD_TEMPLATE.format(name=name) for name in names),
+        # __init__() converts the values of fields without their own _unpack()
+        unpack_values=", ".join(
+            f"{name} if _unpack_{name} is None or {name} is None else _unpack_{name}({name})" for name in names
+        ),
+        pack_values="".join(f"_v._pack() if isinstance(_v := __self.{name}, FieldType) else _v, " for name in names),
+        values="".join(f"__self.{name}, " for name in names),
+        repr_values="".join(f"__self.{name}, " for name in placeholders),
+    )
+
+    exec(source, namespace := {})
+    return {name: value for name, value in namespace.items() if isinstance(value, FunctionType)}
+
+
 @functools.lru_cache(maxsize=4096)
 def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     """Generate a record class.
@@ -399,20 +445,15 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     Returns:
         Record class
     """
-    contains_keyword = False
+    # Reserved Python keywords are allowed as field names, because the names are only patched into the compiled
+    # methods. But they can't be used as normal keyword arguments or attributes anymore:
+    # - Initialize a record with *args or by expanding a dict to kwargs, e.g. Record(**{'from': 1, 'and': 2}).
+    # - Get or set the field with getattr() or setattr().
+    # - inspect.signature() raises a ValueError for the __init__() of the record class on Python 3.11 and newer and
+    #   PyPy, as its parameters have the names of the fields.
     for _, fieldname in fields:
         if not is_valid_field_name(fieldname):
             raise RecordDescriptorError(f"Field '{fieldname}' is an invalid or reserved field name.")
-
-        # Reserved Python keywords are allowed as field names, but at a cost.
-        # When a Python keyword is used as a field name, you can't use it as a kwarg anymore
-        # You'll be forced to either use *args or a expanding a dict to kwargs to initialize a record
-        # E.g. Record('from_value', 'and_value') or Record(**{'from': 1, 'and': 2})
-        # You'll also only be able to get or set reserved attributes using getattr or setattr.
-        # Record initialization will also be slower, due to a different (slower) implementation
-        # that is compatible with this method of initializing records.
-        if keyword.iskeyword(fieldname):
-            contains_keyword = True
 
     all_fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in fields])
     all_fields.update(RecordDescriptor.get_required_fields())
@@ -420,65 +461,52 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     if not RE_VALID_RECORD_TYPE_NAME.match(name):
         raise RecordDescriptorError("Invalid record type name")
 
-    name = name.replace("/", "_")
-    args = ""
-    init_code = ""
-    unpack_code = ""
+    cls = type(
+        name.replace("/", "_"),
+        (Record,),
+        {
+            # The module of record classes when they were defined with exec(), which is in their repr
+            "__module__": "builtins",
+            "__slots__": tuple(all_fields.keys()),
+            "_desc": None,
+            # Store the fieldtypes so we can enforce them in __setattr__()
+            "_field_types": {fname: field.type for fname, field in all_fields.items()},
+        },
+    )
 
-    if (len(all_fields) >= 255 and not (sys.version_info >= (3, 7))) or contains_keyword:
-        args = "*args, **kwargs"
-        init_code = (
-            "\t\tfor k, v in _zip_longest(__self.__slots__, args):\n"
-            "\t\t\tsetattr(__self, k, kwargs.get(k, v))\n"
-            "\t\t_generated = __self._generated\n"
-        )
-        unpack_code = (
-            "\t\tvalues = dict([(f, __cls._field_types[f]._unpack(kwargs.get(f, v)) "
-            "if kwargs.get(f, v) is not None else None) for f, v in _zip_longest(__cls.__slots__, args)])\n"
-            "\t\treturn __cls(**values)"
-        )
-    else:
-        args = ", ".join([f"{k}=None" for k in all_fields])
-        unpack_code = "\t\treturn __cls(\n"
-        for field in all_fields.values():
-            if field.type.default == FieldType.default:
-                default = FieldType.default()
-            else:
-                default = f"_field_{field.name}.type.default()"
-            init_code += f"\t\t__self.{field.name} = {field.name} if {field.name} is not None else {default}\n"
-            unpack_code += (
-                "\t\t\t{field} = _field_{field}.type._unpack({field}) " + "if {field} is not None else {default},\n"
-            ).format(field=field.name, default=default)
-        unpack_code += "\t\t)"
-
-    init_code += "\t\t__self._generated = _generated or _utcnow()\n\t\t__self._version = RECORD_VERSION"
-    # Store the fieldtypes so we can enforce them in __setattr__()
-    field_types = "{\n"
-    for field in all_fields:
-        field_types += f"\t\t{field!r}: _field_{field}.type,\n"
-    field_types += "\t}"
-
-    code = RECORD_CLASS_TEMPLATE.format(
-        name=name,
-        args=args,
-        slots_tuple=tuple(all_fields.keys()),
-        init_code=init_code,
-        unpack_code=unpack_code,
-        field_types=field_types,
-    ).replace("\t", "    ")
+    # Maps the names of the fields in the compiled methods to the names of the fields of this class
+    reserved = tuple(RecordDescriptor.get_required_fields())
+    names = {**{f"_{i}": fname for i, (_, fname) in enumerate(fields)}, **{fname: fname for fname in reserved}}
 
     _globals = {
         "Record": Record,
-        "RECORD_VERSION": RECORD_VERSION,
+        "FieldType": FieldType,
+        "OrderedDict": OrderedDict,
         "_utcnow": _utcnow,
-        "_zip_longest": zip_longest,
+        "_version_value": all_fields["_version"].type(RECORD_VERSION),
+        "_repr_format": "<{} {}>".format(name, " ".join(f"{fname}={{!r}}" for _, fname in fields)),
     }
-    for field in all_fields.values():
-        _globals[f"_field_{field.name}"] = field
 
-    exec(code, _globals)
+    for template_name, fname in names.items():
+        field_type = all_fields[fname].type
+        has_default = getattr(field_type.default, "__func__", None) is not FieldType.default.__func__
+        has_unpack = getattr(field_type._unpack, "__func__", None) is not FieldType._unpack.__func__
+        _globals[f"_type_{template_name}"] = field_type
+        _globals[f"_default_{template_name}"] = field_type.default if has_default else None
+        _globals[f"_unpack_{template_name}"] = field_type._unpack if has_unpack else None
+        _globals[f"_set_{template_name}"] = cls.__dict__[fname].__set__
 
-    return _globals[name]
+    for method, template in _compile_record_methods(len(fields), reserved).items():
+        code = template.__code__
+        code = code.replace(
+            co_names=tuple(names.get(n, n) for n in code.co_names),
+            co_varnames=tuple(names.get(n, n) for n in code.co_varnames),
+        )
+        function = FunctionType(code, _globals, method, template.__defaults__)
+        function.__qualname__ = f"{cls.__name__}.{method}"
+        setattr(cls, method, classmethod(function) if method == "_unpack" else function)
+
+    return cls
 
 
 class RecordDescriptor:

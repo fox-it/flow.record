@@ -19,8 +19,7 @@ from flow.record.base import (
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.utils import EventHandler, to_str
 
-# Override defaults for msgpack packb/unpackb
-packb = functools.partial(msgpack.packb, use_bin_type=True, unicode_errors="surrogateescape")
+# Override defaults for msgpack unpackb
 unpackb = functools.partial(msgpack.unpackb, raw=False, unicode_errors="surrogateescape")
 
 RECORD_PACK_EXT_TYPE = 0xE
@@ -49,6 +48,9 @@ class RecordPacker:
     def __init__(self):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
+        # Packers that are not in use. A Packer can't pack anything else while it's busy, and pack_obj() packs the
+        # contents of an ExtType while the Packer that called it is busy.
+        self._packers = []
 
     def register(self, desc: RecordDescriptor, notify: bool = False) -> None:
         if not isinstance(desc, RecordDescriptor):
@@ -68,7 +70,10 @@ class RecordPacker:
 
         if isinstance(obj, datetime):
             if obj.tzinfo is None or obj.tzinfo == UTC:
-                packed = (RECORD_PACK_TYPE_DATETIME, (*obj.timetuple()[:6], obj.microsecond))
+                packed = (
+                    RECORD_PACK_TYPE_DATETIME,
+                    (obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second, obj.microsecond),
+                )
             else:
                 packed = (RECORD_PACK_TYPE_DATETIME, (obj.isoformat(),))
 
@@ -100,7 +105,15 @@ class RecordPacker:
         return msgpack.ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
 
     def pack(self, obj: Any) -> bytes:
-        return packb(obj, default=self.pack_obj)
+        if self._packers:
+            packer = self._packers.pop()
+        else:
+            packer = msgpack.Packer(default=self.pack_obj, use_bin_type=True, unicode_errors="surrogateescape")
+
+        try:
+            return packer.pack(obj)
+        finally:
+            self._packers.append(packer)
 
     def unpack_obj(self, t: int, data: bytes) -> Any:
         if t != RECORD_PACK_EXT_TYPE:
