@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import warnings
 from datetime import datetime, timezone
 from typing import Any
@@ -18,9 +17,6 @@ from flow.record.base import (
 )
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.utils import EventHandler, to_str
-
-# Override defaults for msgpack unpackb
-unpackb = functools.partial(msgpack.unpackb, raw=False, unicode_errors="surrogateescape")
 
 RECORD_PACK_EXT_TYPE = 0xE
 
@@ -198,4 +194,4 @@ class RecordPacker:
         raise TypeError(f"Unknown subtype: {subtype:x}")
 
     def unpack(self, d: bytes) -> Any:
-        return unpackb(d, ext_hook=self.unpack_obj, use_list=False)
+        return msgpack.unpackb(d, ext_hook=self.unpack_obj, use_list=False, raw=False, unicode_errors="surrogateescape")
