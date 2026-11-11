@@ -36,7 +36,7 @@ repository = "https://github.com/fox-it/flow.record"
 [project.optional-dependencies]
 # Note: these compression libraries do not work well with pypy
 compression = [
-    "lz4",
+    "lz4; platform_python_implementation != 'PyPy'",
     "backports.zstd; python_version < '3.14'",
 ]
 elastic = [
@@ -67,7 +67,7 @@ full = [
 # This list is duplicated due to https://github.com/fox-it/flow.record/pull/182#discussion_r2284582481
 [dependency-groups]
 compression = [
-    "lz4",
+    "lz4; platform_python_implementation != 'PyPy'",
     "backports.zstd; python_version < '3.14'",
 ]
 elastic = [
