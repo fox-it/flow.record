@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import importlib
 from datetime import datetime, timezone
 
 import pytest
+from msgpack import ExtType
 
 from flow.record import RecordDescriptor, RecordPacker, fieldtypes
+from flow.record import packer as packer_module
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.fieldtypes import uri
 from flow.record.packer import RECORD_PACK_EXT_TYPE
@@ -271,3 +274,30 @@ def test_record_descriptor_not_found() -> None:
     packer = RecordPacker()
     with pytest.raises(RecordDescriptorNotFound, match=r"No RecordDescriptor found for: .*test/descriptor_not_found"):
         packer.unpack(data)
+
+
+def test_pack_with_ext_type_make() -> None:
+    """Test that the installed msgpack's ExtType is a namedtuple of code and data, so packing uses ExtType._make()."""
+    assert packer_module._new_ext_type == ExtType._make
+
+
+def test_pack_without_ext_type_make(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that records pack the same if msgpack's ExtType is no longer a namedtuple of code and data."""
+    TestRecord = RecordDescriptor(
+        "test/ext_type",
+        [
+            ("datetime", "ts"),
+            ("varint", "value"),
+        ],
+    )
+    record = TestRecord(ts=datetime(2026, 11, 11, 12, 30, tzinfo=UTC), value=2**70)
+    expected = RecordPacker().pack(record)
+
+    monkeypatch.setattr(ExtType, "_fields", ("code", "data", "extra"))
+    try:
+        importlib.reload(packer_module)
+        assert packer_module._new_ext_type != ExtType._make
+        assert packer_module.RecordPacker().pack(record) == expected
+    finally:
+        monkeypatch.undo()
+        importlib.reload(packer_module)

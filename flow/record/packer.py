@@ -29,6 +29,15 @@ RECORD_PACK_TYPE_GROUPEDRECORD = 0x12
 
 UTC = timezone.utc
 
+# ExtType is a namedtuple, so _make() creates one without the argument checks in ExtType.__new__().
+# msgpack doesn't document this, so fall back to the constructor if ExtType changes.
+if hasattr(ExtType, "_make") and getattr(ExtType, "_fields", None) == ("code", "data"):
+    _new_ext_type = ExtType._make
+else:
+
+    def _new_ext_type(args: tuple[int, bytes]) -> ExtType:
+        return ExtType(*args)
+
 
 def identifier_to_str(identifier: tuple[str, int] | str) -> tuple[str, int] | str:
     if isinstance(identifier, tuple) and len(identifier) == 2:
@@ -98,7 +107,7 @@ class RecordPacker:
         if not packed:
             raise TypeError("Unpackable type " + str(type(obj)))
 
-        return ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
+        return _new_ext_type((RECORD_PACK_EXT_TYPE, self.pack(packed)))
 
     def pack(self, obj: Any) -> bytes:
         if self._packers:
