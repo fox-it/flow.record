@@ -1097,6 +1097,17 @@ def test_empty_command() -> None:
     assert command.executable == ""
     assert command.args == ()
 
+    # An empty executable is quoted when there are arguments
+    command = fieldtypes.command.from_posix("")
+    command.args = ("-h",)
+    assert command.raw == "'' -h"
+    assert fieldtypes.command.from_posix(command.raw) == command
+
+    command = fieldtypes.command.from_windows("")
+    command.args = ("-h",)
+    assert command.raw == '"" -h'
+    assert fieldtypes.command.from_windows(command.raw) == command
+
 
 def test_command_record() -> None:
     TestRecord = RecordDescriptor(
@@ -1121,7 +1132,23 @@ def test_command_record() -> None:
     assert record.commando.args == args
 
 
-def test_command_integration(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize(
+    ("command_string", "path_type", "expected_executable", "expected_args"),
+    [
+        (r"\.\?\some_command.exe -h,help /d quiet", None, r"\.\?\some_command.exe", (r"-h,help", "/d", "quiet")),
+        # Escaped backslashes, which a command string built from the parts loses
+        (r"grep -E \\d+ /var/log/syslog", posix_path, "grep", ("-E", r"\d+", "/var/log/syslog")),
+        (r"printf %s\\n hello", posix_path, "printf", (r"%s\n", "hello")),
+    ],
+)
+def test_command_integration(
+    tmp_path: pathlib.Path,
+    command_string: str,
+    path_type: type[fieldtypes.path] | None,
+    expected_executable: str,
+    expected_args: tuple[str, ...],
+) -> None:
+    """Test that a command keeps its parts and its command string when it is written and read back."""
     TestRecord = RecordDescriptor(
         "test/command",
         [
@@ -1130,16 +1157,16 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
     )
 
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=r"\.\?\some_command.exe -h,help /d quiet")
+        record = TestRecord(commando=command(command_string, path_type=path_type))
         writer.write(record)
-        assert record.commando.executable == r"\.\?\some_command.exe"
-        assert record.commando.args == (r"-h,help", "/d", "quiet")
+        assert record.commando.executable == expected_executable
+        assert record.commando.args == expected_args
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable == r"\.\?\some_command.exe"
-            assert record.commando.args == (r"-h,help", "/d", "quiet")
-            assert record.commando.raw == r"\?\some_command.exe -h,help /d quiet"
+            assert record.commando.executable == expected_executable
+            assert record.commando.args == expected_args
+            assert record.commando.raw == command_string
 
 
 def test_command_integration_none(tmp_path: pathlib.Path) -> None:
@@ -1201,8 +1228,8 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
             r"%WINDIR%\\windows.dll",
             ("something,or,somethingelse",),
         ),
-        # Test a single quoted path
-        (r"'c:\path to some exe' /d /a", r"c:\path to some exe", ("/d", "/a")),
+        # Test a single quoted path: Windows doesn't quote with single quotes
+        (r"'c:\path to some exe' /d /a", r"'c:\path", ("to", "some", "exe'", "/d", "/a")),
         # Test a double quoted path
         (r'"c:\path to some exe" /d /a', r"c:\path to some exe", ("/d", "/a")),
         # Test a unquoted path
@@ -1210,13 +1237,25 @@ def test_integration_correct_path(tmp_path: pathlib.Path) -> None:
         # Test an unquoted path with a path as argument
         (r"\Users\test\hello.exe c:\startmepls.exe", r"\Users\test\hello.exe", (r"c:\startmepls.exe",)),
         # Test a quoted UNC path
-        (r"'\\192.168.1.2\Program Files\hello.exe'", r"\\192.168.1.2\Program Files\hello.exe", ()),
+        (r'"\\192.168.1.2\Program Files\hello.exe"', r"\\192.168.1.2\Program Files\hello.exe", ()),
         # Test an unquoted UNC path
         (r"\\192.168.1.2\Users\test\hello.exe /d /a", r"\\192.168.1.2\Users\test\hello.exe", ("/d", "/a")),
         # Test an empty command string
-        (r"''", r"", ()),
-        # Test an unclosed quote: the text is kept, split on whitespace
+        (r'""', r"", ()),
+        # Test an unclosed single quote
         (r"c:\tool.exe /c 'unclosed", r"c:\tool.exe", ("/c", "'unclosed")),
+        # Test an unclosed double quote: it quotes the rest of the command string
+        (r'c:\tool.exe /c "echo a  b', r"c:\tool.exe", ("/c", "echo a  b")),
+        # Test quotes in an argument, which only quote the whitespace
+        (r'msiexec.exe /path:"C:\Program Files\App" /q', "msiexec.exe", (r"/path:C:\Program Files\App", "/q")),
+        (r'cmd.exe /c "echo hello world" "%1"', "cmd.exe", ("/c", "echo hello world", "%1")),
+        # Test backslashes before a double quote in an argument
+        (r'x.exe "a\"b" c\\" d"', "x.exe", ('a"b', r"c\ d")),
+        # Test two double quotes inside quotes: a double quote, and the end of quoting
+        (r'x.exe "a""b c" d', "x.exe", ('a"b', "c d")),
+        # Test the executable: unquoted it ends at whitespace and keeps its quotes, quoted it ends at the next quote
+        (r'c:\a"b c".exe /a', r'c:\a"b', ("c.exe /a",)),
+        (r'"c:\a\"b.exe" /a', "c:\\a\\", ("b.exe /a",)),
     ],
 )
 def test_command_windows(command_string: str, expected_executable: str, expected_argument: tuple[str, ...]) -> None:
@@ -1263,13 +1302,13 @@ def test_command_equal() -> None:
 
     # Compare paths that contain spaces
     assert command("'/home/some folder/file' -h") == "'/home/some folder/file' -h"
-    assert command("'c:\\Program files\\some.dll' -h -q") == "'c:\\Program files\\some.dll' -h -q"
-    assert command("'c:\\program files\\some.dll' -h -q") == ["c:\\program files\\some.dll", "-h", "-q"]
-    assert command("'c:\\Program files\\some.dll' -h -q") == ("c:\\Program files\\some.dll", "-h", "-q")
+    assert command('"c:\\Program files\\some.dll" -h -q') == '"c:\\Program files\\some.dll" -h -q'
+    assert command('"c:\\program files\\some.dll" -h -q') == ["c:\\program files\\some.dll", "-h", "-q"]
+    assert command('"c:\\Program files\\some.dll" -h -q') == ("c:\\Program files\\some.dll", "-h", "-q")
 
     assert (
-        command(r"'c:\Program Files\some.dll' --command 'hello world'")
-        == r"'c:\Program Files\some.dll' --command 'hello world'"
+        command(r'"c:\Program Files\some.dll" --command "hello world"')
+        == r'"c:\Program Files\some.dll" --command "hello world"'
     )
 
     # Test failure conditions
@@ -1277,6 +1316,62 @@ def test_command_equal() -> None:
     assert command("hello.so") != "hello.so -h"
     assert command("hello.so") != ["hello.so", ""]
     assert command("hello.so") != ("hello.so", "")
+
+
+@pytest.mark.parametrize(
+    ("command_string", "path_type", "expected_raw"),
+    [
+        # Windows only quotes with double quotes
+        (r'"C:\Program Files\App\app.exe" /silent', windows_path, r'"C:\Program Files\App\app.exe" /silent'),
+        ("/usr/bin/python3 -c 'print(1)'", posix_path, "/usr/bin/python3 -c 'print(1)'"),
+        ('/bin/sh -c "echo it\'s"', posix_path, '/bin/sh -c "echo it\'s"'),
+        ("/usr/bin/env  FOO=1   bar", posix_path, "/usr/bin/env  FOO=1   bar"),
+        ("  /bin/ls -l  ", posix_path, "/bin/ls -l"),
+    ],
+)
+def test_command_raw(command_string: str, path_type: type[fieldtypes.path], expected_raw: str) -> None:
+    """Test that raw is the command string as given, without surrounding whitespace."""
+    cmd = command(command_string, path_type=path_type)
+
+    assert cmd.raw == expected_raw
+    assert cmd == expected_raw
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_raw"),
+    [
+        (("FOO=1", "bar"), "/usr/bin/env FOO=1 bar"),
+        # Quoted, so they split back into the same arguments
+        ((r"\d+", "it's", "a b", "a\tb", ""), "/usr/bin/env '\\d+' 'it'\"'\"'s' 'a b' 'a\tb' ''"),
+    ],
+)
+def test_command_raw_after_assign_posix(args: tuple[str, ...], expected_raw: str) -> None:
+    """Test that raw is built from the executable and the arguments after one of them is assigned."""
+    cmd = command.from_posix("/usr/bin/env  FOO=1   bar")
+    cmd.args = args
+
+    assert cmd.raw == expected_raw
+    assert command.from_posix(cmd.raw) == cmd
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_raw"),
+    [
+        (("/c", "echo hello world"), r'C:\x.exe /c "echo hello world"'),
+        (('"%1"', "%1"), r'C:\x.exe "\"%1\"" %1'),
+        (('say "hi"',), r'C:\x.exe "say \"hi\""'),
+        ((r"a\"b c",), r'C:\x.exe "a\\\"b c"'),
+        (("C:\\Data dir\\",), r'C:\x.exe "C:\Data dir\\"'),
+        (("",), r'C:\x.exe ""'),
+    ],
+)
+def test_command_raw_after_assign_windows(args: tuple[str, ...], expected_raw: str) -> None:
+    """Test that raw quotes the arguments of a Windows command the way the Microsoft C runtime parses them."""
+    cmd = command.from_windows(r"C:\x.exe")
+    cmd.args = args
+
+    assert cmd.raw == expected_raw
+    assert command.from_windows(cmd.raw) == cmd
 
 
 def test_command_assign_posix() -> None:
@@ -1314,14 +1409,26 @@ def test_command_assign_windows() -> None:
     assert _command.raw == r"c:\windows\path"
 
     _command.executable = r"c:\windows\path to file"
-    assert _command.raw == r"'c:\windows\path to file'"
+    assert _command.raw == r'"c:\windows\path to file"'
 
     _command.args = ("command", "arguments", "for", "windows")
     assert _command.args == ("command", "arguments", "for", "windows")
-    assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
+    assert _command.raw == r'"c:\windows\path to file" command arguments for windows'
+    assert command.from_windows(_command.raw) == _command
 
     _command.args = "command arguments for windows2"
     assert _command.args == ("command", "arguments", "for", "windows2")
+
+
+def test_command_assign_keeps_other_part() -> None:
+    """Test that assigning the executable or the arguments of a new command keeps the other part of the command."""
+    _command = command("/bin/ls -l /tmp")
+    _command.executable = "/usr/bin/ls"
+    assert _command.raw == "/usr/bin/ls -l /tmp"
+
+    _command = command("/bin/ls -l /tmp")
+    _command.args = ("-a",)
+    assert _command.raw == "/bin/ls -a"
 
 
 def test_command_failed() -> None:
