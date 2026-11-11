@@ -4,7 +4,7 @@ import warnings
 from datetime import datetime, timezone
 from typing import Any
 
-import msgpack
+from msgpack import ExtType, Packer, unpackb
 
 from flow.record import fieldtypes
 from flow.record.base import (
@@ -61,7 +61,7 @@ class RecordPacker:
         if notify and self.on_descriptor:
             self.on_descriptor(desc)
 
-    def pack_obj(self, obj: Any, unversioned: bool = False) -> msgpack.ExtType:
+    def pack_obj(self, obj: Any, unversioned: bool = False) -> ExtType:
         packed = None
 
         if isinstance(obj, datetime):
@@ -98,13 +98,13 @@ class RecordPacker:
         if not packed:
             raise TypeError("Unpackable type " + str(type(obj)))
 
-        return msgpack.ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
+        return ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
 
     def pack(self, obj: Any) -> bytes:
         if self._packers:
             packer = self._packers.pop()
         else:
-            packer = msgpack.Packer(default=self.pack_obj, use_bin_type=True, unicode_errors="surrogateescape")
+            packer = Packer(default=self.pack_obj, use_bin_type=True, unicode_errors="surrogateescape")
 
         try:
             return packer.pack(obj)
@@ -194,4 +194,4 @@ class RecordPacker:
         raise TypeError(f"Unknown subtype: {subtype:x}")
 
     def unpack(self, d: bytes) -> Any:
-        return msgpack.unpackb(d, ext_hook=self.unpack_obj, use_list=False, raw=False, unicode_errors="surrogateescape")
+        return unpackb(d, ext_hook=self.unpack_obj, use_list=False, raw=False, unicode_errors="surrogateescape")
