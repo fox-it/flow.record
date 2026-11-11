@@ -1121,7 +1121,23 @@ def test_command_record() -> None:
     assert record.commando.args == args
 
 
-def test_command_integration(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize(
+    ("command_string", "path_type", "expected_executable", "expected_args"),
+    [
+        (r"\.\?\some_command.exe -h,help /d quiet", None, r"\.\?\some_command.exe", (r"-h,help", "/d", "quiet")),
+        # Escaped backslashes, which a command string built from the parts loses
+        (r"grep -E \\d+ /var/log/syslog", posix_path, "grep", ("-E", r"\d+", "/var/log/syslog")),
+        (r"printf %s\\n hello", posix_path, "printf", (r"%s\n", "hello")),
+    ],
+)
+def test_command_integration(
+    tmp_path: pathlib.Path,
+    command_string: str,
+    path_type: type[fieldtypes.path] | None,
+    expected_executable: str,
+    expected_args: tuple[str, ...],
+) -> None:
+    """Test that a command keeps its parts and its command string when it is written and read back."""
     TestRecord = RecordDescriptor(
         "test/command",
         [
@@ -1130,16 +1146,16 @@ def test_command_integration(tmp_path: pathlib.Path) -> None:
     )
 
     with RecordWriter(tmp_path / "command_record") as writer:
-        record = TestRecord(commando=r"\.\?\some_command.exe -h,help /d quiet")
+        record = TestRecord(commando=command(command_string, path_type=path_type))
         writer.write(record)
-        assert record.commando.executable == r"\.\?\some_command.exe"
-        assert record.commando.args == (r"-h,help", "/d", "quiet")
+        assert record.commando.executable == expected_executable
+        assert record.commando.args == expected_args
 
     with RecordReader(tmp_path / "command_record") as reader:
         for record in reader:
-            assert record.commando.executable == r"\.\?\some_command.exe"
-            assert record.commando.args == (r"-h,help", "/d", "quiet")
-            assert record.commando.raw == r"\?\some_command.exe -h,help /d quiet"
+            assert record.commando.executable == expected_executable
+            assert record.commando.args == expected_args
+            assert record.commando.raw == command_string
 
 
 def test_command_integration_none(tmp_path: pathlib.Path) -> None:
@@ -1279,6 +1295,32 @@ def test_command_equal() -> None:
     assert command("hello.so") != ("hello.so", "")
 
 
+@pytest.mark.parametrize(
+    ("command_string", "path_type", "expected_raw"),
+    [
+        # Windows only quotes with double quotes
+        (r'"C:\Program Files\App\app.exe" /silent', windows_path, r'"C:\Program Files\App\app.exe" /silent'),
+        ("/usr/bin/python3 -c 'print(1)'", posix_path, "/usr/bin/python3 -c 'print(1)'"),
+        ('/bin/sh -c "echo it\'s"', posix_path, '/bin/sh -c "echo it\'s"'),
+        ("/usr/bin/env  FOO=1   bar", posix_path, "/usr/bin/env  FOO=1   bar"),
+        ("  /bin/ls -l  ", posix_path, "/bin/ls -l"),
+    ],
+)
+def test_command_raw(command_string: str, path_type: type[fieldtypes.path], expected_raw: str) -> None:
+    """Test that raw is the command string as given, without surrounding whitespace."""
+    cmd = command(command_string, path_type=path_type)
+
+    assert cmd.raw == expected_raw
+    assert cmd == expected_raw
+
+
+def test_command_raw_after_assign() -> None:
+    """Test that raw is built from the executable and the arguments after one of them is assigned."""
+    cmd = command.from_posix("/usr/bin/env  FOO=1   bar")
+    cmd.args = cmd.args
+    assert cmd.raw == "/usr/bin/env FOO=1 bar"
+
+
 def test_command_assign_posix() -> None:
     _command = command("/")
 
@@ -1314,14 +1356,26 @@ def test_command_assign_windows() -> None:
     assert _command.raw == r"c:\windows\path"
 
     _command.executable = r"c:\windows\path to file"
-    assert _command.raw == r"'c:\windows\path to file'"
+    assert _command.raw == r'"c:\windows\path to file"'
 
     _command.args = ("command", "arguments", "for", "windows")
     assert _command.args == ("command", "arguments", "for", "windows")
-    assert _command.raw == r"'c:\windows\path to file' command arguments for windows"
+    assert _command.raw == r'"c:\windows\path to file" command arguments for windows'
+    assert command.from_windows(_command.raw) == _command
 
     _command.args = "command arguments for windows2"
     assert _command.args == ("command", "arguments", "for", "windows2")
+
+
+def test_command_assign_keeps_other_part() -> None:
+    """Test that assigning the executable or the arguments of a new command keeps the other part of the command."""
+    _command = command("/bin/ls -l /tmp")
+    _command.executable = "/usr/bin/ls"
+    assert _command.raw == "/usr/bin/ls -l /tmp"
+
+    _command = command("/bin/ls -l /tmp")
+    _command.args = ("-a",)
+    assert _command.raw == "/bin/ls -a"
 
 
 def test_command_failed() -> None:

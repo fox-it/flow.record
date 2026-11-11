@@ -778,7 +778,11 @@ class command(FieldType):
     """
 
     __executable: path
-    __args: tuple[str, ...]
+    # None until the command string is split. Splitting is slow, so it's done when the executable or the arguments are
+    # first used.
+    __args: tuple[str, ...] | None = None
+    # The command string as given, until the executable or the arguments are assigned
+    __original: str | None = None
 
     __path_type: type[path]
 
@@ -791,7 +795,7 @@ class command(FieldType):
         # Detect the kind of path from value if not specified
         self.__path_type = path_type or type(path(raw.lstrip("\"'")))
 
-        self.executable, self.args = self._split(raw)
+        self.__original = raw
 
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
@@ -805,6 +809,11 @@ class command(FieldType):
             return self.executable == other[0] and self.args == (*other[1:],)
 
         return False
+
+    def __split(self) -> None:
+        # Set the parts directly, because the setters discard the original command string
+        executable, self.__args = self._split(self.__original)
+        self.__executable = self.__path_type(executable)
 
     def _split(self, value: str) -> tuple[str, tuple[str, ...]]:
         if not value:
@@ -833,18 +842,34 @@ class command(FieldType):
 
     @property
     def executable(self) -> path:
+        if self.__args is None:
+            self.__split()
+
         return self.__executable
 
     @property
     def args(self) -> tuple[str, ...]:
+        if self.__args is None:
+            self.__split()
+
         return self.__args
 
     @executable.setter
-    def executable(self, val: str | path | None) -> None:
+    def executable(self, val: str | path) -> None:
+        # Split first, so the arguments of the command string are kept
+        if self.__args is None:
+            self.__split()
+
+        self.__original = None
         self.__executable = self.__path_type(val)
 
     @args.setter
     def args(self, val: str | tuple[str, ...] | list[str] | None) -> None:
+        # Split first, so the executable of the command string is kept
+        if self.__args is None:
+            self.__split()
+
+        self.__original = None
         if val is None:
             self.__args = ()
             return
@@ -858,10 +883,18 @@ class command(FieldType):
 
     @property
     def raw(self) -> str:
+        """The command string as given, without surrounding whitespace.
+
+        After the executable or the arguments are assigned, the command string is built from the parts instead.
+        """
+        if self.__original is not None:
+            return self.__original
+
         exe = str(self.executable)
 
         if " " in exe:
-            exe = shlex.quote(exe)
+            # Windows only quotes with double quotes
+            exe = shlex.quote(exe) if self.__path_type is posix_path else f'"{exe}"'
 
         result = [exe]
         # Only quote on posix paths as shlex doesn't remove the quotes on non posix paths
