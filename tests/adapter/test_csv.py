@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from flow.record import RecordReader
+from flow.record import RecordDescriptor, RecordReader, RecordWriter
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -54,6 +54,30 @@ def test_csv_non_standard_headers(tmp_path: Path) -> None:
         assert records[1].Filename == "shadow"
         assert records[1].Full_Path == "/etc/shadow"
         assert records[1].Size__bytes_ == "1290"
+
+
+def test_csv_directory_writes_separate_files(tmp_path: Path) -> None:
+    """Test the csvdirectory adapter writing one file per record descriptor."""
+    StdRecord = RecordDescriptor("filesystem/ntfs/mft/std", [("string", "hostname"), ("uint32", "segment")])
+    FilenameRecord = RecordDescriptor(
+        "filesystem/ntfs/mft/filename", [("string", "hostname"), ("uint32", "filename_index")]
+    )
+
+    output_dir = tmp_path / "csv-out"
+    with RecordWriter(f"csvdirectory://{output_dir}?exclude=_source,_classification,_generated,_version") as writer:
+        writer.write(StdRecord(hostname="host", segment=1))
+        writer.write(FilenameRecord(hostname="host", filename_index=2))
+        writer.write(StdRecord(hostname="host", segment=3))
+
+    assert (output_dir / "filesystem/ntfs/mft/std.csv").read_text().splitlines() == [
+        "hostname,segment",
+        "host,1",
+        "host,3",
+    ]
+    assert (output_dir / "filesystem/ntfs/mft/filename.csv").read_text().splitlines() == [
+        "hostname,filename_index",
+        "host,2",
+    ]
 
 
 def test_csv_read_reserved_fields(tmp_path: Path) -> None:

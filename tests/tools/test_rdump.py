@@ -428,6 +428,44 @@ def test_rdump_split_using_uri(
             assert first_line in next(f)
 
 
+def test_rdump_csv_directory(tmp_path: Path) -> None:
+    StdRecord = RecordDescriptor(
+        "filesystem/ntfs/mft/std",
+        [
+            ("string", "hostname"),
+            ("uint32", "segment"),
+        ],
+    )
+    FilenameRecord = RecordDescriptor(
+        "filesystem/ntfs/mft/filename",
+        [
+            ("string", "hostname"),
+            ("uint32", "filename_index"),
+        ],
+    )
+
+    records_path = tmp_path / "mft.records"
+    with RecordWriter(records_path) as writer:
+        writer.write(StdRecord(hostname="host", segment=1))
+        writer.write(FilenameRecord(hostname="host", filename_index=2))
+
+    output_dir = tmp_path / "csv-out"
+    rdump.main(
+        [
+            str(records_path),
+            "--csv-directory",
+            str(output_dir),
+            "--exclude",
+            "_source,_classification,_generated,_version",
+        ]
+    )
+
+    std_path = output_dir / "filesystem/ntfs/mft/std.csv"
+    filename_path = output_dir / "filesystem/ntfs/mft/filename.csv"
+    assert std_path.read_text().splitlines() == ["hostname,segment", "host,1"]
+    assert filename_path.read_text().splitlines() == ["hostname,filename_index", "host,2"]
+
+
 def test_rdump_split_without_writer(capsysbinary: pytest.CaptureFixture) -> None:
     with pytest.raises(SystemExit):
         rdump.main(["--split=10"])

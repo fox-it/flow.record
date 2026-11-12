@@ -298,6 +298,12 @@ def main(argv: list[str] | None = None) -> int:
         default=argparse.SUPPRESS,
         help="Short for --mode=csv-no-header",
     )
+    output.add_argument(
+        "--csv-directory",
+        metavar="DIR",
+        default=None,
+        help="Write CSV output to a directory, one file per record descriptor",
+    )
 
     args = parser.parse_args(argv)
 
@@ -339,7 +345,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     uri = args.writer or "text://"
-    if not args.writer:
+    if args.csv_directory:
+        if args.writer:
+            parser.error("--csv-directory cannot be used with -w/--writer")
+        header = "false" if args.mode == "csv-no-header" else "true"
+        uri = f"csvdirectory://{args.csv_directory}?header={header}"
+    elif not args.writer:
         mode_to_uri = {
             "csv": "csvfile://",
             "csv-no-header": "csvfile://?header=false",
