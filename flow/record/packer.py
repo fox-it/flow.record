@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import functools
 import warnings
 from datetime import datetime, timezone
 from typing import Any
 
-import msgpack
+from msgpack import ExtType, Packer, unpackb
 
 from flow.record import fieldtypes
 from flow.record.base import (
@@ -19,10 +18,6 @@ from flow.record.base import (
 from flow.record.exceptions import RecordDescriptorNotFound
 from flow.record.utils import EventHandler, to_str
 
-# Override defaults for msgpack packb/unpackb
-packb = functools.partial(msgpack.packb, use_bin_type=True, unicode_errors="surrogateescape")
-unpackb = functools.partial(msgpack.unpackb, raw=False, unicode_errors="surrogateescape")
-
 RECORD_PACK_EXT_TYPE = 0xE
 
 RECORD_PACK_TYPE_RECORD = 0x1
@@ -33,6 +28,15 @@ RECORD_PACK_TYPE_VARINT = 0x11
 RECORD_PACK_TYPE_GROUPEDRECORD = 0x12
 
 UTC = timezone.utc
+
+# ExtType is a namedtuple, so _make() creates one without the argument checks in ExtType.__new__().
+# msgpack doesn't document this, so fall back to the constructor if ExtType changes.
+if hasattr(ExtType, "_make") and getattr(ExtType, "_fields", None) == ("code", "data"):
+    _new_ext_type = ExtType._make
+else:
+
+    def _new_ext_type(args: tuple[int, bytes]) -> ExtType:
+        return ExtType(*args)
 
 
 def identifier_to_str(identifier: tuple[str, int] | str) -> tuple[str, int] | str:
@@ -49,6 +53,9 @@ class RecordPacker:
     def __init__(self):
         self.descriptors = {}
         self.on_descriptor = EventHandler()
+        # Packers that are not in use. A Packer can't pack anything else while it's busy, and pack_obj() packs the
+        # contents of an ExtType while the Packer that called it is busy.
+        self._packers = []
 
     def register(self, desc: RecordDescriptor, notify: bool = False) -> None:
         if not isinstance(desc, RecordDescriptor):
@@ -63,12 +70,15 @@ class RecordPacker:
         if notify and self.on_descriptor:
             self.on_descriptor(desc)
 
-    def pack_obj(self, obj: Any, unversioned: bool = False) -> msgpack.ExtType:
+    def pack_obj(self, obj: Any, unversioned: bool = False) -> ExtType:
         packed = None
 
         if isinstance(obj, datetime):
             if obj.tzinfo is None or obj.tzinfo == UTC:
-                packed = (RECORD_PACK_TYPE_DATETIME, (*obj.timetuple()[:6], obj.microsecond))
+                packed = (
+                    RECORD_PACK_TYPE_DATETIME,
+                    (obj.year, obj.month, obj.day, obj.hour, obj.minute, obj.second, obj.microsecond),
+                )
             else:
                 packed = (RECORD_PACK_TYPE_DATETIME, (obj.isoformat(),))
 
@@ -97,10 +107,18 @@ class RecordPacker:
         if not packed:
             raise TypeError("Unpackable type " + str(type(obj)))
 
-        return msgpack.ExtType(RECORD_PACK_EXT_TYPE, self.pack(packed))
+        return _new_ext_type((RECORD_PACK_EXT_TYPE, self.pack(packed)))
 
     def pack(self, obj: Any) -> bytes:
-        return packb(obj, default=self.pack_obj)
+        if self._packers:
+            packer = self._packers.pop()
+        else:
+            packer = Packer(default=self.pack_obj, use_bin_type=True, unicode_errors="surrogateescape")
+
+        try:
+            return packer.pack(obj)
+        finally:
+            self._packers.append(packer)
 
     def unpack_obj(self, t: int, data: bytes) -> Any:
         if t != RECORD_PACK_EXT_TYPE:
@@ -185,4 +203,4 @@ class RecordPacker:
         raise TypeError(f"Unknown subtype: {subtype:x}")
 
     def unpack(self, d: bytes) -> Any:
-        return unpackb(d, ext_hook=self.unpack_obj, use_list=False)
+        return unpackb(d, ext_hook=self.unpack_obj, use_list=False, raw=False, unicode_errors="surrogateescape")

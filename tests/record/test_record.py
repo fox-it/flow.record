@@ -400,15 +400,18 @@ def test_record_reserved_keyword() -> None:
         ],
     )
 
+    # inspect.signature() doesn't accept parameters with the name of a keyword
     init = Record.recordType.__init__
-    sig = inspect.signature(init)
-    params = list(sig.parameters.values())
-    assert init.__code__.co_argcount == 1
-    assert len(params) == 3
-    assert params[1].name == "args"
-    assert params[1].kind == params[1].VAR_POSITIONAL
-    assert params[2].name == "kwargs"
-    assert params[2].kind == params[2].VAR_KEYWORD
+    assert init.__code__.co_varnames[1 : init.__code__.co_argcount] == (
+        "from",
+        "and",
+        "or",
+        "normal",
+        "_source",
+        "_classification",
+        "_generated",
+        "_version",
+    )
 
     r = Record("hello", "world", 1337, 10)
     assert getattr(r, "from") == "hello"
@@ -427,6 +430,9 @@ def test_record_reserved_keyword() -> None:
     assert getattr(r, "and") == "dict"
     assert getattr(r, "or") == 7331
     assert r.normal == 3
+
+    with pytest.raises(TypeError, match=r"^test_a\.__init__\(\) got an unexpected keyword argument 'unknown'$"):
+        Record(unknown=1)
 
     Record = RecordDescriptor(
         "test/a",
@@ -466,6 +472,26 @@ def test_record_reserved_keyword() -> None:
     r = Record(1, 2)
     assert r.self == 1
     assert r.cls == 2
+
+
+def test_record_builtin_fieldname() -> None:
+    """Test fields with the name of a builtin that the methods of a record class use."""
+    Record = RecordDescriptor(
+        "test/a",
+        [
+            ("string", "isinstance"),
+            ("varint", "zip"),
+        ],
+    )
+
+    record = Record(isinstance="hello", zip=1)
+    assert record.isinstance == "hello"
+    assert record.zip == 1
+    assert repr(record) == "<test/a isinstance='hello' zip=1>"
+
+    packer = RecordPacker()
+    packer.register(Record)
+    assert packer.unpack(packer.pack(record)) == record
 
 
 def test_record_stream(tmp_path: Path) -> None:

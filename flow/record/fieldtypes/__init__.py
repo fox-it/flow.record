@@ -216,7 +216,7 @@ class string(str, FieldType):
     def __new__(cls, value: str | _bytes):
         if isinstance(value, _bytes):
             value = value.decode(errors="surrogateescape")
-        return super().__new__(cls, value)
+        return str.__new__(cls, value)
 
     def _pack(self) -> string:
         return self
@@ -317,6 +317,9 @@ class datetime(_dt, FieldType):
                     tzinfo,
                     fold=arg.fold,
                 )
+        elif len(args) < 8 and "tzinfo" not in kwargs:
+            # Treat naive datetimes as UTC
+            obj = _dt.__new__(cls, *args, **kwargs, tzinfo=UTC)
         else:
             obj = _dt.__new__(cls, *args, **kwargs)
 
@@ -329,7 +332,10 @@ class datetime(_dt, FieldType):
         return self
 
     def __str__(self) -> str:
-        return self.astimezone(DISPLAY_TZINFO).isoformat(" ") if DISPLAY_TZINFO else self.isoformat(" ")
+        if not DISPLAY_TZINFO:
+            return self.isoformat(" ")
+        # Convert a plain datetime copy, astimezone() on this subclass calls __new__() for every intermediate result
+        return _dt.combine(self.date(), self.timetz()).astimezone(DISPLAY_TZINFO).isoformat(" ")
 
     def __repr__(self) -> str:
         return str(self)
