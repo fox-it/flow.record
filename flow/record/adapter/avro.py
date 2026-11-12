@@ -39,7 +39,13 @@ AVRO_TYPE_MAP = {
     "uri": "string",
     "digest": "bytes",
     "bytes": "bytes",
+    "path": "string",
+    "posix_path": "string",
+    "windows_path": "string",
+    "command": "string",
 }
+
+STRING_PACKED_TYPES = frozenset({"path", "posix_path", "windows_path", "command"})
 
 RECORD_TYPE_MAP = {
     "boolean": "boolean",
@@ -76,7 +82,7 @@ class AvroWriter(AbstractWriter):
         if self.desc != r._desc:
             raise ValueError("Mixed record types")
 
-        self.writer.write(r._packdict())
+        self.writer.write(pack_record_for_avro(r))
 
     def flush(self) -> None:
         if not self.writer:
@@ -131,6 +137,17 @@ class AvroReader(AbstractReader):
         if self.fp:
             self.fp.close()
         self.fp = None
+
+
+def pack_record_for_avro(r: record.Record) -> dict[str, Any]:
+    data = r._packdict()
+
+    for name, field in r._desc.get_all_fields().items():
+        # These types pack into a (value, type) tuple, but are stored as a plain string in Avro
+        if field.typename in STRING_PACKED_TYPES and (value := data.get(name)) is not None:
+            data[name] = value[0]
+
+    return data
 
 
 def descriptor_to_schema(desc: record.RecordDescriptor) -> dict[str, Any]:
