@@ -79,9 +79,8 @@ class FilesystemIterator:
         )
 
         if ifmt == stat.S_IFDIR:
-            for i in path.iterdir():
-                fullpath = path.joinpath(i)
-                yield from self.iter(fullpath)
+            for child in path.iterdir():
+                yield from self._iter(child)
 
 
 chunk = []
