@@ -458,6 +458,11 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     all_fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in fields])
     all_fields.update(RecordDescriptor.get_required_fields())
 
+    # A field name can occur more than once in a descriptor. It's a single field, in the position of its first
+    # occurrence and with the type of its last occurrence, like in ``all_fields``. The compiled methods need exactly
+    # one parameter per field, otherwise the later occurrence resets the field to its default value.
+    fields = tuple((_type, n) for n, _type in {n: _type for _type, n in fields}.items())
+
     if not RE_VALID_RECORD_TYPE_NAME.match(name):
         raise RecordDescriptorError("Invalid record type name")
 

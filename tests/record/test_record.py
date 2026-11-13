@@ -1007,3 +1007,121 @@ def test_list_field_type_hashing() -> None:
 
     test_record = TestRecord(stringlist=["a", "b", "c", "d"], dictlist=[{"a": "b", "c": "d"}, {"foo": "bar"}])
     assert isinstance(hash(test_record), int)
+
+
+def test_duplicate_field_in_descriptor() -> None:
+    """A field that occurs more than once in a descriptor must keep the value it was set to."""
+    TestRecord = RecordDescriptor("test/dup", [("varint", "pid"), ("varint", "tid"), ("varint", "pid")])
+    record = TestRecord(pid=1337, tid=314)
+    assert record.pid == 1337
+    assert record.tid == 314
+    assert TestRecord(1337, 314).pid == 1337
+
+    ListRecord = RecordDescriptor(
+        "test/dup_list",
+        [
+            ("varint[]", "ports"),
+            ("string", "x"),
+            ("varint[]", "ports"),
+        ],
+    )
+    assert ListRecord(ports=[22, 1234], x="a").ports == [22, 1234]
+
+
+def test_duplicate_field_in_descriptor_different_types() -> None:
+    """When a field name occurs more than once with different types, it is a single field.
+
+    The field keeps the position of its first occurrence and the type of its last occurrence, so
+    ``[("varint", "pid"), ("string", "name"), ("string", "pid")]`` has the fields ``pid`` (string) and ``name``.
+    """
+    TestRecord = RecordDescriptor(
+        "test/dup_types",
+        [
+            ("varint", "pid"),
+            ("string", "name"),
+            ("string", "pid"),
+        ],
+    )
+    record = TestRecord(pid="5", name="x")
+
+    assert isinstance(record.pid, str)
+    assert record.pid == "5"
+    assert record.name == "x"
+    assert list(record._asdict())[:2] == ["pid", "name"]
+    assert repr(record) == "<test/dup_types pid='5' name='x'>"
+
+
+def test_duplicate_field_in_descriptor_serialization() -> None:
+    """The methods that are generated for a record class must also handle a field that occurs more than once.
+
+    Besides ``__init__``, ``__repr__()``, ``_asdict()``, ``_pack()`` and ``_unpack()`` depend on the fields of the
+    class, so a record with a duplicate field must keep its values in all of them, including a round trip through
+    ``RecordPacker``.
+    """
+    TestRecord = RecordDescriptor(
+        "test/dup_serialize",
+        [
+            ("varint", "pid"),
+            ("varint", "tid"),
+            ("varint", "pid"),
+        ],
+    )
+    record = TestRecord(pid=1337, tid=314)
+
+    assert repr(record) == "<test/dup_serialize pid=1337 tid=314>"
+
+    as_dict = record._asdict()
+    assert as_dict["pid"] == 1337
+    assert as_dict["tid"] == 314
+
+    assert record._pack()[1][:2] == (1337, 314)
+
+    packer = RecordPacker()
+    packer.register(TestRecord)
+    unpacked = packer.unpack(packer.pack(record))
+    assert unpacked.pid == 1337
+    assert unpacked.tid == 314
+    assert unpacked == record
+
+
+def test_duplicate_keyword_field_in_descriptor() -> None:
+    """A Python keyword as a duplicate field name must work too.
+
+    Keywords can't be used as keyword arguments or attributes, so values are passed by position and read with
+    ``getattr()``. Only the first positional value is used for the duplicated field, like before the duplicate
+    occurred.
+    """
+    TestRecord = RecordDescriptor(
+        "test/dup_keyword",
+        [
+            ("varint", "from"),
+            ("varint", "x"),
+            ("varint", "from"),
+        ],
+    )
+    record = TestRecord(1, 2)
+
+    assert getattr(record, "from") == 1
+    assert record.x == 2
+
+    assert getattr(TestRecord(**{"from": 1, "x": 2}), "from") == 1
+
+
+def test_duplicate_field_in_descriptor_positional_arguments() -> None:
+    """Positional arguments follow the fields of a descriptor without its duplicate fields.
+
+    ``[("varint", "pid"), ("varint", "tid"), ("varint", "pid")]`` has the two fields ``pid`` and ``tid``, so the
+    second positional argument is ``tid`` and not the duplicate ``pid``, which can't override the first.
+    """
+    TestRecord = RecordDescriptor(
+        "test/dup_positional",
+        [
+            ("varint", "pid"),
+            ("varint", "tid"),
+            ("varint", "pid"),
+        ],
+    )
+    record = TestRecord(1337, 314)
+
+    assert record.pid == 1337
+    assert record.tid == 314
