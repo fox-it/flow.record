@@ -21,12 +21,16 @@ def test_declarative_basic() -> None:
         url: str
         status: Annotated[int, "uint32"]
 
+    before = datetime.now(timezone.utc)
     r = TestRecord(url="http://flow.record", status=200)
+    after = datetime.now(timezone.utc)
 
     assert isinstance(r, Record)
     assert isinstance(r, TestRecord)
     assert r.url == "http://flow.record"
     assert r.status == 200
+    # Like in a classic record, _generated is the current time if it's not given
+    assert before <= r._generated <= after
 
     # Values are coerced to their fieldtypes.
     assert isinstance(r.url, string)
@@ -135,7 +139,7 @@ def test_declarative_unexpected_keyword() -> None:
     class TestRecord(RecordBase, name="test/unexpected"):
         a: int
 
-    with pytest.raises(TypeError, match=r"^__init__\(\) got an unexpected keyword argument 'nope'$"):
+    with pytest.raises(TypeError, match=r"^TestRecord\.__init__\(\) got an unexpected keyword argument 'nope'$"):
         TestRecord(a=1, nope=2)
 
 
@@ -251,18 +255,22 @@ def test_declarative_init_false_excluded_from_constructor() -> None:
     class TestRecord(RecordBase, name="test/init_false"):
         a: int
         b: str = field(init=False)
+        c: int = field(init=False, default=3)
+        d: Annotated[list[str], "string[]"] = field(init=False)
 
-    # `a` is a constructor argument; `b` (init=False) is not part of the signature
-    # and is initialised to its default instead.
+    # `a` is a constructor argument; `b`, `c` and `d` (init=False) are not part of the signature
+    # and are initialised to their default instead, or the default of their field type.
     r = TestRecord(a=1)
     assert r.a == 1
     assert r.b is None
+    assert r.c == 3
+    assert r.d == []
 
     # Only init fields count towards positional binding.
     assert TestRecord(2).a == 2
 
     # The derived field is rejected as a constructor argument.
-    with pytest.raises(TypeError, match=r"^__init__\(\) got an unexpected keyword argument 'b'$"):
+    with pytest.raises(TypeError, match=r"^TestRecord\.__init__\(\) got an unexpected keyword argument 'b'$"):
         TestRecord(a=1, b="nope")
 
 
@@ -286,6 +294,68 @@ def test_declarative_initvar_without_post_init() -> None:
 
         class TestRecord(RecordBase, name="test/no_post_init"):
             _target: InitVar[Any]
+
+
+def test_declarative_initvar_reserved_name() -> None:
+    """Test that an init-only var can't have the name of a reserved field, which is also an argument of ``__init__``."""
+    with pytest.raises(TypeError, match=re.escape("init-only var '_source' has the name of a reserved field")):
+
+        class TestRecord(RecordBase, name="test/initvar_reserved"):
+            _source: InitVar[Any]
+
+            def __post_init__(self, _source: Any) -> None:
+                pass
+
+
+def test_declarative_same_shape() -> None:
+    """Test that record classes with the same shape, which share a compiled ``__init__``, keep their own fields."""
+
+    class First(RecordBase, name="test/same_shape_first"):
+        a: int = 1
+        b: str
+        _value: InitVar[str]
+
+        def __post_init__(self, _value: str) -> None:
+            self.b = f"first {_value}"
+
+    class Second(RecordBase, name="test/same_shape_second"):
+        c: int = 2
+        d: str
+        _other: InitVar[str]
+
+        def __post_init__(self, _other: str) -> None:
+            self.d = f"second {_other}"
+
+    class WithPostInit(RecordBase, name="test/same_shape_with_post_init"):
+        e: int = 3
+        f: str
+
+        def __post_init__(self) -> None:
+            self.f = "with post init"
+
+    class WithoutPostInit(RecordBase, name="test/same_shape_without_post_init"):
+        g: int = 4
+        h: str
+
+    first = First(_value="value")
+    second = Second(_other="other")
+    with_post_init = WithPostInit()
+    without_post_init = WithoutPostInit(h="value")
+
+    assert (first.a, first.b) == (1, "first value")
+    assert (second.c, second.d) == (2, "second other")
+    assert (with_post_init.e, with_post_init.f) == (3, "with post init")
+    assert (without_post_init.g, without_post_init.h) == (4, "value")
+    # The first parameter is self, which has a different name
+    assert list(inspect.signature(Second.__init__).parameters)[1:] == [
+        "c",
+        "d",
+        "_other",
+        "_source",
+        "_classification",
+        "_generated",
+        "_version",
+    ]
 
 
 def test_declarative_replace() -> None:
@@ -363,8 +433,44 @@ def test_declarative_matches_classic() -> None:
     record = TestRecord(ts, "http://flow.record", 200, _generated=ts)
     classic_record = classic(ts, "http://flow.record", 200, _generated=ts)
     assert record._pack() == classic_record._pack()
+    assert record._pack(unversioned=True) == classic_record._pack(unversioned=True)
+    assert record._pack(excluded_fields=["url"]) == classic_record._pack(excluded_fields=["url"])
+    assert record._asdict() == classic_record._asdict()
+    assert record._asdict(fields=["url", "status"]) == classic_record._asdict(fields=["url", "status"])
+    assert record._asdict(exclude=["url"]) == classic_record._asdict(exclude=["url"])
+    assert repr(record) == repr(classic_record)
     assert record == classic_record
     assert hash(record) == hash(classic_record)
+
+
+class ParityRecord(RecordBase, name="test/parity"):
+    ts: datetime
+    tags: Annotated[list[str], "string[]"]
+    status: Annotated[int, "uint32"]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"_generated": datetime(2024, 1, 1, tzinfo=timezone.utc)},
+        {"ts": "2024-03-01T12:00:00+00:00", "tags": ("a", "b"), "status": "200", "_generated": 0},
+        {"_generated": 0},
+        {"_generated": ""},
+        {"_version": 5, "_generated": datetime(2024, 1, 1, tzinfo=timezone.utc)},
+        {"_version": "x", "_generated": datetime(2024, 1, 1, tzinfo=timezone.utc)},
+    ],
+    ids=["defaults", "conversion", "generated-zero", "generated-empty", "version", "version-invalid"],
+)
+def test_declarative_init_matches_classic(kwargs: dict[str, Any]) -> None:
+    """Test that a declarative record is initialized like a classic record, also with false or invalid values."""
+
+    def init(cls: type[Record]) -> Any:
+        try:
+            return cls(**kwargs)._asdict()
+        except Exception as e:
+            return type(e), str(e)
+
+    assert init(ParityRecord) == init(ParityRecord.__descriptor__.recordType)
 
 
 def test_declarative_field_docstring() -> None:

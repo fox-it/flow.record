@@ -440,6 +440,20 @@ def _compile_record_methods(count: int, reserved: tuple[str, ...]) -> dict[str, 
     return {name: value for name, value in namespace.items() if isinstance(value, FunctionType)}
 
 
+def _replace_names(template: FunctionType, names: Mapping[str, str], _globals: dict[str, Any]) -> FunctionType:
+    """Return a copy of a compiled template function, with the names in ``names`` replaced and its own globals.
+
+    The names are replaced in the names of attributes, globals and variables, and in string constants.
+    """
+    code = template.__code__
+    code = code.replace(
+        co_names=tuple(map(names.get, code.co_names, code.co_names)),
+        co_varnames=tuple(map(names.get, code.co_varnames, code.co_varnames)),
+        co_consts=tuple(map(names.get, code.co_consts, code.co_consts)),
+    )
+    return FunctionType(code, _globals, template.__name__, template.__defaults__)
+
+
 @functools.lru_cache(maxsize=4096)
 def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     """Generate a record class.
@@ -503,12 +517,7 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
         _globals[f"_set_{template_name}"] = cls.__dict__[fname].__set__
 
     for method, template in _compile_record_methods(len(fields), reserved).items():
-        code = template.__code__
-        code = code.replace(
-            co_names=tuple(names.get(n, n) for n in code.co_names),
-            co_varnames=tuple(names.get(n, n) for n in code.co_varnames),
-        )
-        function = FunctionType(code, _globals, method, template.__defaults__)
+        function = _replace_names(template, names, _globals)
         function.__qualname__ = f"{cls.__name__}.{method}"
         setattr(cls, method, classmethod(function) if method == "_unpack" else function)
 

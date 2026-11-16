@@ -57,7 +57,9 @@ from __future__ import annotations
 import ast
 import copy
 import dataclasses
+import functools
 import inspect
+import itertools
 import sys
 import textwrap
 from datetime import datetime
@@ -68,10 +70,12 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, NamedTuple, Union, g
 from flow.record.base import (
     _FIELDTYPES_PREFIX,
     RECORD_VERSION,
+    RESERVED_FIELDS,
     FieldType,
     Record,
     RecordDescriptor,
     _default_is_trivial,
+    _replace_names,
     _utcnow,
 )
 from flow.record.whitelist import WHITELIST
@@ -88,6 +92,7 @@ else:
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import CodeType, FunctionType
 
 # Python type -> flow.record typename
 # Use `field(typename=...)` or `Annotated[int, "..."]` for a more specific type
@@ -124,30 +129,37 @@ def field(
     return dataclasses.field(default=default, default_factory=default_factory, init=init, metadata=metadata)
 
 
+# The field of an annotation without a value, which is shared because fields are not changed
+_NO_DEFAULT = field()
+
+
 def _resolve_typename(annotation: Any) -> str:
     """Return the flow.record typename of a field annotation."""
-    if get_origin(annotation) is Annotated:
+    # Most annotations are a class, so check that first
+    if isinstance(annotation, type):
+        if issubclass(annotation, FieldType):
+            return _fieldtype_typename(annotation)
+
+        if annotation in _PY_TYPE_TO_TYPENAME:
+            return _PY_TYPE_TO_TYPENAME[annotation]
+
+    elif get_origin(annotation) is Annotated:
         base, *metadata = get_args(annotation)
         for meta in metadata:
             if isinstance(meta, str):
                 return meta
-        annotation = base
+        return _resolve_typename(base)
 
     # Every field can be None, so `X | None` and `Optional[X]` have the typename of X
-    if get_origin(annotation) in (Union, UnionType):
+    elif get_origin(annotation) in (Union, UnionType):
         args = [arg for arg in get_args(annotation) if arg is not NoneType]
         if len(args) == 1:
             return _resolve_typename(args[0])
 
-    if isinstance(annotation, type) and issubclass(annotation, FieldType):
-        return _fieldtype_typename(annotation)
-
-    if isinstance(annotation, type) and annotation in _PY_TYPE_TO_TYPENAME:
-        return _PY_TYPE_TO_TYPENAME[annotation]
-
     raise TypeError(f"Failed to map annotation {annotation!r} to a flow.record fieldtype")
 
 
+@functools.lru_cache(maxsize=256)
 def _fieldtype_typename(annotation: type[FieldType]) -> str:
     """Return the flow.record typename of a field type class.
 
@@ -169,72 +181,117 @@ def _fieldtype_typename(annotation: type[FieldType]) -> str:
     return name
 
 
+@functools.lru_cache(maxsize=4096)
+def _compile_annotation(source: str) -> CodeType:
+    """Compile an annotation string once, as most annotations are the same few strings."""
+    return compile(source, "<string>", "eval")
+
+
 # Marks an init-only variable that was not given to the constructor
 _MISSING = object()
 
+DECLARATIVE_INIT_TEMPLATE = """
+def __init__(__self, {args}):
+{set_fields}
+    _setattr(__self, "_version", _version_value)
+{post_init}
+"""
+
+# How __init__() sets a field: to the value, or to the default of the field. Like Record.__setattr__(), it converts
+# the value to the field type, and then stores it with object.__setattr__(), which skips the Python code of
+# Record.__setattr__(). Storing it in __dict__ directly is faster, but makes reading the attributes slower.
+DECLARATIVE_SET_FIELD_TEMPLATE = """\
+    if {name} is None and _default_{name} is not None:
+        {name} = _default_{name}()
+    if {name} is not None and not isinstance({name}, _type_{name}):
+        {name} = _type_{name}({name})
+    _setattr(__self, "{name}", {name})
+"""
+
+# How __init__() passes an init-only var to __post_init__(), if it was given
+DECLARATIVE_SET_INITVAR_TEMPLATE = """\
+    if {name} is not _MISSING:
+        __initvars["{name}"] = {name}
+"""
+
+
+# The globals of the reserved fields in the compiled __init__, which are the same for every declarative record class.
+# Like in a classic record, _generated is the current time if it's not given.
+_RESERVED_GLOBALS = {
+    "_version_value": RecordDescriptor.get_required_fields()["_version"].type(RECORD_VERSION),
+    **{f"_type_{name}": field.type for name, field in RecordDescriptor.get_required_fields().items()},
+    **{f"_default_{name}": None for name in RESERVED_FIELDS},
+    "_default__generated": _utcnow,
+}
+
+
+@functools.lru_cache(maxsize=256)
+def _compile_init(init: tuple[bool, ...], initvar_count: int, has_post_init: bool) -> FunctionType:
+    """Compile the ``__init__`` of declarative record classes with the same shape.
+
+    Compiling takes most of the time of creating a declarative record class, so it's done once for every shape. The
+    fields and init-only vars are named ``_0``, ``_1``, etc. in the compiled ``__init__``, which ``_generate_init()``
+    replaces with their names. It looks up everything that depends on the field types in its globals.
+
+    Args:
+        init: For every field, whether it is an argument.
+        initvar_count: The number of init-only vars, which are the arguments after the fields.
+        has_post_init: Whether to call ``__post_init__``.
+    """
+    names = [f"_{i}" for i in range(len(init) + initvar_count)]
+    fields, initvars = names[: len(init)], names[len(init) :]
+    args = [f"{name}=None" for name, is_arg in zip(fields, init, strict=True) if is_arg]
+    args += [f"{name}=_MISSING" for name in initvars]
+    args += [f"{name}=None" for name in RESERVED_FIELDS]
+
+    # A field that is not an argument (init=False) starts without a value, so it's set to its default
+    set_fields = "".join(
+        ("" if is_arg else f"    {name} = None\n") + DECLARATIVE_SET_FIELD_TEMPLATE.format(name=name)
+        for name, is_arg in zip(fields, init, strict=True)
+    )
+    set_fields += "".join(DECLARATIVE_SET_FIELD_TEMPLATE.format(name=name) for name in RESERVED_FIELDS)
+
+    post_init = ""
+    if has_post_init:
+        post_init = "    __initvars = {}\n"
+        post_init += "".join(DECLARATIVE_SET_INITVAR_TEMPLATE.format(name=name) for name in initvars)
+        post_init += "    __self.__post_init__(**__initvars)\n"
+
+    source = DECLARATIVE_INIT_TEMPLATE.format(args=", ".join(args), set_fields=set_fields, post_init=post_init)
+    exec(source, namespace := {"_MISSING": _MISSING})
+    return namespace["__init__"]
+
 
 def _generate_init(
+    cls: type[RecordBase],
     specs: dict[str, dataclasses.Field],
-    field_types: dict[str, type[FieldType]],
     initvar_names: list[str],
     has_post_init: bool,
 ) -> Callable[..., None]:
     """Generate the ``__init__`` of a declarative record class.
 
-    Like in a classic record class, the values are assigned with ``Record.__setattr__``, which converts them to their
-    field type.
+    Like in a classic record class, the defaults are the defaults of the field types, unless the field has its own
+    default, and ``_generated`` defaults to the current time.
     """
-    global_ns: dict[str, Any] = {
-        "__utcnow": _utcnow,
-        "__RECORD_VERSION": RECORD_VERSION,
-        "__MISSING": _MISSING,
-    }
+    # Maps the names in the compiled __init__ to the names of the fields and init-only vars
+    names = {f"_{i}": name for i, name in enumerate([*specs, *initvar_names])}
 
-    params = []
-    lines = []
-    for name, spec in specs.items():
+    _globals = {**_RESERVED_GLOBALS, "_MISSING": _MISSING, "_setattr": object.__setattr__}
+    for template_name, (name, spec) in zip(names, specs.items(), strict=False):
+        field_type = cls._field_types[name]
+        _globals[f"_type_{template_name}"] = field_type
         if spec.default is not dataclasses.MISSING:
-            global_ns[f"__default_{name}"] = spec.default
-            default = f"__default_{name}"
+            # A function that returns the same value every time
+            _globals[f"_default_{template_name}"] = itertools.repeat(spec.default).__next__
         elif spec.default_factory is not dataclasses.MISSING:
-            global_ns[f"__default_{name}"] = spec.default_factory
-            default = f"__default_{name}()"
-        elif not _default_is_trivial(field_types[name]):
-            global_ns[f"__default_{name}"] = field_types[name].default
-            default = f"__default_{name}()"
+            _globals[f"_default_{template_name}"] = spec.default_factory
         else:
-            default = None
+            _globals[f"_default_{template_name}"] = None if _default_is_trivial(field_type) else field_type.default
 
-        if not spec.init:
-            lines.append(f"    __self.{name} = {default}")
-            continue
-
-        params.append(f"{name}=None")
-        if default is None:
-            lines.append(f"    __self.{name} = {name}")
-        else:
-            lines.append(f"    __self.{name} = {name} if {name} is not None else {default}")
-
-    params += [f"{name}=__MISSING" for name in initvar_names]
-    params += ["_source=None", "_classification=None", "_generated=None", "_version=None"]
-
-    lines.append("    __self._source = _source")
-    lines.append("    __self._classification = _classification")
-    lines.append("    __self._generated = _generated or __utcnow()")
-    lines.append("    __self._version = __RECORD_VERSION")
-
-    if initvar_names:
-        lines.append("    __initvars = {}")
-        for name in initvar_names:
-            lines.append(f"    if {name} is not __MISSING:")
-            lines.append(f"        __initvars[{name!r}] = {name}")
-        lines.append("    __self.__post_init__(**__initvars)")
-    elif has_post_init:
-        lines.append("    __self.__post_init__()")
-
-    local_ns: dict[str, Any] = {}
-    exec("\n".join([f"def __init__(__self, {', '.join(params)}):", *lines]), global_ns, local_ns)
-    return local_ns["__init__"]
+    template = _compile_init(tuple(spec.init for spec in specs.values()), len(initvar_names), has_post_init)
+    function = _replace_names(template, names, _globals)
+    function.__qualname__ = f"{cls.__name__}.__init__"
+    return function
 
 
 @dataclass_transform(
@@ -264,14 +321,14 @@ class RecordBase(Record):
         super().__init_subclass__(**kwargs)
 
         # The scope of the class statement. Its locals are needed to evaluate annotations that refer to names
-        # defined in a function.
+        # defined in a function. In a module, its locals are its globals, which don't need to be copied.
         frame = sys._getframe(1)
-        localns = {**frame.f_locals, **vars(cls)}
+        localns = vars(cls) if frame.f_locals is frame.f_globals else {**frame.f_locals, **vars(cls)}
         cls.__record_annotations__ = {}
         for fname, annotation in inspect.get_annotations(cls).items():
             # With `from __future__ import annotations`, a quoted annotation is a string in a string
             while isinstance(annotation, str):
-                annotation = eval(annotation, frame.f_globals, localns)
+                annotation = eval(_compile_annotation(annotation), frame.f_globals, localns)
             cls.__record_annotations__[fname] = annotation
 
         annotations = {}
@@ -286,11 +343,14 @@ class RecordBase(Record):
                 continue
 
             if annotation is dataclasses.InitVar or isinstance(annotation, dataclasses.InitVar):
+                # An init-only var is an argument of __init__ next to the reserved fields
+                if fname in RESERVED_FIELDS:
+                    raise TypeError(f"init-only var {fname!r} has the name of a reserved field")
                 initvar_names.append(fname)
                 continue
 
             # Like in a dataclass, `a: int = 1` is the same as `a: int = field(default=1)`
-            spec = getattr(cls, fname, dataclasses.MISSING)
+            spec = getattr(cls, fname, _NO_DEFAULT)
             if not isinstance(spec, dataclasses.Field):
                 spec = field(default=spec)
             specs[fname] = spec
@@ -305,9 +365,9 @@ class RecordBase(Record):
         cls._desc = cls.__descriptor__ = descriptor
         # `__slots__` is only the list of field names that Record uses, so instances still have a `__dict__` and
         # multiple inheritance doesn't run into layout conflicts.
-        cls._field_types = {name: f.type for name, f in descriptor.get_all_fields().items()}
-        cls.__slots__ = tuple(cls._field_types)
-        cls.__init__ = _generate_init(specs, cls._field_types, initvar_names, has_post_init)
+        cls._field_types = descriptor.recordType._field_types
+        cls.__slots__ = descriptor.recordType.__slots__
+        cls.__init__ = _generate_init(cls, specs, initvar_names, has_post_init)
 
     def _replace(self, **kwds) -> Record:
         # Copy instead of calling the constructor, which doesn't accept `init=False` fields and needs the `InitVar`
@@ -319,6 +379,17 @@ class RecordBase(Record):
         for k, v in kwds.items():
             setattr(result, k, v)
         return result
+
+    # The record class of the descriptor has faster versions of these methods, which only read the fields by name, so
+    # they also work on declarative records
+    def _pack(self, unversioned: bool = False, excluded_fields: list | None = None) -> tuple[tuple[str, int], tuple]:
+        return self._desc.recordType._pack(self, unversioned, excluded_fields)
+
+    def _asdict(self, fields: list[str] | None = None, exclude: list[str] | None = None) -> dict[str, Any]:
+        return self._desc.recordType._asdict(self, fields, exclude)
+
+    def __repr__(self) -> str:
+        return self._desc.recordType.__repr__(self)
 
 
 class FieldInfo(NamedTuple):
