@@ -367,6 +367,8 @@ class RecordBase(Record):
         # multiple inheritance doesn't run into layout conflicts.
         cls._field_types = descriptor.recordType._field_types
         cls.__slots__ = descriptor.recordType.__slots__
+        if "__init__" in vars(cls):
+            raise TypeError(f"{cls.__name__} defines __init__, which declarative records generate, use __post_init__")
         cls.__init__ = _generate_init(cls, specs, initvar_names, has_post_init)
 
     def _replace(self, **kwds) -> Record:
