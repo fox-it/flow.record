@@ -112,9 +112,9 @@ from dataclasses import InitVar
 
 class HostRecord(RecordBase, name="example/host"):
     hostname: str = field(init=False)
-    target: InitVar[object]
+    target: InitVar[Target]
 
-    def __post_init__(self, target: object) -> None:
+    def __post_init__(self, target: Target) -> None:
         self.hostname = target.hostname
 ```
 
