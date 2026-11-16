@@ -34,6 +34,14 @@ if TYPE_CHECKING:
 
 RE_NORMALIZE_PATH = re.compile(r"[\\/]+")
 RE_WINDOWS_PATH = re.compile(r"^[a-zA-Z]:[\\/]")
+# The executable of a Windows command: up to the next double quote if it starts with one, or else up to the first
+# space or tab
+RE_WINDOWS_EXECUTABLE = re.compile(r'"([^"]*)"?|[^ \t]*')
+# A part of the arguments of a Windows command line: backslashes and a double quote, whitespace, or other characters
+RE_WINDOWS_ARGUMENT_PART = re.compile(r'(\\*)"|([ \t]+)|\\+|[^ \t"\\]+')
+RE_WINDOWS_ARGUMENT_QUOTE = re.compile(r'[ \t"]')
+RE_BACKSLASHES_BEFORE_QUOTE = re.compile(r'(\\*)"')
+RE_BACKSLASHES_AT_END = re.compile(r"(\\*)$")
 RE_ISO8601_DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z|[\+-]\d{2}:\d{2})$")
 
 UTC = timezone.utc
@@ -759,8 +767,65 @@ class windows_path(pathlib.PureWindowsPath, path):
         return f"{quote}{s}{quote}"
 
 
+def _split_windows_arguments(value: str, pos: int = 0) -> list[str]:
+    """Split the arguments of a Windows command line the way the Microsoft C runtime does.
+
+    Spaces and tabs outside double quotes separate the arguments. 2n backslashes and a double quote are n backslashes,
+    and the double quote starts or ends quoting. 2n + 1 backslashes and a double quote are n backslashes and a double
+    quote. Two double quotes inside quoting are one double quote, and end quoting. Other backslashes are kept.
+    """
+    args = []
+    argument = None
+    quoted = False
+    while match := RE_WINDOWS_ARGUMENT_PART.match(value, pos):
+        pos = match.end()
+        backslashes, whitespace = match.groups()
+
+        if whitespace is not None and not quoted:
+            if argument is not None:
+                args.append(argument)
+                argument = None
+            continue
+
+        if argument is None:
+            argument = ""
+        if backslashes is None:
+            argument += match.group()
+            continue
+
+        argument += backslashes[: len(backslashes) // 2]
+        if len(backslashes) % 2:
+            argument += '"'
+        elif quoted and value.startswith('"', pos):
+            argument += '"'
+            pos += 1
+            quoted = False
+        else:
+            quoted = not quoted
+
+    if argument is not None:
+        args.append(argument)
+    return args
+
+
+def _quote_windows_argument(argument: str) -> str:
+    """Quote an argument of a Windows command line, so the Microsoft C runtime splits it back into the argument.
+
+    A double quote is escaped with a backslash, and the backslashes before it or at the end of the argument are doubled.
+    """
+    if argument and not RE_WINDOWS_ARGUMENT_QUOTE.search(argument):
+        return argument
+
+    argument = RE_BACKSLASHES_BEFORE_QUOTE.sub(r'\1\1\\"', argument)
+    return '"' + RE_BACKSLASHES_AT_END.sub(r"\1\1", argument) + '"'
+
+
 class command(FieldType):
     """The command fieldtype splits a command string into an ``executable`` and its arguments.
+
+    A posix command string is split like a shell does, with :func:`shlex.split`. A Windows command string is split like
+    Windows does: the executable ends at the first space or tab, unless it starts with a double quote, and the
+    arguments are split like the Microsoft C runtime does.
 
     Args:
         value: the string that contains the command and arguments
@@ -784,7 +849,11 @@ class command(FieldType):
     """
 
     __executable: path
-    __args: tuple[str, ...]
+    # None until the command string is split. Splitting is slow, so it's done when the executable or the arguments are
+    # first used.
+    __args: tuple[str, ...] | None = None
+    # The command string as given, until the executable or the arguments are assigned
+    __original: str | None = None
 
     __path_type: type[path]
 
@@ -797,7 +866,7 @@ class command(FieldType):
         # Detect the kind of path from value if not specified
         self.__path_type = path_type or type(path(raw.lstrip("\"'")))
 
-        self.executable, self.args = self._split(raw)
+        self.__original = raw
 
     def __repr__(self) -> str:
         return f"(executable={self.executable!r}, args={self.args})"
@@ -812,16 +881,26 @@ class command(FieldType):
 
         return False
 
+    def __split(self) -> None:
+        # Set the parts directly, because the setters discard the original command string
+        executable, self.__args = self._split(self.__original)
+        self.__executable = self.__path_type(executable)
+
     def _split(self, value: str) -> tuple[str, tuple[str, ...]]:
+        if self.__path_type is windows_path:
+            match = RE_WINDOWS_EXECUTABLE.match(value)
+            executable = match.group() if match.group(1) is None else match.group(1)
+            return executable, (*_split_windows_arguments(value, match.end()),)
+
         if not value:
             return "", ()
 
         try:
-            executable, *args = shlex.split(value, posix=self.__path_type is posix_path)
+            executable, *args = shlex.split(value)
         except ValueError:
             # Unbalanced quote (for example a truncated log line): keep the text, split on whitespace.
             executable, *args = value.split()
-        return executable.strip("'\" "), (*args,)
+        return executable, (*args,)
 
     def _pack(self) -> tuple[str, int]:
         path_type = TYPE_WINDOWS if self.__path_type is windows_path else TYPE_POSIX
@@ -839,43 +918,64 @@ class command(FieldType):
 
     @property
     def executable(self) -> path:
+        if self.__args is None:
+            self.__split()
+
         return self.__executable
 
     @property
     def args(self) -> tuple[str, ...]:
+        if self.__args is None:
+            self.__split()
+
         return self.__args
 
     @executable.setter
-    def executable(self, val: str | path | None) -> None:
+    def executable(self, val: str | path) -> None:
+        # Split first, so the arguments of the command string are kept
+        if self.__args is None:
+            self.__split()
+
+        self.__original = None
         self.__executable = self.__path_type(val)
 
     @args.setter
     def args(self, val: str | tuple[str, ...] | list[str] | None) -> None:
+        # Split first, so the executable of the command string is kept
+        if self.__args is None:
+            self.__split()
+
+        self.__original = None
         if val is None:
             self.__args = ()
-            return
-
-        if isinstance(val, str):
-            self.__args = tuple(shlex.split(val, posix=self.__path_type is posix_path))
-        elif isinstance(val, list):
-            self.__args = tuple(val)
+        elif isinstance(val, str):
+            if self.__path_type is windows_path:
+                self.__args = (*_split_windows_arguments(val),)
+            else:
+                self.__args = (*shlex.split(val),)
         else:
-            self.__args = val
+            self.__args = (*val,)
 
     @property
     def raw(self) -> str:
+        """The command string as given, without surrounding whitespace.
+
+        After the executable or the arguments are assigned, the command string is built from the parts instead.
+        """
+        if self.__original is not None:
+            return self.__original
+
         exe = str(self.executable)
+        if not exe and not self.args:
+            return ""
 
-        if " " in exe:
-            exe = shlex.quote(exe)
-
-        result = [exe]
-        # Only quote on posix paths as shlex doesn't remove the quotes on non posix paths
         if self.__path_type is posix_path:
-            result.extend(shlex.quote(part) if " " in part else part for part in self.args)
-        else:
-            result.extend(self.args)
-        return " ".join(result)
+            return " ".join(shlex.quote(part) for part in (exe, *self.args))
+
+        # Windows doesn't allow a double quote in a file name, so the executable is quoted without escapes
+        if not exe or " " in exe or "\t" in exe:
+            exe = f'"{exe}"'
+        return " ".join([exe, *map(_quote_windows_argument, self.args)])
 
     @classmethod
     def from_posix(cls, value: str) -> command:
