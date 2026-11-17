@@ -61,8 +61,14 @@ class CsvfileWriter(AbstractWriter):
         self.header = boolean_argument(header)
 
     def write(self, r: Record) -> None:
+        if self.desc and self.desc != r._desc:
+            raise ValueError(
+                f"Multiple record descriptors in CSV output ({self.desc.name!r} and {r._desc.name!r}), "
+                "CSV output supports a single record type"
+            )
+
         rdict = r._asdict(fields=self.fields, exclude=self.exclude)
-        if not self.desc or self.desc != r._desc:
+        if not self.desc:
             self.desc = r._desc
             self.writer = csv.DictWriter(self.fp, rdict, lineterminator=self.lineterminator)
             if self.header:
