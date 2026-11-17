@@ -440,3 +440,111 @@ def test_https_protocol_json_sourcetype(mock_httpx_package: MagicMock) -> None:
                 **BASE_FIELD_JSON_VALUES,
             )
         }
+
+
+def test_https_protocol_records_sourcetype_with_index(mock_httpx_package: MagicMock) -> None:
+    if "flow.record.adapter.splunk" in sys.modules:
+        del sys.modules["flow.record.adapter.splunk"]
+
+    from flow.record.adapter.splunk import Protocol, SourceType, SplunkWriter
+
+    with patch.object(
+        flow.record.adapter.splunk,
+        "HAS_HTTPX",
+        True,
+    ):
+        mock_httpx_package.Client.return_value.post.return_value.status_code = 200
+        https_writer = SplunkWriter("https://splunk:8088", token="password123", index="dissect")
+
+        assert https_writer.host == "splunk"
+        assert https_writer.protocol == Protocol.HTTPS
+        assert https_writer.sourcetype == SourceType.RECORDS
+        assert https_writer.verify is True
+        assert (
+            https_writer.url == "https://splunk:8088/services/collector/raw?auto_extract_timestamp=true&index=dissect"
+        )
+
+        _, kwargs = mock_httpx_package.Client.call_args
+        assert kwargs["verify"] is True
+
+        given_headers = kwargs["headers"]
+        assert given_headers["Authorization"] == "Splunk password123"
+        assert "X-Splunk-Request-Channel" in given_headers
+
+        test_record_descriptor = RecordDescriptor(
+            "test/record",
+            [("string", "foo")],
+        )
+
+        test_record = test_record_descriptor(foo="bar")
+        https_writer.write(test_record)
+
+        mock_httpx_package.Client.return_value.post.assert_not_called()
+
+        https_writer.close()
+        mock_httpx_package.Client.return_value.post.assert_called_with(
+            "https://splunk:8088/services/collector/raw?auto_extract_timestamp=true&index=dissect",
+            data=ANY,
+        )
+        _, kwargs = mock_httpx_package.Client.return_value.post.call_args
+        sent_data = kwargs["data"]
+        assert sent_data.startswith(b'rdtype="test/record" rdtag=None foo="bar" ' + BASE_FIELDS_KV_SUFFIX.encode())
+        assert sent_data.endswith(b'"\n')
+
+
+def test_https_protocol_json_sourcetype_with_index(mock_httpx_package: MagicMock) -> None:
+    if "flow.record.adapter.splunk" in sys.modules:
+        del sys.modules["flow.record.adapter.splunk"]
+
+    from flow.record.adapter.splunk import SplunkWriter
+
+    with patch.object(
+        flow.record.adapter.splunk,
+        "HAS_HTTPX",
+        True,
+    ):
+        mock_httpx_package.Client.return_value.post.return_value.status_code = 200
+
+        https_writer = SplunkWriter("https://splunk:8088", token="password123", sourcetype="json", index="dissect")
+
+        test_record_descriptor = RecordDescriptor(
+            "test/record",
+            [("string", "foo")],
+        )
+
+        https_writer.write(test_record_descriptor(foo="bar"))
+        https_writer.write(test_record_descriptor(foo="baz"))
+        mock_httpx_package.Client.return_value.post.assert_not_called()
+
+        https_writer.close()
+        mock_httpx_package.Client.return_value.post.assert_called_with(
+            "https://splunk:8088/services/collector/event?auto_extract_timestamp=true",
+            data=ANY,
+        )
+
+        _, kwargs = mock_httpx_package.Client.return_value.post.call_args
+        sent_data = kwargs["data"]
+        first_record_json, _, second_record_json = sent_data.partition(b"\n")
+        assert json.loads(first_record_json) == {
+            "index": "dissect",
+            "event": dict(
+                {
+                    "rdtag": None,
+                    "rdtype": "test/record",
+                    "foo": "bar",
+                },
+                **BASE_FIELD_JSON_VALUES,
+            ),
+        }
+        print(second_record_json)
+        assert json.loads(second_record_json) == {
+            "index": "dissect",
+            "event": dict(
+                {
+                    "rdtag": None,
+                    "rdtype": "test/record",
+                    "foo": "baz",
+                },
+                **BASE_FIELD_JSON_VALUES,
+            ),
+        }
