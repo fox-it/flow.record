@@ -34,9 +34,9 @@ The ``__post_init__`` method receives the ``InitVar`` arguments of the construct
 
     class Host(RecordBase, name="example/host"):
         hostname: str = field(init=False)
-        target: InitVar[object]
+        target: InitVar[Target]
 
-        def __post_init__(self, target: object) -> None:
+        def __post_init__(self, target: Target) -> None:
             self.hostname = target.hostname
 
 The declarative class is currently mostly a nicety for type checking. Internally, it defines a regular
