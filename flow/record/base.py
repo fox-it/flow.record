@@ -346,10 +346,12 @@ class GroupedRecord(Record):
         )
 
     def _replace(self, **kwds) -> GroupedRecord:
+        # Like in the flat view, a field is replaced in the first record that has it. Every record replaces its own
+        # fields, as only the record knows how to copy itself, for example a declarative record.
         new_records = [
-            record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
-            for record in self.__records__
+            record._replace(**{k: kwds.pop(k) for k in record.__slots__ if k in kwds}) for record in self.__records__
         ]
+
         if kwds:
             raise ValueError(f"Got unexpected field names: {list(kwds)!r}")
         return GroupedRecord(self.__name__, new_records)

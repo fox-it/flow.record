@@ -10,7 +10,7 @@ from typing import Annotated, Any, Optional
 
 import pytest
 
-from flow.record import RecordDescriptor, RecordReader, RecordWriter
+from flow.record import GroupedRecord, RecordDescriptor, RecordReader, RecordWriter
 from flow.record.base import Record
 from flow.record.declarative import FieldInfo, RecordBase, field, get_field_info
 from flow.record.fieldtypes import net, string, uint32, varint
@@ -439,6 +439,16 @@ def test_declarative_replace() -> None:
 
     with pytest.raises(ValueError, match=r"^Got unexpected field names: \['nope'\]$"):
         r._replace(nope=1)
+
+    class PortRecord(RecordBase, name="test/replace_port"):
+        label: str = field(init=False, default="http")
+        port: int
+
+    # A grouped record lets every record replace its own fields
+    record = PortRecord(port=80)
+    replaced = GroupedRecord("test/grouped", [record])._replace(port=8080).get_record_by_type("test/replace_port")
+    assert isinstance(replaced, PortRecord)
+    assert replaced._asdict() == {**record._asdict(), "port": 8080}
 
 
 def test_declarative_from_asdict() -> None:
