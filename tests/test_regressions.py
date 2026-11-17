@@ -431,6 +431,9 @@ def test_grouped_replace() -> None:
     assert replaced_grouped_record.number == 100
     assert replaced_grouped_record.other == "foobar"
 
+    # The other records keep their own values
+    assert replaced_grouped_record.get_record_by_type("test/other")._source is None
+
     # Test with multiple replacements
     replaced_grouped_record = grouped_record._replace(number=200, other="a string", _source="testcase")
     assert replaced_grouped_record.number == 200

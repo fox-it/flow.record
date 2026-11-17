@@ -3,7 +3,8 @@ from __future__ import annotations
 import io
 import os
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated
 
 import pytest
 
@@ -16,10 +17,14 @@ from flow.record import (
     RecordWriter,
 )
 from flow.record.base import _generate_record_class
+from flow.record.declarative import RecordBase
+from flow.record.fieldtypes import net
 from flow.record.selector import make_selector
 
 if TYPE_CHECKING:
     from pytest_benchmark.fixture import BenchmarkFixture
+
+    from flow.record import Record
 
 FIELDS = [
     ("datetime", "ts"),
@@ -44,10 +49,29 @@ VALUES = {
 TestRecord = RecordDescriptor("test/benchmark", FIELDS)
 
 
+def declarative_record_class() -> type[Record]:
+    """Return a new declarative record class with the same fields as ``TestRecord``."""
+
+    class DeclarativeTestRecord(RecordBase, name="test/benchmark"):
+        ts: datetime
+        name: str
+        size: int
+        hidden: bool
+        path: Path
+        tags: Annotated[list[str], "string[]"]
+        ip: net.ipaddress
+
+    return DeclarativeTestRecord
+
+
+DeclarativeTestRecord = declarative_record_class()
+
+
 @pytest.mark.benchmark
-def test_benchmark_create(benchmark: BenchmarkFixture) -> None:
+@pytest.mark.parametrize("record_class", [TestRecord, DeclarativeTestRecord], ids=["classic", "declarative"])
+def test_benchmark_create(record_class: type[Record], benchmark: BenchmarkFixture) -> None:
     """Benchmark creating a record from keyword arguments."""
-    benchmark(lambda: TestRecord(**VALUES))
+    benchmark(lambda: record_class(**VALUES))
 
 
 @pytest.mark.benchmark
@@ -116,3 +140,9 @@ def test_benchmark_record_class(benchmark: BenchmarkFixture) -> None:
 
     # Bypass the cache of generated record classes
     benchmark(lambda: _generate_record_class.__wrapped__("test/benchmark", fields))
+
+
+@pytest.mark.benchmark
+def test_benchmark_declarative_class(benchmark: BenchmarkFixture) -> None:
+    """Benchmark creating a declarative record class, on top of its cached record class."""
+    benchmark(declarative_record_class)

@@ -132,6 +132,7 @@ RECORD_SET_FIELD_TEMPLATE = """\
     _set_{name}(__self, {name})
 """
 
+_FIELDTYPES_PREFIX = "flow.record.fieldtypes"
 
 if env_excluded_fields := os.environ.get("FLOW_RECORD_IGNORE"):
     IGNORE_FIELDS_FOR_COMPARISON = set(env_excluded_fields.split(","))
@@ -169,6 +170,11 @@ class FieldType:
     @classmethod
     def _unpack(cls, data: Any) -> Any:
         return data
+
+
+def _default_is_trivial(field_type: type[FieldType]) -> bool:
+    """Return whether ``field_type`` uses the base :meth:`FieldType.default` (i.e. returns ``None``)."""
+    return field_type.default.__func__ is FieldType.default.__func__
 
 
 class Record:
@@ -340,10 +346,12 @@ class GroupedRecord(Record):
         )
 
     def _replace(self, **kwds) -> GroupedRecord:
+        # Like in the flat view, a field is replaced in the first record that has it. Every record replaces its own
+        # fields, as only the record knows how to copy itself, for example a declarative record.
         new_records = [
-            record.__class__(*map(kwds.pop, record.__slots__, (getattr(self, k) for k in record.__slots__)))
-            for record in self.__records__
+            record._replace(**{k: kwds.pop(k) for k in record.__slots__ if k in kwds}) for record in self.__records__
         ]
+
         if kwds:
             raise ValueError(f"Got unexpected field names: {list(kwds)!r}")
         return GroupedRecord(self.__name__, new_records)
@@ -434,6 +442,20 @@ def _compile_record_methods(count: int, reserved: tuple[str, ...]) -> dict[str, 
     return {name: value for name, value in namespace.items() if isinstance(value, FunctionType)}
 
 
+def _replace_names(template: FunctionType, names: Mapping[str, str], _globals: dict[str, Any]) -> FunctionType:
+    """Return a copy of a compiled template function, with the names in ``names`` replaced and its own globals.
+
+    The names are replaced in the names of attributes, globals and variables, and in string constants.
+    """
+    code = template.__code__
+    code = code.replace(
+        co_names=tuple(map(names.get, code.co_names, code.co_names)),
+        co_varnames=tuple(map(names.get, code.co_varnames, code.co_varnames)),
+        co_consts=tuple(map(names.get, code.co_consts, code.co_consts)),
+    )
+    return FunctionType(code, _globals, template.__name__, template.__defaults__)
+
+
 @functools.lru_cache(maxsize=4096)
 def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     """Generate a record class.
@@ -489,7 +511,7 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
 
     for template_name, fname in names.items():
         field_type = all_fields[fname].type
-        has_default = getattr(field_type.default, "__func__", None) is not FieldType.default.__func__
+        has_default = not _default_is_trivial(field_type)
         has_unpack = getattr(field_type._unpack, "__func__", None) is not FieldType._unpack.__func__
         _globals[f"_type_{template_name}"] = field_type
         _globals[f"_default_{template_name}"] = field_type.default if has_default else None
@@ -497,12 +519,7 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
         _globals[f"_set_{template_name}"] = cls.__dict__[fname].__set__
 
     for method, template in _compile_record_methods(len(fields), reserved).items():
-        code = template.__code__
-        code = code.replace(
-            co_names=tuple(names.get(n, n) for n in code.co_names),
-            co_varnames=tuple(names.get(n, n) for n in code.co_varnames),
-        )
-        function = FunctionType(code, _globals, method, template.__defaults__)
+        function = _replace_names(template, names, _globals)
         function.__qualname__ = f"{cls.__name__}.{method}"
         setattr(cls, method, classmethod(function) if method == "_unpack" else function)
 
@@ -977,8 +994,6 @@ def fieldtype(clspath: str) -> FieldType:
     Returns:
         The FieldType class.
     """
-    base_module_path = "flow.record.fieldtypes"
-
     if clspath.endswith("[]"):
         origpath = clspath
         clspath = clspath[:-2]
@@ -990,13 +1005,13 @@ def fieldtype(clspath: str) -> FieldType:
         raise AttributeError(f"Invalid field type: {clspath}")
 
     namespace, _, clsname = clspath.rpartition(".")
-    module_path = f"{base_module_path}.{namespace}" if namespace else base_module_path
+    module_path = f"{_FIELDTYPES_PREFIX}.{namespace}" if namespace else _FIELDTYPES_PREFIX
     mod = importlib.import_module(module_path)
 
     fieldtype_cls = getattr(mod, clsname)
 
     if islist:
-        base_mod = importlib.import_module(base_module_path)
+        base_mod = importlib.import_module(_FIELDTYPES_PREFIX)
         listtype = type(origpath, base_mod.typedlist.__bases__, dict(base_mod.typedlist.__dict__))
         listtype.__type__, fieldtype_cls = fieldtype_cls, listtype
 
