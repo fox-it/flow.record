@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from flow.record import RecordDescriptor, RecordReader, RecordWriter
-from flow.record.adapter.avro import AvroReader, AvroWriter
+from flow.record.adapter.avro import AvroReader, AvroWriter, descriptor_to_schema
 from flow.record.base import HAS_AVRO
+from flow.record.fieldtypes import posix_path
 from tests._utils import generate_plain_records
 
 if TYPE_CHECKING:
@@ -103,6 +104,41 @@ def test_avro_adapter_contextmanager(tmpdir: Path) -> None:
             nr_received_records += 1
 
         assert nr_records == nr_received_records
+
+
+def test_avro_path_field(tmp_path: Path) -> None:
+    if not HAS_AVRO:
+        pytest.skip("fastavro module not installed")
+
+    UserRecord = RecordDescriptor(
+        "test/user",
+        [
+            ("string", "name"),
+            ("path", "home"),
+        ],
+    )
+    avro_path = tmp_path / "users.avro"
+
+    with AvroWriter(avro_path) as writer:
+        writer.write(UserRecord(name="alice", home=posix_path("/home/alice")))
+        writer.write(UserRecord(name="bob"))
+
+    with AvroReader(avro_path) as reader:
+        records = list(reader)
+
+    assert records[0].name == "alice"
+    assert records[0].home == "/home/alice"
+    assert records[1].name == "bob"
+    assert records[1].home is None
+
+
+def test_avro_descriptor_to_schema_path() -> None:
+    if not HAS_AVRO:
+        pytest.skip("fastavro module not installed")
+
+    desc = RecordDescriptor("test/user", [("path", "home")])
+    schema = descriptor_to_schema(desc)
+    assert schema["fields"][0]["type"] == ["string", "null"]
 
 
 def test_avro_adapter_empty(tmpdir: Path) -> None:
