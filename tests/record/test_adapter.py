@@ -25,7 +25,9 @@ from flow.record.base import (
     HAS_LZ4,
     HAS_ZSTD,
     LZ4_MAGIC,
+    UTF16LE_BOM,
     ZSTD_MAGIC,
+    RecordAdapterNotFound,
 )
 from flow.record.fieldtypes import windows_path
 from flow.record.selector import CompiledSelector, Selector
@@ -290,6 +292,20 @@ def test_record_invalid_recordstream(tmp_path: Path) -> None:
 
     with pytest.raises(IOError, match="Unknown file format, not a RecordStream"), RecordReader(path) as reader:
         list(reader)
+
+
+def test_recordstream_utf16le_bom(tmp_path: Path) -> None:
+    path = tmp_path.joinpath("utf16.records")
+    path.write_bytes(UTF16LE_BOM + b"INVALID")
+
+    with pytest.raises(IOError, match="UTF-16LE"), RecordReader(path) as reader:
+        list(reader)
+
+
+def test_recordstream_utf16le_bom_fileobj() -> None:
+    """Reading from a stream, such as stdin, should also report UTF-16LE encoded input."""
+    with pytest.raises(RecordAdapterNotFound, match="UTF-16LE"):
+        RecordReader(fileobj=BytesIO(UTF16LE_BOM + b"INVALID"))
 
 
 @pytest.mark.parametrize(

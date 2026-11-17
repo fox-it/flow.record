@@ -12,7 +12,7 @@ from typing import IO, TYPE_CHECKING, BinaryIO
 
 from flow.record import RECORDSTREAM_MAGIC, RecordWriter
 from flow.record.adapter import AbstractReader
-from flow.record.base import RecordDescriptor, RecordReader
+from flow.record.base import UTF16LE_BOM, RecordDescriptor, RecordReader
 from flow.record.context import get_app_context, match_record_with_context
 from flow.record.fieldtypes import fieldtype_for_value
 from flow.record.packer import RecordPacker
@@ -116,6 +116,13 @@ class RecordStreamReader(AbstractReader):
         # Manually read the msgpack format to avoid unserializing invalid data
         # we read size (4) + msgpack type (2) + msgpack bytes (recordstream magic)
         header = self.fp.read(4 + 2 + len(RECORDSTREAM_MAGIC))
+
+        if header.startswith(UTF16LE_BOM):
+            raise IOError(
+                "Unknown file format, not a RecordStream. Input is UTF-16LE encoded, "
+                "which PowerShell 5.1 and earlier use by default when redirecting output"
+            )
+
         if not header.endswith(RECORDSTREAM_MAGIC):
             raise IOError("Unknown file format, not a RecordStream")
 
