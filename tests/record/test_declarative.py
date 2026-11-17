@@ -117,6 +117,30 @@ def test_declarative_positional() -> None:
     assert r.a == 1
     assert r.b == "two"
 
+    class Target:
+        hostname = "host01"
+
+    class InitVarRecord(RecordBase, name="test/positional_initvar"):
+        hostname: str = field(init=False)
+        target: InitVar[Target]
+        path: str
+
+        def __post_init__(self, target: Target) -> None:
+            self.hostname = target.hostname
+
+    # Like in a dataclass, the arguments are the fields and init-only vars in the order of the class
+    r = InitVarRecord(Target(), "/etc")
+    assert (r.hostname, r.path) == ("host01", "/etc")
+    # The first parameter is self, which has a different name
+    assert list(inspect.signature(InitVarRecord.__init__).parameters)[1:] == [
+        "target",
+        "path",
+        "_source",
+        "_classification",
+        "_generated",
+        "_version",
+    ]
+
 
 def test_declarative_defaults() -> None:
     class TestRecord(RecordBase, name="test/default"):
@@ -294,6 +318,42 @@ def test_declarative_initvar_without_post_init() -> None:
 
         class TestRecord(RecordBase, name="test/no_post_init"):
             _target: InitVar[Any]
+
+
+def test_declarative_initvar_default() -> None:
+    """Test that an init-only var has its default when it's not given, like in a dataclass."""
+
+    class TestRecord(RecordBase, name="test/initvar_default"):
+        hostname: str = field(init=False)
+        target: InitVar[str | None] = None
+        port: InitVar[int] = field(default=80)
+
+        def __post_init__(self, target: str | None, port: int) -> None:
+            self.hostname = f"{target}:{port}"
+
+    assert TestRecord().hostname == "None:80"
+    assert TestRecord("host01", 8080).hostname == "host01:8080"
+    assert inspect.signature(TestRecord.__init__).parameters["target"].default is None
+    assert inspect.signature(TestRecord.__init__).parameters["port"].default == 80
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        (field(default_factory=list), "init-only var 'target' can't have a default factory"),
+        (field(init=False), "init-only var 'target' can't have init=False"),
+    ],
+    ids=["default-factory", "init-false"],
+)
+def test_declarative_initvar_invalid_field(spec: Any, message: str) -> None:
+    """Test that an init-only var can't have a field that only fits a stored field."""
+    with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
+
+        class TestRecord(RecordBase, name="test/initvar_invalid"):
+            target: InitVar[list] = spec
+
+            def __post_init__(self, target: list) -> None:
+                pass
 
 
 def test_declarative_initvar_reserved_name() -> None:

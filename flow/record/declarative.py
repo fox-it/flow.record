@@ -226,28 +226,29 @@ _RESERVED_GLOBALS = {
 
 
 @functools.lru_cache(maxsize=256)
-def _compile_init(init: tuple[bool, ...], initvar_count: int, has_post_init: bool) -> FunctionType:
+def _compile_init(shape: tuple[tuple[bool, bool], ...], has_post_init: bool) -> FunctionType:
     """Compile the ``__init__`` of declarative record classes with the same shape.
 
     Compiling takes most of the time of creating a declarative record class, so it's done once for every shape. The
     fields and init-only vars are named ``_0``, ``_1``, etc. in the compiled ``__init__``, which ``_generate_init()``
-    replaces with their names. It looks up everything that depends on the field types in its globals.
+    replaces with their names. ``_generate_init()`` also sets the defaults of the arguments. The compiled ``__init__``
+    looks up everything that depends on the field types in its globals.
 
     Args:
-        init: For every field, whether it is an argument.
-        initvar_count: The number of init-only vars, which are the arguments after the fields.
+        shape: For every field and init-only var in the order of the class, whether it's a field, and whether it's an
+            argument.
         has_post_init: Whether to call ``__post_init__``.
     """
-    names = [f"_{i}" for i in range(len(init) + initvar_count)]
-    fields, initvars = names[: len(init)], names[len(init) :]
-    args = [f"{name}=None" for name, is_arg in zip(fields, init, strict=True) if is_arg]
-    args += [f"{name}=_MISSING" for name in initvars]
-    args += [f"{name}=None" for name in RESERVED_FIELDS]
+    names = [f"_{i}" for i in range(len(shape))]
+    args = [name for name, (_, is_arg) in zip(names, shape, strict=True) if is_arg]
+    args += RESERVED_FIELDS
+    fields = [(name, is_arg) for name, (is_field, is_arg) in zip(names, shape, strict=True) if is_field]
+    initvars = [name for name, (is_field, _) in zip(names, shape, strict=True) if not is_field]
 
     # A field that is not an argument (init=False) starts without a value, so it's set to its default
     set_fields = "".join(
         ("" if is_arg else f"    {name} = None\n") + DECLARATIVE_SET_FIELD_TEMPLATE.format(name=name)
-        for name, is_arg in zip(fields, init, strict=True)
+        for name, is_arg in fields
     )
     set_fields += "".join(DECLARATIVE_SET_FIELD_TEMPLATE.format(name=name) for name in RESERVED_FIELDS)
 
@@ -257,7 +258,9 @@ def _compile_init(init: tuple[bool, ...], initvar_count: int, has_post_init: boo
         post_init += "".join(DECLARATIVE_SET_INITVAR_TEMPLATE.format(name=name) for name in initvars)
         post_init += "    __self.__post_init__(**__initvars)\n"
 
-    source = DECLARATIVE_INIT_TEMPLATE.format(args=", ".join(args), set_fields=set_fields, post_init=post_init)
+    source = DECLARATIVE_INIT_TEMPLATE.format(
+        args=", ".join(f"{name}=None" for name in args), set_fields=set_fields, post_init=post_init
+    )
     exec(source, namespace := {"_MISSING": _MISSING})
     return namespace["__init__"]
 
@@ -270,14 +273,34 @@ def _generate_init(
 ) -> Callable[..., None]:
     """Generate the ``__init__`` of a declarative record class.
 
-    Like in a classic record class, the defaults are the defaults of the field types, unless the field has its own
-    default, and ``_generated`` defaults to the current time.
+    Like in a dataclass, the arguments are the fields and init-only vars in the order of the class. Like in a classic
+    record class, the defaults are the defaults of the field types, unless the field has its own default, and
+    ``_generated`` defaults to the current time.
+
+    Args:
+        cls: The declarative record class.
+        specs: The fields and init-only vars, in the order of the class.
+        initvar_names: The names of the init-only vars.
+        has_post_init: Whether to call ``__post_init__``.
     """
     # Maps the names in the compiled __init__ to the names of the fields and init-only vars
-    names = {f"_{i}": name for i, name in enumerate([*specs, *initvar_names])}
+    names = {f"_{i}": name for i, name in enumerate(specs)}
 
     _globals = {**_RESERVED_GLOBALS, "_MISSING": _MISSING, "_setattr": object.__setattr__}
-    for template_name, (name, spec) in zip(names, specs.items(), strict=False):
+    shape = []
+    defaults = []
+    for template_name, (name, spec) in zip(names, specs.items(), strict=True):
+        if name in initvar_names:
+            shape.append((False, True))
+            # Like in a dataclass, an init-only var has its default. Without one, it's only passed to __post_init__ if
+            # it's given.
+            defaults.append(_MISSING if spec.default is dataclasses.MISSING else spec.default)
+            continue
+
+        shape.append((True, spec.init))
+        if spec.init:
+            defaults.append(None)
+
         field_type = cls._field_types[name]
         _globals[f"_type_{template_name}"] = field_type
         if spec.default is not dataclasses.MISSING:
@@ -288,8 +311,9 @@ def _generate_init(
         else:
             _globals[f"_default_{template_name}"] = None if _default_is_trivial(field_type) else field_type.default
 
-    template = _compile_init(tuple(spec.init for spec in specs.values()), len(initvar_names), has_post_init)
+    template = _compile_init(tuple(shape), has_post_init)
     function = _replace_names(template, names, _globals)
+    function.__defaults__ = (*defaults, *(None for _ in RESERVED_FIELDS))
     function.__qualname__ = f"{cls.__name__}.__init__"
     return function
 
@@ -336,17 +360,11 @@ class RecordBase(Record):
             annotations.update(vars(klass).get("__record_annotations__", {}))
 
         field_tuples: list[tuple[str, str]] = []
+        # The fields and init-only vars, in the order of the class
         specs: dict[str, dataclasses.Field] = {}
         initvar_names: list[str] = []
         for fname, annotation in annotations.items():
             if fname.startswith("__") or annotation is ClassVar or get_origin(annotation) is ClassVar:
-                continue
-
-            if annotation is dataclasses.InitVar or isinstance(annotation, dataclasses.InitVar):
-                # An init-only var is an argument of __init__ next to the reserved fields
-                if fname in RESERVED_FIELDS:
-                    raise TypeError(f"init-only var {fname!r} has the name of a reserved field")
-                initvar_names.append(fname)
                 continue
 
             # Like in a dataclass, `a: int = 1` is the same as `a: int = field(default=1)`
@@ -354,6 +372,18 @@ class RecordBase(Record):
             if not isinstance(spec, dataclasses.Field):
                 spec = field(default=spec)
             specs[fname] = spec
+
+            if annotation is dataclasses.InitVar or isinstance(annotation, dataclasses.InitVar):
+                # An init-only var is an argument of __init__ next to the reserved fields
+                if fname in RESERVED_FIELDS:
+                    raise TypeError(f"init-only var {fname!r} has the name of a reserved field")
+                # Like in a dataclass, an init-only var is only passed to __post_init__, so it has no default factory
+                if spec.default_factory is not dataclasses.MISSING:
+                    raise TypeError(f"init-only var {fname!r} can't have a default factory")
+                if not spec.init:
+                    raise TypeError(f"init-only var {fname!r} can't have init=False")
+                initvar_names.append(fname)
+                continue
 
             field_tuples.append((spec.metadata.get(_TYPENAME_KEY) or _resolve_typename(annotation), fname))
 
