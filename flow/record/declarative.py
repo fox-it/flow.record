@@ -55,7 +55,6 @@ annotations are not moved into a ``TYPE_CHECKING`` block::
 from __future__ import annotations
 
 import ast
-import copy
 import dataclasses
 import functools
 import inspect
@@ -80,19 +79,12 @@ from flow.record.base import (
 )
 from flow.record.whitelist import WHITELIST
 
-if sys.version_info >= (3, 11):
-    from typing import dataclass_transform  # novermin
-elif TYPE_CHECKING:
-    from typing_extensions import dataclass_transform
-else:
-    # Only type checkers use dataclass_transform, so typing_extensions is not a runtime dependency.
-    def dataclass_transform(**kwargs: Any) -> Callable[[Any], Any]:
-        return lambda obj: obj
-
-
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import CodeType, FunctionType
+
+    # Only type checkers use these, so typing_extensions is not a runtime dependency
+    from typing_extensions import Self, dataclass_transform
 
 # Python type -> flow.record typename
 # Use `field(typename=...)` or `Annotated[int, "..."]` for a more specific type
@@ -192,6 +184,7 @@ _MISSING = object()
 
 DECLARATIVE_INIT_TEMPLATE = """
 def __init__(__self, {args}):
+{check_initvars}
 {set_fields}
     _setattr(__self, "_version", _version_value)
 {post_init}
@@ -208,16 +201,18 @@ DECLARATIVE_SET_FIELD_TEMPLATE = """\
     _setattr(__self, "{name}", {name})
 """
 
-# How __init__() passes an init-only var to __post_init__(), if it was given
-DECLARATIVE_SET_INITVAR_TEMPLATE = """\
-    if {name} is not _MISSING:
-        __initvars["{name}"] = {name}
+# How __init__() checks that an init-only var without a default is given. Like in a dataclass, it's a required argument.
+DECLARATIVE_CHECK_INITVAR_TEMPLATE = """\
+    if {name} is _MISSING:
+        raise TypeError(_missing_initvar_format.format("{name}"))
 """
 
 
-# The globals of the reserved fields in the compiled __init__, which are the same for every declarative record class.
-# Like in a classic record, _generated is the current time if it's not given.
-_RESERVED_GLOBALS = {
+# The globals of the compiled __init__ that are the same for every declarative record class, which include those of the
+# reserved fields. Like in a classic record, _generated is the current time if it's not given.
+_INIT_GLOBALS = {
+    "_MISSING": _MISSING,
+    "_setattr": object.__setattr__,
     "_version_value": RecordDescriptor.get_required_fields()["_version"].type(RECORD_VERSION),
     **{f"_type_{name}": field.type for name, field in RecordDescriptor.get_required_fields().items()},
     **{f"_default_{name}": None for name in RESERVED_FIELDS},
@@ -252,16 +247,16 @@ def _compile_init(shape: tuple[tuple[bool, bool], ...], has_post_init: bool) -> 
     )
     set_fields += "".join(DECLARATIVE_SET_FIELD_TEMPLATE.format(name=name) for name in RESERVED_FIELDS)
 
-    post_init = ""
-    if has_post_init:
-        post_init = "    __initvars = {}\n"
-        post_init += "".join(DECLARATIVE_SET_INITVAR_TEMPLATE.format(name=name) for name in initvars)
-        post_init += "    __self.__post_init__(**__initvars)\n"
+    # Like in a dataclass, __post_init__() gets the init-only vars in the order of the class
+    post_init = f"    __self.__post_init__({', '.join(initvars)})\n" if has_post_init else ""
 
     source = DECLARATIVE_INIT_TEMPLATE.format(
-        args=", ".join(f"{name}=None" for name in args), set_fields=set_fields, post_init=post_init
+        args=", ".join(f"{name}=None" for name in args),
+        check_initvars="".join(DECLARATIVE_CHECK_INITVAR_TEMPLATE.format(name=name) for name in initvars),
+        set_fields=set_fields,
+        post_init=post_init,
     )
-    exec(source, namespace := {"_MISSING": _MISSING})
+    exec(source, namespace := {})
     return namespace["__init__"]
 
 
@@ -286,14 +281,17 @@ def _generate_init(
     # Maps the names in the compiled __init__ to the names of the fields and init-only vars
     names = {f"_{i}": name for i, name in enumerate(specs)}
 
-    _globals = {**_RESERVED_GLOBALS, "_MISSING": _MISSING, "_setattr": object.__setattr__}
+    _globals = {
+        **_INIT_GLOBALS,
+        "_missing_initvar_format": f"{cls.__name__}.__init__() missing required argument: {{!r}}",
+    }
     shape = []
     defaults = []
     for template_name, (name, spec) in zip(names, specs.items(), strict=True):
         if name in initvar_names:
             shape.append((False, True))
-            # Like in a dataclass, an init-only var has its default. Without one, it's only passed to __post_init__ if
-            # it's given.
+            # Like in a dataclass, an init-only var has its default. Without one, __init__() raises a TypeError if
+            # it's not given.
             defaults.append(_MISSING if spec.default is dataclasses.MISSING else spec.default)
             continue
 
@@ -318,12 +316,27 @@ def _generate_init(
     return function
 
 
-@dataclass_transform(
-    eq_default=True,
-    kw_only_default=False,
-    field_specifiers=(field, dataclasses.field, dataclasses.Field),
-)
-class RecordBase(Record):
+if TYPE_CHECKING:
+    # Type checkers only collect the fields of the subclasses of a dataclass_transform class, so the reserved fields of
+    # RecordBase (_source, _classification, _generated, _version) need a parent with dataclass_transform.
+    # Records get __eq__() and __hash__() from Record.
+    @dataclass_transform(
+        eq_default=False,
+        kw_only_default=False,
+        field_specifiers=(field, dataclasses.field, dataclasses.Field),
+    )
+    class DataclassRecord(Record):
+        """To make type checkers happy, this is the parent of :class:`RecordBase` during type checking.
+        This is necessary so that they see the reserved fields as keyword arguments of every declarative record class.
+
+        At runtime, it is :class:`~flow.record.base.Record`.
+        """
+
+else:
+    DataclassRecord = Record
+
+
+class RecordBase(DataclassRecord):
     """Base class for declarative records.
 
     For example::
@@ -341,12 +354,31 @@ class RecordBase(Record):
         # The evaluated annotations of the class itself, which its subclasses inherit
         __record_annotations__: ClassVar[dict[str, Any]]
 
+        # Like in a classic record, the reserved fields are arguments of every record class. Type checkers see them
+        # as keyword-only arguments, as they come after the fields of a subclass.
+        _source: str | None = dataclasses.field(default=None, kw_only=True)
+        _classification: str | None = dataclasses.field(default=None, kw_only=True)
+        _generated: datetime | None = dataclasses.field(default=None, kw_only=True)
+        _version: int | None = dataclasses.field(default=None, kw_only=True)
+
     def __init_subclass__(cls, *, name: str | None = None, **kwargs):
         super().__init_subclass__(**kwargs)
 
+        # The generated __init__ would replace it
+        if "__init__" in vars(cls):
+            raise TypeError(f"{cls.__name__} can't define __init__, use __post_init__ instead")
+
         # The scope of the class statement. Its locals are needed to evaluate annotations that refer to names
         # defined in a function. In a module, its locals are its globals, which don't need to be copied.
+        # Parents of the class can override __init_subclass__() and call this one with super(), so skip their frames.
+        parent_codes = [
+            init_subclass.__func__.__code__
+            for klass in cls.__mro__[1:-1]
+            if (init_subclass := vars(klass).get("__init_subclass__"))
+        ]
         frame = sys._getframe(1)
+        while frame.f_code in parent_codes:
+            frame = frame.f_back
         localns = vars(cls) if frame.f_locals is frame.f_globals else {**frame.f_locals, **vars(cls)}
         cls.__record_annotations__ = {}
         for fname, annotation in inspect.get_annotations(cls).items():
@@ -371,6 +403,9 @@ class RecordBase(Record):
             spec = getattr(cls, fname, _NO_DEFAULT)
             if not isinstance(spec, dataclasses.Field):
                 spec = field(default=spec)
+            # Type checkers would see a keyword-only argument, but the arguments are in the order of the class
+            if spec.kw_only is True:
+                raise TypeError(f"field {fname!r} can't be keyword-only")
             specs[fname] = spec
 
             if annotation is dataclasses.InitVar or isinstance(annotation, dataclasses.InitVar):
@@ -397,17 +432,16 @@ class RecordBase(Record):
         # multiple inheritance doesn't run into layout conflicts.
         cls._field_types = descriptor.recordType._field_types
         cls.__slots__ = descriptor.recordType.__slots__
-        if "__init__" in vars(cls):
-            raise TypeError(f"{cls.__name__} defines __init__, which declarative records generate, use __post_init__")
         cls.__init__ = _generate_init(cls, specs, initvar_names, has_post_init)
 
-    def _replace(self, **kwds) -> Record:
+    def _replace(self, **kwds) -> Self:
         # Copy instead of calling the constructor, which doesn't accept `init=False` fields and needs the `InitVar`
         # arguments of `__post_init__`
         if unknown := [k for k in kwds if k not in self.__slots__]:
             raise ValueError(f"Got unexpected field names: {unknown!r}")
 
-        result = copy.copy(self)
+        result = object.__new__(type(self))
+        result.__dict__.update(self.__dict__)
         for k, v in kwds.items():
             setattr(result, k, v)
         return result

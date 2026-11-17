@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import io
 import re
@@ -189,7 +190,10 @@ def test_declarative_inheritance() -> None:
 
 
 def test_declarative_local_names() -> None:
-    """Test that annotations can refer to names in the scope of the class statement, also in a subclass elsewhere."""
+    """Test that annotations can refer to names in the scope of the class statement, also in a subclass elsewhere.
+
+    The parent of the subclass overrides ``__init_subclass__``, which must not change the scope.
+    """
 
     def define() -> tuple[type[RecordBase], type]:
         class Target:
@@ -202,20 +206,24 @@ def test_declarative_local_names() -> None:
             hostname: str = field(init=False)
             target: InitVar[Target]
 
+            def __init_subclass__(cls, **kwargs: Any) -> None:
+                super().__init_subclass__(**kwargs)
+
             def __post_init__(self, target: Target) -> None:
                 self.hostname = target.hostname
 
         return Base, Target
 
     Base, Target = define()
+    Count = Annotated[int, "uint32"]
 
     class Child(Base, name="test/local_child"):
-        a: int
+        a: Count
 
     assert Child.__descriptor__.get_field_tuples() == (
         ("uint16", "port"),
         ("string", "hostname"),
-        ("varint", "a"),
+        ("uint32", "a"),
     )
     r = Child(port=80, target=Target(), a=1)
     assert (r.port, r.hostname, r.a) == (80, "host01", 1)
@@ -337,6 +345,24 @@ def test_declarative_initvar_default() -> None:
     assert inspect.signature(TestRecord.__init__).parameters["port"].default == 80
 
 
+def test_declarative_post_init_arguments() -> None:
+    """Test that ``__post_init__`` gets the init-only vars by position, and that one without a default is required."""
+
+    class TestRecord(RecordBase, name="test/post_init_arguments"):
+        hostname: str = field(init=False)
+        target: InitVar[str]
+        port: InitVar[int] = 80
+
+        def __post_init__(self, host: str, number: int) -> None:
+            self.hostname = f"{host}:{number}"
+
+    # Like in a dataclass, the parameters of __post_init__ can have other names
+    assert TestRecord(target="host01").hostname == "host01:80"
+
+    with pytest.raises(TypeError, match=r"^TestRecord\.__init__\(\) missing required argument: 'target'$"):
+        TestRecord(port=8080)
+
+
 @pytest.mark.parametrize(
     ("spec", "message"),
     [
@@ -364,6 +390,25 @@ def test_declarative_initvar_reserved_name() -> None:
             _source: InitVar[Any]
 
             def __post_init__(self, _source: Any) -> None:
+                pass
+
+
+def test_declarative_keyword_only_field() -> None:
+    """Test that a field can't be keyword-only, which type checkers would see but the generated ``__init__`` ignores."""
+    with pytest.raises(TypeError, match=r"^field 'a' can't be keyword-only$"):
+
+        class TestRecord(RecordBase, name="test/keyword_only"):
+            a: int = dataclasses.field(default=1, kw_only=True)
+
+
+def test_declarative_own_init() -> None:
+    """Test that a record class can't define ``__init__``, which the generated one would replace."""
+    with pytest.raises(TypeError, match=r"^TestRecord can't define __init__, use __post_init__ instead$"):
+
+        class TestRecord(RecordBase, name="test/own_init"):
+            a: int
+
+            def __init__(self) -> None:
                 pass
 
 
