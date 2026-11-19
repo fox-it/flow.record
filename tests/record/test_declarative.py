@@ -189,6 +189,43 @@ def test_declarative_inheritance() -> None:
     assert (r.a, r.b, r.c) == (1, "two", 3)
 
 
+def test_declarative_duplicate_fields() -> None:
+    """Test that redefining a field doesn't create a duplicate field in the descriptor.
+
+    A duplicate field in a classic record descriptor raises an error, but the fields of a declarative record are
+    annotations, so redefining one replaces it in place, like in a dataclass.
+    """
+
+    class TestRecord(RecordBase, name="test/dup"):
+        pid: int
+        tid: int
+        pid: str
+
+    assert TestRecord.__descriptor__.get_field_tuples() == (
+        ("string", "pid"),
+        ("varint", "tid"),
+    )
+    r = TestRecord(pid="1337", tid=314)
+    assert (r.pid, r.tid) == ("1337", 314)
+
+    # Overriding a field of a parent keeps its position, but uses the type of the child
+    class Base(RecordBase, name="test/base"):
+        pid: int
+        tid: int
+
+    class Child(Base, name="test/child"):
+        pid: str
+        comm: str
+
+    assert Child.__descriptor__.get_field_tuples() == (
+        ("string", "pid"),
+        ("varint", "tid"),
+        ("string", "comm"),
+    )
+    r = Child(pid="1337", tid=314, comm="init")
+    assert (r.pid, r.tid, r.comm) == ("1337", 314, "init")
+
+
 def test_declarative_local_names() -> None:
     """Test that annotations can refer to names in the scope of the class statement, also in a subclass elsewhere.
 

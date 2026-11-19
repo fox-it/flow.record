@@ -473,9 +473,13 @@ def _generate_record_class(name: str, fields: tuple[tuple[str, str]]) -> type:
     # - Get or set the field with getattr() or setattr().
     # - inspect.signature() raises a ValueError for the __init__() of the record class on Python 3.11 and newer and
     #   PyPy, as its parameters have the names of the fields.
+    seen = set()
     for _, fieldname in fields:
         if not is_valid_field_name(fieldname):
             raise RecordDescriptorError(f"Field '{fieldname}' is an invalid or reserved field name.")
+        if fieldname in seen:
+            raise RecordDescriptorError(f"Duplicate field name '{fieldname}' in record descriptor '{name}'.")
+        seen.add(fieldname)
 
     all_fields = OrderedDict([(n, RecordField(n, _type)) for _type, n in fields])
     all_fields.update(RecordDescriptor.get_required_fields())
