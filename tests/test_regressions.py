@@ -191,7 +191,7 @@ def test_packer_unpacker_none_values() -> None:
     # construct field types from all available fieldtypes
     field_tuples = []
     for typename in whitelist.WHITELIST:
-        fieldname = "field_{}".format(typename.replace(".", "_").lower())
+        fieldname = "field_{}".format(typename.replace(".", "_"))
         field_tuples.append((typename, fieldname))
 
     # create a TestRecord descriptor containing all the fieldtypes

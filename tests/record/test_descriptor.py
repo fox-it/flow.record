@@ -194,3 +194,25 @@ def test_record_descriptor_empty_name() -> None:
 
     with pytest.raises(RecordDescriptorError, match="Record name is required"):
         RecordDescriptor("", [])
+
+
+def test_record_descriptor_duplicate_fields() -> None:
+    with pytest.raises(RecordDescriptorError, match="Duplicate field name 'pid' in record descriptor 'test/dup'"):
+        RecordDescriptor(
+            "test/dup",
+            [
+                ("varint", "pid"),
+                ("varint", "tid"),
+                ("varint", "pid"),
+            ],
+        )
+
+    # Also when the duplicate field has a different type
+    with pytest.raises(RecordDescriptorError, match="Duplicate field name 'pid'"):
+        RecordDescriptor(
+            "test/dup",
+            [
+                ("varint", "pid"),
+                ("string", "pid"),
+            ],
+        )
